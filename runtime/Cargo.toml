@@ -3,7 +3,7 @@ authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Unlicense'
-name = 'node-template-runtime'
+name = 'evercity-runtime'
 repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
 version = '2.0.0-rc6'
 
@@ -161,7 +161,7 @@ version = '2.0.0-rc6'
 
 [dependencies.evercity]
 default-features = false
-package = 'pallet-evercity'
+package = 'evercity'
 path = '../pallets/evercity'
 version = '*'
 

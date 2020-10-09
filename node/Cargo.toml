@@ -5,7 +5,7 @@ description = 'A fresh FRAME-based Substrate node, ready for hacking.'
 edition = '2018'
 homepage = 'https://substrate.dev'
 license = 'Unlicense'
-name = 'node-template'
+name = 'evercity-node'
 repository = 'https://github.com/substrate-developer-hub/substrate-node-template/'
 version = '2.0.0-rc6'
 
@@ -13,9 +13,9 @@ version = '2.0.0-rc6'
 targets = ['x86_64-unknown-linux-gnu']
 
 [[bin]]
-name = 'node-template'
+name = 'evercity-node'
 
-[dependencies.node-template-runtime]
+[dependencies.evercity-runtime]
 path = '../runtime'
 version = '2.0.0-rc6'
 
@@ -145,3 +145,4 @@ structopt = '0.3.8'
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
+
