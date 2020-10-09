@@ -5,6 +5,8 @@ Blockchain node of Evercity project, based on Parity Substrate with evercity-pal
 ### Build
 
 ```bash
+git clone https://github.com/EvercityEcosystem/evercity-substrate.git
+cd evercity-substrate
 cargo build --release
 ```
 
@@ -18,7 +20,16 @@ Purge any existing dev chain state:
 ./target/release/evercity-node purge-chain --dev
 ```
 
-Start a dev chain:
+#### Remove all chains with all data
+
+| [WARNING] - all chains data is usually located in ```$HOME/.local/share/evercity-node/chains/*```.  |
+| --- |
+Removing of all chains: "dev", "local-testnet", and any others to launch all chains from block "0" can be made by:
+```
+rm -rf $HOME/.local/share/evercity-node/chains/*
+```
+
+#### Start a dev chain:
 
 ```bash
 ./target/release/evercity-node --dev
