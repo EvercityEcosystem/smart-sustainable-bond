@@ -1,10 +1,13 @@
-use sp_core::{Pair, Public, sr25519, crypto::{Ss58Codec, Ss58AddressFormat}};
+use sp_core::{  Pair, Public, sr25519,
+                H256, hashing::{blake2_256},
+                crypto::{Ss58Codec, Ss58AddressFormat}
+};
 use evercity_runtime::{
     AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
     SudoConfig, SystemConfig, WASM_BINARY, Signature, EvercityConfig
 };
 
-use evercity_runtime::evercity::{MASTER_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK};
+use evercity_runtime::evercity::{MASTER_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK, MasterAccountTuple};
 
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -59,13 +62,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
             ],
             // Sudo account
             get_account_id_from_seed::<sr25519::Public>("Alice"),
-            // Pre-funded accounts
-            vec![
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-            ],
             true,
         ),
         // Bootnodes
@@ -99,21 +95,6 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
             ],
             // Sudo account
             get_account_id_from_seed::<sr25519::Public>("Alice"),
-            // Pre-funded accounts
-            vec![
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                get_account_id_from_seed::<sr25519::Public>("Dave"),
-                get_account_id_from_seed::<sr25519::Public>("Eve"),
-                get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-            ],
             true,
         ),
         // Bootnodes
@@ -135,7 +116,6 @@ fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: AccountId,
-    endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
 ) -> GenesisConfig {
     
@@ -156,7 +136,11 @@ fn testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         pallet_balances: Some(BalancesConfig {
-            balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
+            balances: [ _pre_master_account_id.clone(),
+                        _pre_custodian_account_id.clone(),
+                        _pre_emitent_account_id.clone(),
+                        _pre_investor_account_id.clone(),
+            ].iter().cloned().map(|k|(k, 1 << 60)).collect(),
         }),
         pallet_aura: Some(AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -169,18 +153,16 @@ fn testnet_genesis(
         }),
         evercity: Some(EvercityConfig {
             // set roles for each pre-set accounts (set role)
-            genesis_accounts: [
-                (_pre_master_account_id.clone(), MASTER_ROLE_MASK),
-                (_pre_custodian_account_id.clone(), CUSTODIAN_ROLE_MASK),
-                (_pre_emitent_account_id.clone(), EMITENT_ROLE_MASK),
-                (_pre_investor_account_id.clone(), INVESTOR_ROLE_MASK),
+            genesis_account_registry: [
+                (_pre_master_account_id.clone(), (MASTER_ROLE_MASK, 0u64, 0u128))
             ].iter().cloned().collect(),
             
-            // set value (temporary - bool) for each specific map of accounts
-            genesis_master_accounts: [(_pre_master_account_id.clone(), true)].iter().cloned().collect(),
-            genesis_custodian_accounts: [(_pre_custodian_account_id.clone(), true)].iter().cloned().collect(),
-            genesis_emitent_accounts: [(_pre_emitent_account_id.clone(), true)].iter().cloned().collect(),
-            genesis_investor_accounts: [(_pre_investor_account_id.clone(), true)].iter().cloned().collect(),
+            genesis_master_accounts: [
+                (_pre_master_account_id.clone(), (0u64, 1u64))
+            ].iter().cloned().collect(),
+            genesis_custodian_accounts: [
+                (_pre_custodian_account_id.clone(), true)
+            ].iter().cloned().collect(),
         }),
     }
 }

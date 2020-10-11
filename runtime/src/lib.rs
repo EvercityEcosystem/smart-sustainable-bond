@@ -26,8 +26,8 @@ use sp_version::NativeVersion;
 // A few exports that help ease life for downstream crates.
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use pallet_timestamp::Call as TimestampCall;
 pub use pallet_balances::Call as BalancesCall;
+
 pub use sp_runtime::{Permill, Perbill};
 pub use frame_support::{
     construct_runtime, parameter_types, StorageValue,
@@ -271,8 +271,8 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
         Aura: pallet_aura::{Module, Config<T>, Inherent},
         Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
