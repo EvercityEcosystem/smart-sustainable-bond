@@ -1,0 +1,5 @@
+{
+  "EverUSDBalance": "u128",
+  "MasterAccountStruct": "(u64, u64)",
+  "CustodianAccountStruct": "(u64, u64)"
+}

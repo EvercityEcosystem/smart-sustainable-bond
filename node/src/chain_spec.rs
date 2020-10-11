@@ -7,7 +7,8 @@ use evercity_runtime::{
     SudoConfig, SystemConfig, WASM_BINARY, Signature, EvercityConfig
 };
 
-use evercity_runtime::evercity::{MASTER_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK, MasterAccountTuple};
+use evercity_runtime::evercity::{   MASTER_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK,
+                                    MasterAccountStruct, CustodianAccountStruct };
 
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -154,14 +155,15 @@ fn testnet_genesis(
         evercity: Some(EvercityConfig {
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: [
-                (_pre_master_account_id.clone(), (MASTER_ROLE_MASK, 0u64, 0u128))
+                (_pre_master_account_id.clone(), (MASTER_ROLE_MASK, 42u64, 0u128)),
+                (_pre_custodian_account_id.clone(), (CUSTODIAN_ROLE_MASK, 43u64, 0u128)),
             ].iter().cloned().collect(),
             
             genesis_master_accounts: [
-                (_pre_master_account_id.clone(), (0u64, 1u64))
+                (_pre_master_account_id.clone(), (42u64, 0u64)),
             ].iter().cloned().collect(),
             genesis_custodian_accounts: [
-                (_pre_custodian_account_id.clone(), true)
+                (_pre_custodian_account_id.clone(), (43u64, 0u64)),
             ].iter().cloned().collect(),
         }),
     }
