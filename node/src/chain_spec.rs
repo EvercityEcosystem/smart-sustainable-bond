@@ -8,7 +8,7 @@ use evercity_runtime::{
 };
 
 use evercity_runtime::evercity::{   MASTER_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK,
-                                    MasterAccountStruct, CustodianAccountStruct };
+                                    EvercityAccountStruct};
 
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -119,14 +119,14 @@ fn testnet_genesis(
     root_key: AccountId,
     _enable_println: bool,
 ) -> GenesisConfig {
-    
-    let _pre_master_account_id: AccountId = 
+
+    let _pre_master_account_id: AccountId =
         Ss58Codec::from_ss58check("5DJBx8EcrJqWqDQDe3xPd7Bw2zL3obvHigdLZKVGDHx7GRwW").unwrap();
-    let _pre_custodian_account_id: AccountId = 
+    let _pre_custodian_account_id: AccountId =
         Ss58Codec::from_ss58check("5EZ4JyMCxR6k5oDPAV5Bh1hqvMreqLZMbaXX2XUTk6f3ZPDL").unwrap();
-    let _pre_emitent_account_id: AccountId = 
+    let _pre_emitent_account_id: AccountId =
         Ss58Codec::from_ss58check("5FxdLBFRrE7NF3u2Tq95XE5gM1ve4YAd9ZnP8ZujUJ85gf7c").unwrap();
-    let _pre_investor_account_id: AccountId = 
+    let _pre_investor_account_id: AccountId =
         Ss58Codec::from_ss58check("5FzuNtedbrnQrsKZKpAUzRy6swX9hM1PiLemREKoN2tBc3W1").unwrap();
 
 
@@ -137,7 +137,11 @@ fn testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         pallet_balances: Some(BalancesConfig {
-            balances: [ _pre_master_account_id.clone(),
+            balances: [ get_account_id_from_seed::<sr25519::Public>("Alice"),
+                        get_account_id_from_seed::<sr25519::Public>("Alice\\stash"),
+                        get_account_id_from_seed::<sr25519::Public>("Bob"),
+                        get_account_id_from_seed::<sr25519::Public>("Bob\\stash"),
+                        _pre_master_account_id.clone(),
                         _pre_custodian_account_id.clone(),
                         _pre_emitent_account_id.clone(),
                         _pre_investor_account_id.clone(),
@@ -155,15 +159,10 @@ fn testnet_genesis(
         evercity: Some(EvercityConfig {
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: [
-                (_pre_master_account_id.clone(), (MASTER_ROLE_MASK, 42u64, 0u128)),
-                (_pre_custodian_account_id.clone(), (CUSTODIAN_ROLE_MASK, 43u64, 0u128)),
-            ].iter().cloned().collect(),
-            
-            genesis_master_accounts: [
-                (_pre_master_account_id.clone(), (42u64, 0u64)),
-            ].iter().cloned().collect(),
-            genesis_custodian_accounts: [
-                (_pre_custodian_account_id.clone(), (43u64, 0u64)),
+                (_pre_master_account_id.clone(), EvercityAccountStruct { roles: MASTER_ROLE_MASK, identity: 0u64}),
+                (_pre_custodian_account_id.clone(), EvercityAccountStruct { roles: CUSTODIAN_ROLE_MASK, identity: 43u64}),
+                (_pre_emitent_account_id.clone(), EvercityAccountStruct { roles: EMITENT_ROLE_MASK, identity: 44u64}),
+                (_pre_investor_account_id.clone(), EvercityAccountStruct { roles: INVESTOR_ROLE_MASK, identity: 45u64}),
             ].iter().cloned().collect(),
         }),
     }

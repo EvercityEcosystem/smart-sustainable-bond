@@ -1,5 +1,12 @@
 {
-  "EverUSDBalance": "u128",
-  "MasterAccountStruct": "(u64, u64)",
-  "CustodianAccountStruct": "(u64, u64)"
+  "Address": "AccountId",                                                                                                   
+  "LookupSource": "AccountId",    
+  "EverUSDBalance": "u64",
+  "EvercityAccountStruct": {
+    "roles": "u8",
+    "identity": "u64"
+  },
+  "MintRequestStruct": {
+    "amount": "u64"
+  }
 }
