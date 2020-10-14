@@ -4,16 +4,16 @@ use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
-use frame_system as system;
 
 impl_outer_origin! {
-	pub enum Origin for Test {}
+	pub enum Origin for TestRuntime {}
 }
 
 // Configure a mock runtime to test the pallet.
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Test;
+pub struct TestRuntime;
+
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 	pub const MaximumBlockWeight: Weight = 1024;
@@ -21,7 +21,7 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
-impl system::Trait for Test {
+impl frame_system::Trait for TestRuntime {
 	type BaseCallFilter = ();
 	type Origin = Origin;
 	type Call = ();
@@ -47,15 +47,17 @@ impl system::Trait for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+    
 }
 
-impl Trait for Test {
+impl Trait for TestRuntime {
 	type Event = ();
 }
 
-pub type TemplateModule = Module<Test>;
+pub type Evercity = Module<TestRuntime>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+    let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    t.into()
 }
