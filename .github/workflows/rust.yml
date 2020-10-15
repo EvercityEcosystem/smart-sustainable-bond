@@ -1,0 +1,115 @@
+name:                              Compilation and Testing Suite
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - v*
+    paths-ignore:
+      - 'README.md'
+      - diagrams/
+  schedule:                        # Weekly build
+    - cron:                        '0 0 * * 0'
+jobs:
+
+## Check Stage
+  check-test-build:
+    name:                          Check, test and build
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          #- beta
+          - nightly
+    runs-on:                       self-hosted
+    container:
+      image:                       paritytech/ci-linux:production
+      volumes:
+        - /cache:/cache
+    env:
+      RUST_BACKTRACE:              full
+      SCCACHE_REDIS:               redis://172.17.0.1/0
+      SCCACHE_IDLE_TIMEOUT:        0
+      CMAKE_C_COMPILER_LAUNCHER:   sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    steps:
+      - name:                      Cancel Previous Runs
+        uses:                      styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token:            ${{ github.token }}
+      - name:                      Checkout sources & submodules
+        uses:                      actions/checkout@master
+        with:
+          fetch-depth:             5
+          submodules:              recursive
+      - name:                      Configure CARGO_HOME & CARGO_TARGET_DIR
+        run:                       ./scripts/ci-cache.sh "${{ github.head_ref }}" "${{ matrix.toolchain }}"
+      - name:                      Cache checking
+        if:                        github.event_name == 'pull_request' && github.event.action == 'opened' || github.event.action == 'reopened'
+        continue-on-error:         true
+        run:                       |
+            echo "Copy cache from master";
+            apt update&&apt install rsync -y;
+            # TODO add rsync in docker
+            rsync -aq /cache/${{ matrix.toolchain }}/ $CARGO_TARGET_DIR/ || true;
+        shell:                     bash
+      - name:                      Sccache stats
+        run:                       sccache --show-stats
+        shell:                     bash
+      - name:                      Checking rust-${{ matrix.toolchain }}
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               ${{ matrix.toolchain }}
+          args:                    --all  --verbose
+
+## Test Stage
+      - name:                      Testing rust-${{ matrix.toolchain }}
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 test
+          toolchain:               ${{ matrix.toolchain }}
+          args:                    --all  --verbose
+
+## Linting Stage
+      - name:                      Add clippy
+        if:                        matrix.toolchain == 'nightly'
+        run:                       rustup component add clippy --toolchain ${{ matrix.toolchain }}
+      - name:                      Clippy
+        uses:                      actions-rs/cargo@master
+        if:                        matrix.toolchain == 'nightly'
+        with:
+          command:                 clippy
+          toolchain:               ${{ matrix.toolchain }}
+          args:                    --all-targets -- -D warnings
+
+## Check Node Benchmarks
+      - name:                      Check evercity-node
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          toolchain:               ${{ matrix.toolchain }}
+          args:                    --features all --verbose
+
+## Build Stage
+      - name:                      Building rust-${{ matrix.toolchain }}
+        uses:                      actions-rs/cargo@master
+        if:                        github.ref == 'refs/heads/master'
+        with:
+          command:                 build
+          toolchain:               ${{ matrix.toolchain }}
+          args:                    --all --release --verbose
+      - name:                      Prepare artifacts
+        if:                        github.ref == 'refs/heads/master'
+        run:                       |
+          mkdir -p ./artifacts;
+          mv -v $CARGO_TARGET_DIR/release/evercity-node ./artifacts/;
+        shell:                     bash
+      - name:                      Upload artifacts
+        if:                        github.ref == 'refs/heads/master'
+        uses:                      actions/upload-artifact@v1
+        with:
+          name:                    ${{ matrix.toolchain }}.zip
+          path:                    artifacts/
