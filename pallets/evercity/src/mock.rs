@@ -73,11 +73,18 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 	pallet_balances::GenesisConfig::<TestRuntime> {                                                                                  
         // Provide some initial balances                                                                                      
-        balances: vec![ (1, 13000),
-						(2, 11000),
-						(3, 1000),
-						(4, 3000),
-						(5, 19000)
+        balances: vec![ (1, 99000), // MASTER
+						(2, 98000), // CUSTODIAN
+						(3, 97000), // EMITENT 
+						(4, 96000), // INVESTOR
+						(5, 95000), // AUDITOR
+						(6, 10000),
+						(7, 10000),
+						(8, 10000),
+						(9, 10000),
+						(101, 1000), // random guy
+						(102, 1000), // random guy
+						(103, 1000), // random guy
 					  ],                                                            
     }                                                                                                                         
     .assimilate_storage(&mut t)                                                                                               
@@ -90,6 +97,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (2, EvercityAccountStruct { roles: 2u8, identity: 20u64}), // CUSTODIAN (accountID: 2)
             (3, EvercityAccountStruct { roles: 4u8, identity: 30u64}), // EMITENT (accountID: 3)
             (4, EvercityAccountStruct { roles: 8u8, identity: 40u64}), // INVESTOR (accountId: 4)
+            (5, EvercityAccountStruct { roles: 16u8, identity: 50u64}), // AUDITOR (accountId: 5)
         ].iter().cloned().collect()
 	}                                                                                                   
     .assimilate_storage(&mut t)                                                                            

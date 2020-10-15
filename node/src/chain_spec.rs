@@ -132,6 +132,9 @@ fn testnet_genesis(
         Ss58Codec::from_ss58check("5FxdLBFRrE7NF3u2Tq95XE5gM1ve4YAd9ZnP8ZujUJ85gf7c").unwrap();
     let _pre_investor_account_id: AccountId =
         Ss58Codec::from_ss58check("5FzuNtedbrnQrsKZKpAUzRy6swX9hM1PiLemREKoN2tBc3W1").unwrap();
+    let _pre_auditor_account_id: AccountId =
+        Ss58Codec::from_ss58check("5G4J6NvaRAWh7QXdFr34E3D2UxiRFEeksbKnBVrFMGYXC5WU").unwrap();
+
 
 
     GenesisConfig {
@@ -149,6 +152,7 @@ fn testnet_genesis(
                         _pre_custodian_account_id.clone(),
                         _pre_emitent_account_id.clone(),
                         _pre_investor_account_id.clone(),
+                        _pre_auditor_account_id.clone(),
             ].iter().cloned().map(|k|(k, 1 << 60)).collect(),
         }),
         pallet_aura: Some(AuraConfig {
@@ -167,6 +171,7 @@ fn testnet_genesis(
                 (_pre_custodian_account_id.clone(), EvercityAccountStruct { roles: CUSTODIAN_ROLE_MASK, identity: 2u64}),
                 (_pre_emitent_account_id.clone(), EvercityAccountStruct { roles: EMITENT_ROLE_MASK, identity: 3u64}),
                 (_pre_investor_account_id.clone(), EvercityAccountStruct { roles: INVESTOR_ROLE_MASK, identity: 4u64}),
+                (_pre_auditor_account_id.clone(), EvercityAccountStruct { roles: AUDITOR_ROLE_MASK, identity: 5u64}),
             ].iter().cloned().collect(),
         }),
     }

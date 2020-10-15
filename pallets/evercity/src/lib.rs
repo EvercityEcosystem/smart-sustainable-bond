@@ -30,8 +30,7 @@ pub const MASTER_ROLE_MASK: u8 = 1u8;
 pub const CUSTODIAN_ROLE_MASK: u8 = 2u8;
 pub const EMITENT_ROLE_MASK: u8 = 4u8;
 pub const INVESTOR_ROLE_MASK: u8 = 8u8;
-pub const MANAGER_ROLE_MASK: u8 = 16u8;
-pub const AUDITOR_ROLE_MASK: u8 = 32u8;
+pub const AUDITOR_ROLE_MASK: u8 = 16u8;
 pub const fn is_roles_correct(roles: u8) -> bool {
     if roles <= 63u8 { // max value of any roles combinations
         return true;
@@ -313,6 +312,14 @@ impl<T: Trait> Module<T> {
     pub fn account_is_investor(_acc: &T::AccountId) -> bool {
         if 	AccountRegistry::<T>::contains_key(_acc) &&
             (AccountRegistry::<T>::get(_acc).roles & INVESTOR_ROLE_MASK != 0) {
+            return true;
+        }
+        return false;
+    }
+
+    pub fn account_is_auditor(_acc: &T::AccountId) -> bool {
+        if 	AccountRegistry::<T>::contains_key(_acc) &&
+            (AccountRegistry::<T>::get(_acc).roles & AUDITOR_ROLE_MASK != 0) {
             return true;
         }
         return false;
