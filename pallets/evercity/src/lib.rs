@@ -48,7 +48,6 @@ pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 10000000000000; //1_000_000_
 /// to be correctly presented in DApp
 
 pub type EverUSDBalance = u64;
-//impl EncodeLike<u64> for EverUSDBalance {}
 
 /// Structures, specific for each role
 

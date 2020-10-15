@@ -1,4 +1,4 @@
-use crate::{Module, Trait};
+use crate::{Module, Trait, EvercityAccountStruct};
 use pallet_balances;
 use sp_core::H256;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
@@ -49,7 +49,6 @@ impl frame_system::Trait for TestRuntime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-    
 }
 
 impl Trait for TestRuntime {
@@ -84,13 +83,17 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .assimilate_storage(&mut t)                                                                                               
     .unwrap();
 	
-	/*
-	crate::GenesisConfig {
-		genesis_account_registry: vec![]
+    super::GenesisConfig::<TestRuntime> {
+        // Accounts for tests
+		genesis_account_registry: vec![
+            (1, EvercityAccountStruct { roles: 1u8, identity: 10u64}), // MASTER (accountID: 1)
+            (2, EvercityAccountStruct { roles: 2u8, identity: 20u64}), // CUSTODIAN (accountID: 2)
+            (3, EvercityAccountStruct { roles: 4u8, identity: 30u64}), // EMITENT (accountID: 3)
+            (4, EvercityAccountStruct { roles: 8u8, identity: 40u64}), // INVESTOR (accountId: 4)
+        ].iter().cloned().collect()
 	}                                                                                                   
     .assimilate_storage(&mut t)                                                                            
     .unwrap();
-	*/
     
 	t.into()
 }
