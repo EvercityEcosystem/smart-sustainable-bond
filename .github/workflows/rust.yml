@@ -91,7 +91,7 @@ jobs:
         with:
           command:                 check
           toolchain:               ${{ matrix.toolchain }}
-          args:                    --features all --verbose
+          args:                    --verbose
 
 ## Build Stage
       - name:                      Building rust-${{ matrix.toolchain }}
