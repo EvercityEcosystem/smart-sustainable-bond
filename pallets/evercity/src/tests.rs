@@ -51,9 +51,73 @@ fn it_adds_new_account_with_correct_roles() {
             MASTER_ROLE_MASK,
             88u64
         ));
-        assert!(true);
+        assert_eq!(Evercity::account_is_master(&101), true);
+        assert_eq!(Evercity::account_is_investor(&101), false);
+
+        assert_ok!(Evercity::account_add_with_role_and_data(
+            Origin::signed(1),
+            102,
+            AUDITOR_ROLE_MASK,
+            89u64
+        ));
+        assert_eq!(Evercity::account_is_master(&102), false);
+        assert_eq!(Evercity::account_is_auditor(&102), true);
     });
 }
+#[test]
+fn it_correctly_sets_new_role_to_existing_account() {
+    new_test_ext().execute_with(|| {
+        // add new role to existing account (alowed only for master)
+        assert_eq!(Evercity::account_is_emitent(&3), true);
+        assert_ok!(Evercity::account_set_with_role_and_data(
+            Origin::signed(1),
+            3,
+            AUDITOR_ROLE_MASK,
+            88u64
+        ));
+        assert_eq!(Evercity::account_is_emitent(&3), true);
+        assert_eq!(Evercity::account_is_auditor(&3), true);
+        assert_eq!(Evercity::account_is_investor(&3), false);
+
+        assert_eq!(Evercity::account_is_custodian(&2), true);
+        assert_ok!(Evercity::account_set_with_role_and_data(
+            Origin::signed(1),
+            2,
+            EMITENT_ROLE_MASK,
+            89u64
+        ));
+        assert_eq!(Evercity::account_is_custodian(&2), true);
+        assert_eq!(Evercity::account_is_emitent(&2), true);
+    });
+}
+
+#[test]
+fn it_denies_add_and_set_roles_for_non_master() {
+    new_test_ext().execute_with(|| {
+        // trying to add account form non-master account
+        assert_noop!(
+            Evercity::account_add_with_role_and_data(
+                Origin::signed(2),
+                101,
+                MASTER_ROLE_MASK,
+                88u64
+            ),
+            Error::<TestRuntime>::AccountNotAuthorized
+        );
+
+        assert_noop!(
+            Evercity::account_set_with_role_and_data(
+                Origin::signed(3),
+                3,
+                EMITENT_ROLE_MASK,
+                88u64
+            ),
+            Error::<TestRuntime>::AccountNotAuthorized
+        );
+    });
+}
+
+// [TODO] check add and set with account without MASTER role
 
 #[test]
 fn it_works() {

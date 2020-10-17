@@ -45,6 +45,7 @@ pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 10000000000000; //1_000_000_
 /// to be correctly presented in DApp
 
 pub type EverUSDBalance = u64;
+//impl EncodeLike<u64> for EverUSDBalance {}
 
 /// Structures, specific for each role
 
@@ -61,7 +62,14 @@ impl EncodeLike<(u8, u64)> for EvercityAccountStruct {}
 pub struct MintRequestStruct {
     pub amount: EverUSDBalance,
 }
-impl EncodeLike<u64> for MintRequestStruct {}
+impl EncodeLike<EverUSDBalance> for MintRequestStruct {}
+
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct BurnRequestStruct {
+    pub amount: EverUSDBalance,
+}
+impl EncodeLike<EverUSDBalance> for BurnRequestStruct {}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Evercity {
@@ -81,9 +89,19 @@ decl_storage! {
             get(fn balances_everusd):
             map hasher(blake2_128_concat) T::AccountId => EverUSDBalance;
 
+        // Structure, created by Emitent or Investor to receive EverUSD on her balance
+        // She pays USD to Custodian and Custodian confirms request, adding corresponding
+        // amount to mint request creator's balance
         MintRequestEverUSD
             get(fn mint_request_everusd):
                 map hasher(blake2_128_concat) T::AccountId => MintRequestStruct;
+
+        // Same as MintRequest, but for burning EverUSD tokens, paying to creator in USD
+        // In fututre these actions can require different data, so it's separate structure
+        // than mint request
+        BurnRequestEverUSD
+            get(fn burn_request_everusd):
+                map hasher(blake2_128_concat) T::AccountId => BurnRequestStruct;
     }
 }
 
@@ -109,6 +127,11 @@ decl_event!(
         MintRequestRevoked(AccountId, EverUSDBalance),
         MintRequestConfirmed(AccountId, EverUSDBalance),
         MintRequestDeclined(AccountId, EverUSDBalance),
+
+        BurnRequestCreated(AccountId, EverUSDBalance),
+        BurnRequestRevoked(AccountId, EverUSDBalance),
+        BurnRequestConfirmed(AccountId, EverUSDBalance),
+        BurnRequestDeclined(AccountId, EverUSDBalance),
     }
 );
 
@@ -138,6 +161,15 @@ decl_error! {
 
         /// Incorrect parameters for mint request(miant amount > MAX_MINT_AMOUNT)
         MintRequestParamIncorrect,
+
+        /// Account already created one burn request, only one allowed at a time(to be changed in future)
+        BurnRequestAlreadyExist,
+
+        /// Mint request for given account doesnt exist
+        BurnRequestDoesntExist,
+
+        /// Incorrect parameters for mint request(miant amount > MAX_MINT_AMOUNT)
+        BurnRequestParamIncorrect,
 
     }
 }
@@ -207,7 +239,9 @@ decl_module! {
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            let _new_acc = EvercityAccountStruct {roles: role, identity: identity};
+            let mut _role_to_set = AccountRegistry::<T>::get(&who).roles;
+            _role_to_set |= role;
+            let _new_acc = EvercityAccountStruct {roles: _role_to_set, identity: identity};
             AccountRegistry::<T>::insert(&who, _new_acc);
 
             Self::deposit_event(RawEvent::AccountSet(_caller.clone(), who, role, identity));
@@ -220,9 +254,7 @@ decl_module! {
         #[weight = 15_000]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_emitent(&_caller) ||
-                    Self::account_is_investor(&_caller),
-                    Error::<T>::AccountNotAuthorized);
+            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
             ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
             ensure!(amount_to_mint < EVERUSD_MAX_MINT_AMOUNT, Error::<T>::MintRequestParamIncorrect);
 
@@ -253,10 +285,12 @@ decl_module! {
 
             // add tokens to user's balance and total supply of EverUSD
             let _amount_to_add = _mint_request.clone().amount;
-            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) + _amount_to_add.clone();
-            BalanceEverUSD::<T>::insert(&who, _new_everusd_balance);
+
+            // [TODO]- add check balance (to avoid double add)
             let _total_supply = TotalSupplyEverUSD::get();
+            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) + _amount_to_add.clone();
             TotalSupplyEverUSD::set(_total_supply +_amount_to_add.clone());
+            BalanceEverUSD::<T>::insert(&who, _new_everusd_balance);
 
             MintRequestEverUSD::<T>::remove(&who);
             Self::deposit_event(RawEvent::MintRequestConfirmed(who.clone(), _amount_to_add.clone()));
@@ -274,6 +308,66 @@ decl_module! {
             Ok(())
         }
 
+        /// Burn tokens
+        /// Creates mint request to mint given amount of tokens on address of caller(emitent or investor)
+        #[weight = 15_000]
+        fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
+            let _caller = ensure_signed(origin)?;
+            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
+            ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
+
+            let _current_balance = BalanceEverUSD::<T>::get(&_caller);
+            ensure!(amount_to_burn <= _current_balance, Error::<T>::MintRequestParamIncorrect);
+
+            let _new_burn_request = BurnRequestStruct { amount: amount_to_burn };
+            BurnRequestEverUSD::<T>::insert(&_caller, _new_burn_request);
+
+            Self::deposit_event(RawEvent::BurnRequestCreated(_caller.clone(), amount_to_burn));
+            Ok(())
+        }
+
+        #[weight = 5_000]
+        fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
+            let _caller = ensure_signed(origin)?;
+            ensure!(BurnRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::BurnRequestDoesntExist);
+            let _amount = BurnRequestEverUSD::<T>::get(&_caller).amount;
+            BurnRequestEverUSD::<T>::remove(&_caller);
+            Self::deposit_event(RawEvent::BurnRequestRevoked(_caller.clone(), _amount));
+            Ok(())
+        }
+
+        /// Token balances manipulation functions
+        #[weight = 15_000]
+        fn token_burn_request_confirm_everusd(origin, who: T::AccountId) -> DispatchResult {
+            let _caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
+            let _burn_request = BurnRequestEverUSD::<T>::get(&who);
+
+            // remove tokens from user's balance and decrease total supply of EverUSD
+            let _amount_to_sub = _burn_request.clone().amount;
+
+            // [TODO]- add check balance (to avoid double burn)
+            let _total_supply = TotalSupplyEverUSD::get();
+            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) - _amount_to_sub.clone();
+            TotalSupplyEverUSD::set(_total_supply - _amount_to_sub.clone());
+            BalanceEverUSD::<T>::insert(&who, _new_everusd_balance);
+
+            BurnRequestEverUSD::<T>::remove(&who);
+            Self::deposit_event(RawEvent::BurnRequestConfirmed(who.clone(), _amount_to_sub.clone()));
+            Ok(())
+        }
+
+        #[weight = 5_000]
+        fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
+            let _caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
+            let _amount = BurnRequestEverUSD::<T>::get(&who).amount;
+            BurnRequestEverUSD::<T>::remove(&who);
+            Self::deposit_event(RawEvent::BurnRequestDeclined(_caller.clone(), _amount));
+            Ok(())
+        }
 
 
     }
@@ -319,6 +413,16 @@ impl<T: Trait> Module<T> {
     pub fn account_is_auditor(_acc: &T::AccountId) -> bool {
         if AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & AUDITOR_ROLE_MASK != 0)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    pub fn account_token_mint_burn_allowed(_acc: &T::AccountId) -> bool {
+        let _allowed_roles_mask = INVESTOR_ROLE_MASK | EMITENT_ROLE_MASK;
+        if AccountRegistry::<T>::contains_key(_acc)
+            && (AccountRegistry::<T>::get(_acc).roles & _allowed_roles_mask != 0)
         {
             return true;
         }
