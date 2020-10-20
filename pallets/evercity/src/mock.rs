@@ -87,8 +87,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (3, 97000), // EMITENT
             (4, 96000), // INVESTOR
             (5, 95000), // AUDITOR
-            (6, 10000),
-            (7, 10000),
+            (6, 10000), // INVESTOR
+            (7, 10000), // EMITENT
             (8, 10000),
             (9, 10000),
             (101, 1000), // random guy
@@ -105,36 +105,50 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (
                 1,
                 EvercityAccountStruct {
-                    roles: 1u8,
+                    roles: crate::MASTER_ROLE_MASK,
                     identity: 10u64,
                 },
             ),
             (
                 2,
                 EvercityAccountStruct {
-                    roles: 2u8,
+                    roles: crate::CUSTODIAN_ROLE_MASK,
                     identity: 20u64,
                 },
             ),
             (
                 3,
                 EvercityAccountStruct {
-                    roles: 4u8,
+                    roles: crate::EMITENT_ROLE_MASK,
                     identity: 30u64,
                 },
             ),
             (
                 4,
                 EvercityAccountStruct {
-                    roles: 8u8,
+                    roles: crate::INVESTOR_ROLE_MASK,
                     identity: 40u64,
                 },
             ),
             (
                 5,
                 EvercityAccountStruct {
-                    roles: 16u8,
+                    roles: crate::AUDITOR_ROLE_MASK,
                     identity: 50u64,
+                },
+            ),
+            (
+                6,
+                EvercityAccountStruct {
+                    roles: crate::INVESTOR_ROLE_MASK,
+                    identity: 60u64,
+                },
+            ),
+            (
+                7,
+                EvercityAccountStruct {
+                    roles: crate::EMITENT_ROLE_MASK,
+                    identity: 70u64,
                 },
             ),
         ]

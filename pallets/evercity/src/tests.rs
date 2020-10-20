@@ -1,12 +1,15 @@
 #![allow(unused_imports)]
 use crate::mock::*;
 use crate::{
-    AccountRegistry, Error, Event, EvercityAccountStruct, Module, AUDITOR_ROLE_MASK,
-    CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
+    AccountRegistry, Error, Event, EverUSDBalance, EvercityAccountStruct, Module,
+    AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK,
+    MASTER_ROLE_MASK,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use frame_system::Trait;
 
-pub type Evercity = Module<TestRuntime>;
+type Evercity = Module<TestRuntime>;
+type AccountId = u64;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Test uses pack of accounts, pre-set in new_test_ext in mock.rs:
@@ -14,9 +17,11 @@ pub type Evercity = Module<TestRuntime>;
 // (2, EvercityAccountStruct { roles: CUSTODIAN_ROLE_MASK,  identity: 20u64}), // CUSTODIAN (accountID: 2)
 // (3, EvercityAccountStruct { roles: EMITENT_ROLE_MASK,    identity: 30u64}), // EMITENT   (accountID: 3)
 // (4, EvercityAccountStruct { roles: INVESTOR_ROLE_MASK,   identity: 40u64}), // INVESTOR  (accountId: 4)
-// (5, EvercityAccountStruct { roles: AUDITOR_ROLE_MASK,    identity: 50u64}), // AUDOTOR   (accountId: 5)
+// (5, EvercityAccountStruct { roles: AUDITOR_ROLE_MASK,    identity: 50u64}), // AUDITOR   (accountId: 5)
 // (101+ : some external accounts
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const CUSTODIAN_ID: AccountId = 2;
 
 #[test]
 fn it_returns_true_for_correct_role_checks() {
@@ -114,6 +119,178 @@ fn it_denies_add_and_set_roles_for_non_master() {
                 88u64
             ),
             Error::<TestRuntime>::AccountNotAuthorized
+        );
+    });
+}
+
+// mint tokens
+
+#[test]
+fn it_token_mint_create_with_confirm() {
+    const ACCOUNT: AccountId = 4; // INVESTOR
+    new_test_ext().execute_with(|| {
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT), // INVESTOR
+            100000
+        ));
+
+        assert_ok!(Evercity::token_mint_request_confirm_everusd(
+            Origin::signed(CUSTODIAN_ID),
+            ACCOUNT,
+        ));
+    });
+}
+
+#[test]
+fn it_token_mint_create_with_revoke() {
+    const ACCOUNT: AccountId = 4; // INVESTOR
+    new_test_ext().execute_with(|| {
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT), // INVESTOR
+            100000
+        ));
+
+        assert_ok!(Evercity::token_mint_request_revoke_everusd(Origin::signed(
+            ACCOUNT
+        ),));
+
+        assert_noop!(
+            Evercity::token_mint_request_confirm_everusd(Origin::signed(CUSTODIAN_ID), ACCOUNT),
+            Error::<TestRuntime>::MintRequestDoesntExist
+        );
+    });
+}
+
+#[test]
+fn it_token_mint_create_with_decline() {
+    const ACCOUNT: AccountId = 4; // INVESTOR
+    new_test_ext().execute_with(|| {
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            100000
+        ));
+
+        assert_ok!(Evercity::token_mint_request_decline_everusd(
+            Origin::signed(CUSTODIAN_ID),
+            ACCOUNT
+        ));
+
+        assert_noop!(
+            Evercity::token_mint_request_revoke_everusd(Origin::signed(ACCOUNT)),
+            Error::<TestRuntime>::MintRequestDoesntExist
+        );
+    });
+}
+
+#[test]
+fn it_token_mint_create_denied() {
+    const ACCOUNT: AccountId = 5; // AUDITOR
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Evercity::token_mint_request_create_everusd(Origin::signed(ACCOUNT), 100000),
+            Error::<TestRuntime>::AccountNotAuthorized
+        );
+    });
+}
+
+#[test]
+fn it_token_mint_create_hasty() {
+    const ACCOUNT: AccountId = 4; // INVESTOR
+    new_test_ext().execute_with(|| {
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            100000
+        ));
+
+        assert_noop!(
+            Evercity::token_mint_request_create_everusd(Origin::signed(ACCOUNT), 10),
+            Error::<TestRuntime>::MintRequestAlreadyExist
+        );
+    });
+}
+
+#[test]
+fn it_token_mint_create_toolarge() {
+    const ACCOUNT: AccountId = 4;
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Evercity::token_mint_request_create_everusd(
+                Origin::signed(ACCOUNT), // INVESTOR
+                crate::EVERUSD_MAX_MINT_AMOUNT + 1
+            ),
+            Error::<TestRuntime>::MintRequestParamIncorrect
+        );
+    });
+}
+
+// burn tokens
+
+fn add_token(id: AccountId, amount: EverUSDBalance) -> DispatchResult {
+    Evercity::token_mint_request_create_everusd(Origin::signed(id), amount)?;
+
+    Evercity::token_mint_request_confirm_everusd(Origin::signed(CUSTODIAN_ID), id)
+}
+
+#[test]
+fn it_token_burn_create_with_confirm() {
+    const ACCOUNT: AccountId = 4;
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(add_token(ACCOUNT, 10000));
+
+        assert_ok!(Evercity::token_burn_request_create_everusd(
+            Origin::signed(ACCOUNT), // INVESTOR
+            10000
+        ));
+
+        assert_ok!(Evercity::token_burn_request_confirm_everusd(
+            Origin::signed(CUSTODIAN_ID),
+            ACCOUNT,
+        ));
+        // duplicate confirmations are not allowed
+        assert_noop!(
+            Evercity::token_burn_request_confirm_everusd(Origin::signed(CUSTODIAN_ID), ACCOUNT),
+            Error::<TestRuntime>::BurnRequestDoesntExist
+        );
+    });
+}
+
+#[test]
+fn it_token_burn_create_overrun() {
+    const ACCOUNT: AccountId = 3;
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(add_token(ACCOUNT, 10000));
+
+        assert_noop!(
+            Evercity::token_burn_request_create_everusd(
+                Origin::signed(ACCOUNT), // INVESTOR
+                99999
+            ),
+            Error::<TestRuntime>::MintRequestParamIncorrect
+        );
+    });
+}
+
+#[test]
+fn it_token_burn_create_with_revoke() {
+    const ACCOUNT: AccountId = 3; // EMITENT
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(add_token(ACCOUNT, 10000));
+
+        assert_ok!(Evercity::token_burn_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            10000
+        ));
+
+        assert_ok!(Evercity::token_burn_request_revoke_everusd(Origin::signed(
+            ACCOUNT
+        ),));
+
+        assert_noop!(
+            Evercity::token_burn_request_confirm_everusd(Origin::signed(CUSTODIAN_ID), ACCOUNT),
+            Error::<TestRuntime>::BurnRequestDoesntExist
         );
     });
 }
