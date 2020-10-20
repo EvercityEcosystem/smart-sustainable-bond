@@ -1,5 +1,5 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
-
+#![allow(clippy::type_complexity)]
 use evercity_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
@@ -79,7 +79,7 @@ pub fn new_partial(
     let import_queue = sc_consensus_aura::import_queue::<_, _, _, AuraPair, _, _>(
         sc_consensus_aura::slot_duration(&*client)?,
         aura_block_import.clone(),
-        Some(Box::new(grandpa_block_import.clone())),
+        Some(Box::new(grandpa_block_import)),
         None,
         client.clone(),
         inherent_data_providers.clone(),
@@ -128,7 +128,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             on_demand: None,
             block_announce_validator_builder: None,
             finality_proof_request_builder: None,
-            finality_proof_provider: Some(finality_proof_provider.clone()),
+            finality_proof_provider: Some(finality_proof_provider),
         })?;
 
     if config.offchain_worker.enabled {
@@ -170,7 +170,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
         telemetry_connection_sinks: telemetry_connection_sinks.clone(),
-        rpc_extensions_builder: rpc_extensions_builder,
+        rpc_extensions_builder,
         on_demand: None,
         remote_blockchain: None,
         backend,

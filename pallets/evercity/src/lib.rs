@@ -1,18 +1,18 @@
+#![feature(const_if_match)]
 #![cfg_attr(not(feature = "std"), no_std)]
 use frame_support::{
-    codec::{Compact, Decode, Encode, EncodeLike, HasCompact, WrapperTypeEncode},
+    codec::{Decode, Encode, EncodeLike},
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     sp_runtime::RuntimeDebug,
-    traits::Get,
 };
 use frame_system::ensure_signed;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-use sp_core::H256;
+// use sp_core::H256;
 
 pub trait Trait: frame_system::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -30,11 +30,8 @@ pub const EMITENT_ROLE_MASK: u8 = 4u8;
 pub const INVESTOR_ROLE_MASK: u8 = 8u8;
 pub const AUDITOR_ROLE_MASK: u8 = 16u8;
 pub const fn is_roles_correct(roles: u8) -> bool {
-    if roles <= 63u8 {
-        // max value of any roles combinations
-        return true;
-    }
-    return false;
+    // max value of any roles combinations
+    roles <= 63u8
 }
 
 pub const EVERUSD_DECIMALS: u64 = 10;
@@ -203,7 +200,7 @@ decl_module! {
 
             AccountRegistry::<T>::insert(&who, _acc);
 
-            Self::deposit_event(RawEvent::AccountDisable(_caller.clone(), who));
+            Self::deposit_event(RawEvent::AccountDisable(_caller, who));
             Ok(())
         }
 
@@ -222,7 +219,7 @@ decl_module! {
             let _new_acc = EvercityAccountStruct { roles: role, identity: identity};
             AccountRegistry::<T>::insert(&who, _new_acc);
 
-            Self::deposit_event(RawEvent::AccountAdd(_caller.clone(), who, role, identity));
+            Self::deposit_event(RawEvent::AccountAdd(_caller, who, role, identity));
             Ok(())
         }
 
@@ -244,7 +241,7 @@ decl_module! {
             let _new_acc = EvercityAccountStruct {roles: _role_to_set, identity: identity};
             AccountRegistry::<T>::insert(&who, _new_acc);
 
-            Self::deposit_event(RawEvent::AccountSet(_caller.clone(), who, role, identity));
+            Self::deposit_event(RawEvent::AccountSet(_caller, who, role, identity));
             Ok(())
         }
 
@@ -261,7 +258,7 @@ decl_module! {
             let _new_mint_request = MintRequestStruct { amount: amount_to_mint };
             MintRequestEverUSD::<T>::insert(&_caller, _new_mint_request);
 
-            Self::deposit_event(RawEvent::MintRequestCreated(_caller.clone(), amount_to_mint));
+            Self::deposit_event(RawEvent::MintRequestCreated(_caller, amount_to_mint));
             Ok(())
         }
 
@@ -271,7 +268,7 @@ decl_module! {
             ensure!(MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestDoesntExist);
             let _amount = MintRequestEverUSD::<T>::get(&_caller).amount;
             MintRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::MintRequestRevoked(_caller.clone(), _amount));
+            Self::deposit_event(RawEvent::MintRequestRevoked(_caller, _amount));
             Ok(())
         }
 
@@ -284,16 +281,16 @@ decl_module! {
             let _mint_request = MintRequestEverUSD::<T>::get(&who);
 
             // add tokens to user's balance and total supply of EverUSD
-            let _amount_to_add = _mint_request.clone().amount;
+            let _amount_to_add = _mint_request.amount;
 
             // [TODO]- add check balance (to avoid double add)
             let _total_supply = TotalSupplyEverUSD::get();
-            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) + _amount_to_add.clone();
-            TotalSupplyEverUSD::set(_total_supply +_amount_to_add.clone());
+            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) + _amount_to_add;
+            TotalSupplyEverUSD::set(_total_supply +_amount_to_add);
             BalanceEverUSD::<T>::insert(&who, _new_everusd_balance);
 
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestConfirmed(who.clone(), _amount_to_add.clone()));
+            Self::deposit_event(RawEvent::MintRequestConfirmed(who, _amount_to_add));
             Ok(())
         }
 
@@ -304,7 +301,7 @@ decl_module! {
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let _amount = MintRequestEverUSD::<T>::get(&who).amount;
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestDeclined(_caller.clone(), _amount));
+            Self::deposit_event(RawEvent::MintRequestDeclined(_caller, _amount));
             Ok(())
         }
 
@@ -322,7 +319,7 @@ decl_module! {
             let _new_burn_request = BurnRequestStruct { amount: amount_to_burn };
             BurnRequestEverUSD::<T>::insert(&_caller, _new_burn_request);
 
-            Self::deposit_event(RawEvent::BurnRequestCreated(_caller.clone(), amount_to_burn));
+            Self::deposit_event(RawEvent::BurnRequestCreated(_caller, amount_to_burn));
             Ok(())
         }
 
@@ -332,7 +329,7 @@ decl_module! {
             ensure!(BurnRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::BurnRequestDoesntExist);
             let _amount = BurnRequestEverUSD::<T>::get(&_caller).amount;
             BurnRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::BurnRequestRevoked(_caller.clone(), _amount));
+            Self::deposit_event(RawEvent::BurnRequestRevoked(_caller, _amount));
             Ok(())
         }
 
@@ -345,16 +342,16 @@ decl_module! {
             let _burn_request = BurnRequestEverUSD::<T>::get(&who);
 
             // remove tokens from user's balance and decrease total supply of EverUSD
-            let _amount_to_sub = _burn_request.clone().amount;
+            let _amount_to_sub = _burn_request.amount;
 
             // [TODO]- add check balance (to avoid double burn)
             let _total_supply = TotalSupplyEverUSD::get();
-            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) - _amount_to_sub.clone();
-            TotalSupplyEverUSD::set(_total_supply - _amount_to_sub.clone());
+            let _new_everusd_balance = BalanceEverUSD::<T>::get(&who) - _amount_to_sub;
+            TotalSupplyEverUSD::set(_total_supply - _amount_to_sub);
             BalanceEverUSD::<T>::insert(&who, _new_everusd_balance);
 
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestConfirmed(who.clone(), _amount_to_sub.clone()));
+            Self::deposit_event(RawEvent::BurnRequestConfirmed(who, _amount_to_sub));
             Ok(())
         }
 
@@ -365,7 +362,7 @@ decl_module! {
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let _amount = BurnRequestEverUSD::<T>::get(&who).amount;
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestDeclined(_caller.clone(), _amount));
+            Self::deposit_event(RawEvent::BurnRequestDeclined(_caller, _amount));
             Ok(())
         }
 
@@ -375,61 +372,37 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     pub fn account_is_master(_acc: &T::AccountId) -> bool {
-        if AccountRegistry::<T>::contains_key(_acc)
+        AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & MASTER_ROLE_MASK != 0)
-        {
-            return true;
-        }
-        return false;
     }
 
     pub fn account_is_custodian(_acc: &T::AccountId) -> bool {
-        if AccountRegistry::<T>::contains_key(_acc)
+        AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & CUSTODIAN_ROLE_MASK != 0)
-        {
-            return true;
-        }
-        return false;
     }
 
     pub fn account_is_emitent(_acc: &T::AccountId) -> bool {
-        if AccountRegistry::<T>::contains_key(_acc)
+        AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & EMITENT_ROLE_MASK != 0)
-        {
-            return true;
-        }
-        return false;
     }
 
     pub fn account_is_investor(_acc: &T::AccountId) -> bool {
-        if AccountRegistry::<T>::contains_key(_acc)
+        AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & INVESTOR_ROLE_MASK != 0)
-        {
-            return true;
-        }
-        return false;
     }
 
     pub fn account_is_auditor(_acc: &T::AccountId) -> bool {
-        if AccountRegistry::<T>::contains_key(_acc)
+        AccountRegistry::<T>::contains_key(_acc)
             && (AccountRegistry::<T>::get(_acc).roles & AUDITOR_ROLE_MASK != 0)
-        {
-            return true;
-        }
-        return false;
     }
 
     pub fn account_token_mint_burn_allowed(_acc: &T::AccountId) -> bool {
-        let _allowed_roles_mask = INVESTOR_ROLE_MASK | EMITENT_ROLE_MASK;
-        if AccountRegistry::<T>::contains_key(_acc)
-            && (AccountRegistry::<T>::get(_acc).roles & _allowed_roles_mask != 0)
-        {
-            return true;
-        }
-        return false;
+        const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | EMITENT_ROLE_MASK;
+        AccountRegistry::<T>::contains_key(_acc)
+            && (AccountRegistry::<T>::get(_acc).roles & ALLOWED_ROLES_MASK != 0)
     }
 
     pub fn balance_everusd(_acc: &T::AccountId) -> EverUSDBalance {
-        return BalanceEverUSD::<T>::get(_acc);
+        BalanceEverUSD::<T>::get(_acc)
     }
 }

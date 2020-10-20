@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use crate::mock::*;
 use crate::{
     AccountRegistry, Error, Event, EvercityAccountStruct, Module, AUDITOR_ROLE_MASK,
@@ -119,25 +120,21 @@ fn it_denies_add_and_set_roles_for_non_master() {
 
 // [TODO] check add and set with account without MASTER role
 
-#[test]
-fn it_works() {
-    new_test_ext().execute_with(|| {
-        // Dispatch a signed extrinsic.
-        //assert_ok!(AccountRegistry::insert(Origin::signed(1), EvercityAccountStruct {roles: 1u8, identity: 67u64}));
-        // Read pallet storage and assert an expected result.
-        assert!(true);
-    });
-}
+// #[test]
+// fn it_works() {
+//     new_test_ext().execute_with(|| {
+//         // Dispatch a signed extrinsic.
+//         assert_ok!(AccountRegistry::insert(Origin::signed(1), EvercityAccountStruct {roles: 1u8, identity: 67u64}));
+//     });
+// }
 
-/*
-#[test]
-fn correct_error_for_none_value() {
-    new_test_ext().execute_with(|| {
-        // Ensure the expected error is thrown when no value is present.
-        assert_noop!(
-            TemplateModule::cause_error(Origin::signed(1)),
-            Error::<Test>::NoneValue
-        );
-});
-}
-*/
+// #[test]
+// fn correct_error_for_none_value() {
+//     new_test_ext().execute_with(|| {
+//             // Ensure the expected error is thrown when no value is present.
+//             assert_noop!(
+//                 TemplateModule::cause_error(Origin::signed(1)),
+//                 Error::<Test>::NoneValue
+//             );
+//     });
+// }

@@ -1,6 +1,5 @@
-use crate::{EvercityAccountStruct, Module, Trait};
+use crate::{EvercityAccountStruct, Trait};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-use pallet_balances;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -67,8 +66,8 @@ impl pallet_balances::Trait for TestRuntime {
 }
 
 pub type System = frame_system::Module<TestRuntime>;
-pub type Evercity = Module<TestRuntime>;
-pub type Balances = pallet_balances::Module<TestRuntime>;
+// pub type Evercity = Module<TestRuntime>;
+// pub type Balances = pallet_balances::Module<TestRuntime>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -134,9 +133,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 },
             ),
         ]
-        .iter()
-        .cloned()
-        .collect(),
+        .to_vec(),
     }
     .assimilate_storage(&mut t)
     .unwrap();
