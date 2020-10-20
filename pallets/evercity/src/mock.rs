@@ -45,7 +45,7 @@ impl frame_system::Trait for TestRuntime {
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -56,6 +56,10 @@ impl Trait for TestRuntime {
     type Event = ();
 }
 
+parameter_types! {
+    pub const MaxLocks: u32 = 50;
+}
+
 impl pallet_balances::Trait for TestRuntime {
     type Balance = u64;
     type Event = ();
@@ -63,6 +67,7 @@ impl pallet_balances::Trait for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type MaxLocks = MaxLocks;
 }
 
 pub type System = frame_system::Module<TestRuntime>;
