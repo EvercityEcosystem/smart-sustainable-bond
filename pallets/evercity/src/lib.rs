@@ -1,4 +1,3 @@
-#![feature(const_if_match)]
 #![cfg_attr(not(feature = "std"), no_std)]
 use frame_support::{
     codec::{Decode, Encode, EncodeLike},
@@ -216,7 +215,7 @@ decl_module! {
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            let _new_acc = EvercityAccountStruct { roles: role, identity: identity};
+            let _new_acc = EvercityAccountStruct { roles: role, identity };
             AccountRegistry::<T>::insert(&who, _new_acc);
 
             Self::deposit_event(RawEvent::AccountAdd(_caller, who, role, identity));
