@@ -2,11 +2,7 @@ use evercity_runtime::{
     AccountId, AuraConfig, BalancesConfig, EvercityConfig, GenesisConfig, GrandpaConfig, Signature,
     SudoConfig, SystemConfig, WASM_BINARY,
 };
-use sp_core::{
-    crypto::{Ss58AddressFormat, Ss58Codec},
-    hashing::blake2_256,
-    sr25519, Pair, Public, H256,
-};
+use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
 use evercity_runtime::evercity::{
     EvercityAccountStruct, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK,
@@ -47,7 +43,8 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
-    let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
+    let wasm_binary =
+        WASM_BINARY.ok_or_else(|| "Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
         // Name
@@ -79,7 +76,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 }
 
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
-    let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
+    let wasm_binary =
+        WASM_BINARY.ok_or_else(|| "Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
         // Name
@@ -114,6 +112,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 }
 
 /// Configure initial storage state for FRAME modules.
+#[allow(clippy::redundant_clone)]
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -203,9 +202,7 @@ fn testnet_genesis(
                     },
                 ),
             ]
-            .iter()
-            .cloned()
-            .collect(),
+            .to_vec(),
         }),
     }
 }
