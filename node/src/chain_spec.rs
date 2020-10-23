@@ -5,9 +5,11 @@ use evercity_runtime::{
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
 use evercity_runtime::evercity::{
-    EvercityAccountStruct, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK,
+    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK,
     INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
 };
+
+type EvercityAccountStruct = EvercityAccountStructT<u64>;
 
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -171,6 +173,7 @@ fn testnet_genesis(
                     EvercityAccountStruct {
                         roles: MASTER_ROLE_MASK,
                         identity: 1u64,
+                        create_time: 0,
                     },
                 ),
                 (
@@ -178,6 +181,7 @@ fn testnet_genesis(
                     EvercityAccountStruct {
                         roles: CUSTODIAN_ROLE_MASK,
                         identity: 2u64,
+                        create_time: 0,
                     },
                 ),
                 (
@@ -185,6 +189,7 @@ fn testnet_genesis(
                     EvercityAccountStruct {
                         roles: EMITENT_ROLE_MASK,
                         identity: 3u64,
+                        create_time: 0,
                     },
                 ),
                 (
@@ -192,6 +197,7 @@ fn testnet_genesis(
                     EvercityAccountStruct {
                         roles: INVESTOR_ROLE_MASK,
                         identity: 4u64,
+                        create_time: 0,
                     },
                 ),
                 (
@@ -199,6 +205,7 @@ fn testnet_genesis(
                     EvercityAccountStruct {
                         roles: AUDITOR_ROLE_MASK,
                         identity: 5u64,
+                        create_time: 0,
                     },
                 ),
             ]
