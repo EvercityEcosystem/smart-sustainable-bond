@@ -12,4 +12,5 @@
 # The cache for chain data in container
 .local
 #IDE configuration
-.idea 
+.idea
+venv

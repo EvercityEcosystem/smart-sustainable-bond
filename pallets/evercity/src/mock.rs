@@ -103,7 +103,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (5, 95000), // AUDITOR
             (6, 10000), // INVESTOR
             (7, 10000), // EMITENT
-            (8, 10000),
+            (8, 10000), // MANAGER
             (9, 10000),
             (101, 1000), // random guy
             (102, 1000), // random guy
@@ -169,6 +169,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 EvercityAccountStructT::<u64> {
                     roles: crate::EMITENT_ROLE_MASK,
                     identity: 70u64,
+                    create_time: 0,
+                },
+            ),
+            (
+                8,
+                EvercityAccountStructT::<u64> {
+                    roles: crate::MANAGER_ROLE_MASK,
+                    identity: 80u64,
                     create_time: 0,
                 },
             ),
