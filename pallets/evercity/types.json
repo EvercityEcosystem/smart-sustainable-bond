@@ -8,5 +8,6 @@
   },
   "MintRequestStruct": {
     "amount": "u64"
-  }
+  },
+  "BondId": "[u8;8]"
 }
