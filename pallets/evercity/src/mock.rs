@@ -1,4 +1,4 @@
-use crate::{EvercityAccountStruct, Trait};
+use crate::{EvercityAccountStructT, Trait};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -12,6 +12,8 @@ impl_outer_origin! {
 }
 
 // Configure a mock runtime to test the pallet.
+pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestRuntime;
@@ -54,6 +56,18 @@ impl frame_system::Trait for TestRuntime {
 
 impl Trait for TestRuntime {
     type Event = ();
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
+}
+
+impl pallet_timestamp::Trait for TestRuntime {
+    /// A timestamp: milliseconds since the unix epoch.
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -104,51 +118,58 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         genesis_account_registry: vec![
             (
                 1,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::MASTER_ROLE_MASK,
                     identity: 10u64,
+                    create_time: 0,
                 },
             ),
             (
                 2,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::CUSTODIAN_ROLE_MASK,
                     identity: 20u64,
+                    create_time: 0,
                 },
             ),
             (
                 3,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::EMITENT_ROLE_MASK,
                     identity: 30u64,
+                    create_time: 0,
                 },
             ),
             (
                 4,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::INVESTOR_ROLE_MASK,
                     identity: 40u64,
+                    create_time: 0,
                 },
             ),
             (
                 5,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::AUDITOR_ROLE_MASK,
                     identity: 50u64,
+                    create_time: 0,
                 },
             ),
             (
                 6,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::INVESTOR_ROLE_MASK,
                     identity: 60u64,
+                    create_time: 0,
                 },
             ),
             (
                 7,
-                EvercityAccountStruct {
+                EvercityAccountStructT::<u64> {
                     roles: crate::EMITENT_ROLE_MASK,
                     identity: 70u64,
+                    create_time: 0,
                 },
             ),
         ]
