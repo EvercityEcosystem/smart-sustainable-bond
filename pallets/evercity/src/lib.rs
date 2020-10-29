@@ -1,20 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-use frame_support::{codec::{Decode, Encode }, debug, decl_error, decl_event,
-                    decl_module, decl_storage, dispatch::{DispatchResult, DispatchError},
-                    dispatch::Vec, ensure, sp_runtime::{RuntimeDebug} };
+use core::cmp::{Eq, PartialEq};
+use frame_support::{
+    codec::{Decode, Encode},
+    debug, decl_error, decl_event, decl_module, decl_storage,
+    dispatch::Vec,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    sp_runtime::RuntimeDebug,
+};
 use frame_system::ensure_signed;
-use core::cmp::{Eq,PartialEq};
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 use sp_core::H256;
 
-use sp_runtime::{
-    RuntimeString,
-    traits::{
-        SaturatedConversion, UniqueSaturatedInto
-    }
-};
+use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -22,7 +22,7 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 
 pub type Result<T> = core::result::Result<T, DispatchError>;
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
-pub struct BondId([u8;8]);
+pub struct BondId([u8; 8]);
 
 impl PartialEq for BondId {
     fn eq(&self, other: &Self) -> bool {
@@ -33,8 +33,10 @@ impl PartialEq for BondId {
 impl Eq for BondId {}
 
 impl core::ops::Deref for BondId {
-    type Target = [u8;8];
-    fn deref(&self) -> &Self::Target { &self.0 }
+    type Target = [u8; 8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 //impl WrapperTypeEncode for BondId {}
@@ -53,8 +55,13 @@ pub const AUDITOR_ROLE_MASK: u8 = 16u8;
 pub const MANAGER_ROLE_MASK: u8 = 32u8;
 pub const IMPACT_REPORTER_ROLE_MASK: u8 = 64u8;
 
-pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK | CUSTODIAN_ROLE_MASK | EMITENT_ROLE_MASK |
-    INVESTOR_ROLE_MASK| AUDITOR_ROLE_MASK | MANAGER_ROLE_MASK | IMPACT_REPORTER_ROLE_MASK;
+pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK
+    | CUSTODIAN_ROLE_MASK
+    | EMITENT_ROLE_MASK
+    | INVESTOR_ROLE_MASK
+    | AUDITOR_ROLE_MASK
+    | MANAGER_ROLE_MASK
+    | IMPACT_REPORTER_ROLE_MASK;
 
 #[inline]
 pub const fn is_roles_correct(roles: u8) -> bool {
@@ -65,7 +72,7 @@ pub const fn is_roles_correct(roles: u8) -> bool {
 pub const EVERUSD_DECIMALS: u64 = 10;
 pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 10_000_000_000_000; //1_000_000_000u64 * EVERUSD_DECIMALS;
 
-pub const MIN_RESET_PERIOD: BondPeriod =  DAY_DURATION * 7;
+pub const MIN_RESET_PERIOD: BondPeriod = DAY_DURATION * 7;
 
 pub const TOKEN_BURN_DEADLINE: u32 = DAY_DURATION as u32 * 7 * 1000;
 pub const TOKEN_MINT_DEADLINE: u32 = DAY_DURATION as u32 * 7 * 1000;
@@ -146,17 +153,18 @@ impl Default for BondPayPeriod {
     }
 }
 
-impl BondPayPeriod{
-    fn days(&self)->u32{
+impl BondPayPeriod {
+    #[allow(dead_code)]
+    fn days(&self) -> u32 {
         match self {
-            Self::DAY=>1,
-            Self::WEEK=>7,
-            Self::MONTH=>30,
-            Self::QUARTER=>91,
-            Self::HYEAR=>182,
-            Self::YEAR=>365,
-            Self::YEAR2=>730,
-            Self::YEAR5=>1825
+            Self::DAY => 1,
+            Self::WEEK => 7,
+            Self::MONTH => 30,
+            Self::QUARTER => 91,
+            Self::HYEAR => 182,
+            Self::YEAR => 365,
+            Self::YEAR2 => 730,
+            Self::YEAR5 => 1825,
         }
     }
 }
@@ -168,9 +176,8 @@ type BondUnitAmount = u32;
 /// Annual coupon interest rate as 1/100000 of par value
 type BondInterest = u32;
 
-const MIN_BOND_DURATION: u32 = 1;  // 1  is a minimal bond period
-const DAY_DURATION: u32 =  8760; // seconds in 1 DAY
-
+const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
+const DAY_DURATION: u32 = 8760; // seconds in 1 DAY
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
@@ -228,39 +235,38 @@ pub struct BondInnerStruct<Moment> {
     pub base_price: BondUnitAmount,
 }
 
-impl<Moment> BondInnerStruct<Moment>{
+impl<Moment> BondInnerStruct<Moment> {
     /// Checks if other bond has the same financial properties
-    pub fn is_financial_options_eq(&self, other: &Self)->bool {
-        self.bond_category == other.bond_category &&
-            self.impact_data_type == other.impact_data_type &&
-            self.impact_baseline == other.impact_baseline &&
-            self.impact_max_deviation_cap == other.impact_max_deviation_cap &&
-            self.bond_base_interest_rate == other.bond_base_interest_rate &&
-            self.bond_interest_margin_cap == other.bond_interest_margin_cap &&
-            self.bond_interest_margin_floor == other.bond_interest_margin_floor &&
-            self.interest_pay_period == other.interest_pay_period &&
-            self.report_period == other.report_period &&
-            self.bond_duration == other.bond_duration &&
-            self.bond_finishing_period == other.bond_finishing_period &&
-            self.mincap_amount == other.mincap_amount &&
-            self.maxcap_amount == other.maxcap_amount &&
-            self.base_price == other.base_price
+    pub fn is_financial_options_eq(&self, other: &Self) -> bool {
+        self.bond_category == other.bond_category
+            && self.impact_data_type == other.impact_data_type
+            && self.impact_baseline == other.impact_baseline
+            && self.impact_max_deviation_cap == other.impact_max_deviation_cap
+            && self.bond_base_interest_rate == other.bond_base_interest_rate
+            && self.bond_interest_margin_cap == other.bond_interest_margin_cap
+            && self.bond_interest_margin_floor == other.bond_interest_margin_floor
+            && self.interest_pay_period == other.interest_pay_period
+            && self.report_period == other.report_period
+            && self.bond_duration == other.bond_duration
+            && self.bond_finishing_period == other.bond_finishing_period
+            && self.mincap_amount == other.mincap_amount
+            && self.maxcap_amount == other.maxcap_amount
+            && self.base_price == other.base_price
     }
     /// Checks if bond data is valid
-    pub fn is_valid(&self)->bool{
-
-        self.mincap_amount>0 &&
-        self.maxcap_amount>=self.mincap_amount &&
-        self.reset_period >= MIN_RESET_PERIOD &&
-        self.report_period <= self.reset_period &&
-        self.interest_pay_period <= self.reset_period &&
-        self.base_price > 0 &&
-        self.bond_base_interest_rate >= self.bond_interest_margin_floor &&
-        self.bond_base_interest_rate <= self.bond_interest_margin_cap &&
-        self.impact_baseline <= self.impact_max_deviation_cap &&
-        self.impact_baseline >= self.impact_max_deviation_floor &&
-        self.bond_duration >= MIN_BOND_DURATION &&
-        self.bond_category == 0  // MVP accept only  0 - all investor categories allowed
+    pub fn is_valid(&self) -> bool {
+        self.mincap_amount > 0
+            && self.maxcap_amount >= self.mincap_amount
+            && self.reset_period >= MIN_RESET_PERIOD
+            && self.report_period <= self.reset_period
+            && self.interest_pay_period <= self.reset_period
+            && self.base_price > 0
+            && self.bond_base_interest_rate >= self.bond_interest_margin_floor
+            && self.bond_base_interest_rate <= self.bond_interest_margin_cap
+            && self.impact_baseline <= self.impact_max_deviation_cap
+            && self.impact_baseline >= self.impact_max_deviation_floor
+            && self.bond_duration >= MIN_BOND_DURATION
+            && self.bond_category == 0 // MVP accept only  0 - all investor categories allowed
     }
 }
 
@@ -301,10 +307,11 @@ impl<AccountId, Moment> BondStruct<AccountId, Moment> {
         unit_amount as EverUSDBalance * self.inner.base_price as EverUSDBalance
     }
     /// Returns bond liabilities
+    #[allow(dead_code)]
     fn get_debt(&self) -> EverUSDBalance {
         if self.bond_credit > self.bond_debit {
             self.bond_credit - self.bond_debit
-        }else{
+        } else {
             0
         }
     }
@@ -312,7 +319,7 @@ impl<AccountId, Moment> BondStruct<AccountId, Moment> {
     fn get_balance(&self) -> EverUSDBalance {
         if self.bond_debit > self.bond_credit {
             self.bond_debit - self.bond_credit
-        }else{
+        } else {
             0
         }
     }
@@ -331,35 +338,34 @@ impl<AccountId, Moment> BondStruct<AccountId, Moment> {
     /// Calculate coupon effective interest rate
     fn interest_rate(&self, impact_data: u64) -> BondInterest {
         let inner = &self.inner;
+
         if impact_data >= inner.impact_max_deviation_cap {
-            return inner.bond_interest_margin_floor
-        }
-
-        if impact_data <= inner.impact_max_deviation_floor {
-            return inner.bond_interest_margin_cap;
-        }
-
-        if impact_data == inner.impact_baseline {
-            return inner.bond_base_interest_rate;
+            inner.bond_interest_margin_floor
+        } else if impact_data <= inner.impact_max_deviation_floor {
+            inner.bond_interest_margin_cap
+        } else if impact_data == inner.impact_baseline {
+            inner.bond_base_interest_rate
         } else if impact_data > inner.impact_baseline {
-            inner.bond_base_interest_rate -
-                ((impact_data - inner.impact_baseline) as u128 *
-                    (inner.bond_base_interest_rate - inner.bond_interest_margin_floor) as u128 /
-                    (inner.impact_max_deviation_cap - inner.impact_baseline) as u128) as BondInterest
+            inner.bond_base_interest_rate
+                - ((impact_data - inner.impact_baseline) as u128
+                    * (inner.bond_base_interest_rate - inner.bond_interest_margin_floor) as u128
+                    / (inner.impact_max_deviation_cap - inner.impact_baseline) as u128)
+                    as BondInterest
         } else {
-            inner.bond_base_interest_rate +
-                ((inner.impact_baseline - impact_data) as u128 *
-                    (inner.bond_interest_margin_cap - inner.bond_base_interest_rate) as u128 /
-                    (inner.impact_baseline - inner.impact_max_deviation_floor) as u128) as BondInterest
+            inner.bond_base_interest_rate
+                + ((inner.impact_baseline - impact_data) as u128
+                    * (inner.bond_interest_margin_cap - inner.bond_base_interest_rate) as u128
+                    / (inner.impact_baseline - inner.impact_max_deviation_floor) as u128)
+                    as BondInterest
         }
     }
 }
 
-impl<AccountId, Moment: UniqueSaturatedInto<u64> + Copy> BondStruct<AccountId, Moment>{
+impl<AccountId, Moment: UniqueSaturatedInto<u64> + Copy> BondStruct<AccountId, Moment> {
     /// Returns current reset_period
     /// It takes 0 for date from active_start_date  up to active_start_date + start_period
     #[allow(dead_code)]
-    fn period(&self, moment: Moment)->u32{
+    fn period(&self, moment: Moment) -> u32 {
         let active_start_date: u64 = self.active_start_date.saturated_into::<u64>();
         let moment: u64 = moment.saturated_into::<u64>();
 
@@ -368,7 +374,7 @@ impl<AccountId, Moment: UniqueSaturatedInto<u64> + Copy> BondStruct<AccountId, M
         }
         // @TODO handle overflow  (upper limit of period is self.inner.bond_duration)
 
-        let seconds_from_start = ( (moment - active_start_date) / 1000  ) as u32;
+        let seconds_from_start = ((moment - active_start_date) / 1000) as u32;
         if seconds_from_start <= self.inner.start_period {
             return 0;
         }
@@ -390,8 +396,8 @@ pub struct BondUnitPackage<Moment> {
 }
 type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
 type BondInnerStructOf<T> = BondInnerStruct<<T as pallet_timestamp::Trait>::Moment>;
-type BondStructOf<T> = BondStruct<<T as frame_system::Trait>::AccountId,  <T as pallet_timestamp::Trait>::Moment>;
-
+type BondStructOf<T> =
+    BondStruct<<T as frame_system::Trait>::AccountId, <T as pallet_timestamp::Trait>::Moment>;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
@@ -412,7 +418,10 @@ pub struct BondUnitSaleLotStruct<AccountId, Moment> {
     amount: EverUSDBalance,
 }
 
-type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<<T as frame_system::Trait>::AccountId,  <T as pallet_timestamp::Trait>::Moment>;
+type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
+    <T as frame_system::Trait>::AccountId,
+    <T as pallet_timestamp::Trait>::Moment,
+>;
 
 decl_storage! {
     trait Store for Module<T: Trait> as Evercity {
@@ -497,7 +506,7 @@ decl_event!(
         BurnRequestConfirmed(AccountId, EverUSDBalance),
         BurnRequestDeclined(AccountId, EverUSDBalance),
         // Bond events
-        BondAdded(AccountId,BondId),
+        BondAdded(AccountId, BondId),
         BondChanged(AccountId, BondId),
         BondRevoked(AccountId, BondId),
         BondReleased(AccountId, BondId),
@@ -513,8 +522,8 @@ decl_event!(
         BondSale(AccountId, BondId, u32),
         BondGiveBack(AccountId, BondId, u32),
 
-        BondImpactReportIssued( AccountId, BondId ),
-        BondImpactReportSigned( AccountId, BondId ),
+        BondImpactReportIssued(AccountId, BondId),
+        BondImpactReportSigned(AccountId, BondId),
     }
 );
 
@@ -803,7 +812,7 @@ decl_module! {
             let item = BondStruct{
                     inner: body,
 
-                    emitent: caller.clone(),
+                    emitent: caller,
                     auditor: Default::default(),
                     manager: Default::default(),
                     impact_reporter: Default::default(),
@@ -1436,13 +1445,18 @@ impl<T: Trait> Module<T> {
     /// Arguments: bond: BondId - bond unique identifier
     ///
     ///  Returns bond structure if found
-    pub fn get_bond(bond: BondId) -> BondStructOf<T>{
+    pub fn get_bond(bond: BondId) -> BondStructOf<T> {
         BondRegistry::<T>::get(bond)
     }
 
-    fn with_bond<F: FnOnce(&mut BondStructOf<T>)->DispatchResult >(bond: &BondId, f: F)
-        -> DispatchResult{
-        ensure!( BondRegistry::<T>::contains_key(bond), Error::<T>::BondNotFound );
+    fn with_bond<F: FnOnce(&mut BondStructOf<T>) -> DispatchResult>(
+        bond: &BondId,
+        f: F,
+    ) -> DispatchResult {
+        ensure!(
+            BondRegistry::<T>::contains_key(bond),
+            Error::<T>::BondNotFound
+        );
         let mut item = BondRegistry::<T>::get(bond);
 
         f(&mut item)?;
@@ -1451,20 +1465,20 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn check_with_bond<F: FnOnce(&BondStructOf<T>)->bool >(bond: &BondId, f: F) -> bool {
-        if BondRegistry::<T>::contains_key(bond){
+    fn check_with_bond<F: FnOnce(&BondStructOf<T>) -> bool>(bond: &BondId, f: F) -> bool {
+        if BondRegistry::<T>::contains_key(bond) {
             let item = BondRegistry::<T>::get(bond);
             f(&item)
-        }else{
+        } else {
             false
         }
     }
 
     fn balance_add(who: &T::AccountId, amount: EverUSDBalance) -> DispatchResult {
         //@TODO handle overflow
-        let (new_balance,ovf) = BalanceEverUSD::<T>::get(who).overflowing_add(amount);
-        if ovf{
-            return Err( Error::<T>::BalanceOverdraft.into() );
+        let (new_balance, ovf) = BalanceEverUSD::<T>::get(who).overflowing_add(amount);
+        if ovf {
+            return Err(Error::<T>::BalanceOverdraft.into());
         }
         BalanceEverUSD::<T>::insert(who, new_balance);
         Ok(())
@@ -1472,18 +1486,17 @@ impl<T: Trait> Module<T> {
 
     fn balance_sub(who: &T::AccountId, amount: EverUSDBalance) -> DispatchResult {
         let balance = BalanceEverUSD::<T>::get(who);
-        if balance<amount{
-            return Err( Error::<T>::BalanceOverdraft.into() );
+        if balance < amount {
+            return Err(Error::<T>::BalanceOverdraft.into());
         }
-        BalanceEverUSD::<T>::insert(&who, balance - amount );
+        BalanceEverUSD::<T>::insert(&who, balance - amount);
         Ok(())
     }
 
-    fn purge_expired_burn_requests(before: T::Moment){
-
+    fn purge_expired_burn_requests(before: T::Moment) {
         let to_purge: Vec<_> = BurnRequestEverUSD::<T>::iter()
-            .filter(|(acc, request)| {request.deadline<=before}  )
-            .map(|(acc, request)|{ acc })
+            .filter(|(_, request)| request.deadline <= before)
+            .map(|(acc, _)| acc)
             .take(MAX_PURGE_REQUESTS)
             .collect();
 
@@ -1492,10 +1505,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn purge_expired_mint_requests(before: T::Moment){
+    fn purge_expired_mint_requests(before: T::Moment) {
         let to_purge: Vec<_> = MintRequestEverUSD::<T>::iter()
-            .filter(|(acc, request)| {request.deadline<=before}  )
-            .map(|(acc, request)|{ acc })
+            .filter(|(_, request)| request.deadline <= before)
+            .map(|(acc, _)| acc)
             .take(MAX_PURGE_REQUESTS)
             .collect();
 
@@ -1504,9 +1517,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn purge_expired_bondunit_lots(before: T::Moment){
-
-    }
+    #[allow(dead_code)]
+    fn purge_expired_bondunit_lots(_before: T::Moment) {}
 }
-
-
