@@ -1,6 +1,11 @@
 # Evercity Substrate Node
 
-Blockchain node of Evercity project, based on Parity Substrate with evercity-pallet module, implementing business logic of Evercity green bond project
+Blockchain node of Evercity project, based on Parity Substrate with pallet-evercity module, implementing business logic of Evercity green bond project
+
+
+### Evercity documentation
+
+Methods of pallet-evercity are described in Rust documentation [here](http://51.15.47.43/pallet_evercity/)[TEMP]
 
 ### Build
 
@@ -34,11 +39,14 @@ rm -rf $HOME/.local/share/evercity-node/chains/*
 ```bash
 ./target/release/evercity-node --dev
 ```
-
-Or, start a dev chain with detailed logging:
+#### Running tests
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 ./target/release/evercity-node -lruntime=debug --dev
+cargo test
+```
+```bash
+./target/release/evercity-node --dev
 ```
 
-## [TODO] to be continued...
+
+

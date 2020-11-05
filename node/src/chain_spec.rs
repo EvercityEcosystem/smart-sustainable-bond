@@ -4,7 +4,7 @@ use evercity_runtime::{
 };
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
-use evercity_runtime::evercity::{
+use evercity_runtime::pallet_evercity::{
     EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK,
     INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
 };
@@ -165,7 +165,7 @@ fn testnet_genesis(
                 .collect(),
         }),
         pallet_sudo: Some(SudoConfig { key: root_key }),
-        evercity: Some(EvercityConfig {
+        pallet_evercity: Some(EvercityConfig {
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: [
                 (

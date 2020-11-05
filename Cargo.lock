@@ -1111,22 +1111,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "829694371bd7bbc6aee17c4ff624aad8bf9f4dc06c6f9f6071eaa08c89530d10"
 
 [[package]]
-name = "evercity"
-version = "0.0.1"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-aura",
- "pallet-balances",
- "pallet-timestamp",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
-]
-
-[[package]]
 name = "evercity-node"
 version = "2.0.0"
 dependencies = [
@@ -1165,7 +1149,6 @@ dependencies = [
 name = "evercity-runtime"
 version = "2.0.0"
 dependencies = [
- "evercity",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -1175,6 +1158,7 @@ dependencies = [
  "hex-literal",
  "pallet-aura",
  "pallet-balances",
+ "pallet-evercity",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
@@ -3512,6 +3496,22 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-evercity"
+version = "0.0.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-aura",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]

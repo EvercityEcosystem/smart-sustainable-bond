@@ -44,8 +44,8 @@ pub use frame_support::{
     StorageValue,
 };
 
-/// Import the template pallet.
-pub use evercity;
+/// Import the pallet-evercity pallet.
+pub use pallet_evercity;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -266,7 +266,7 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
-impl evercity::Trait for Runtime {
+impl pallet_evercity::Trait for Runtime {
     type Event = Event;
 }
 
@@ -286,7 +286,7 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Module, Storage},
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
         // Include the custom logic from the template pallet in the runtime.
-        Evercity: evercity::{Module, Call, Storage, Config<T>, Event<T>},
+        Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
     }
 );
 

@@ -1,10 +1,10 @@
 [package]
-authors = ['Boogerwooger<boogerwooger@mail.ru>']
+authors = ["Sergey Prilutskiy <boogerwooger@mail.ru>", "Dmitry Dulesov <dmitry.dulesov@gmail.com>"]
 description = 'Pallet for Evercity green bonds emission project'
 edition = '2018'
 homepage = 'https://evercity.io'
-license = 'Unlicense'
-name = 'evercity'
+license = 'Apache 2.0'
+name = 'pallet-evercity'
 repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
 version = '0.0.1'
 
