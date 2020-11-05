@@ -2,12 +2,19 @@
   "Address": "AccountId",                                                                                                   
   "LookupSource": "AccountId",    
   "EverUSDBalance": "u64",
-  "EvercityAccountStruct": {
+  "Moment": "u64",
+  "BondId": "[u8;8]",
+  "EvercityAccountStructOf": {
     "roles": "u8",
-    "identity": "u64"
+    "identity": "u64",
+	"create_time": "Moment"
   },
-  "MintRequestStruct": {
-    "amount": "u64"
+  "MintRequestStructOf": {
+    "amount": "EverUSDBalance",
+	"deadline": "Moment"
   },
-  "BondId": "[u8;8]"
+  "BurnRequestStructOf": {
+    "amount": "EverUSDBalance",
+	"deadline": "Moment"
+  }
 }
