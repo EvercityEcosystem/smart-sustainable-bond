@@ -17,17 +17,7 @@ jobs:
 ## Check Stage
   check-test-build:
     name:                          Check, test and build
-    strategy:
-      matrix:
-        toolchain:
-          #- stable
-          #- beta
-          - nightly-2020-05-01
     runs-on:                       self-hosted
-    container:
-      image:                       paritytech/ci-linux:production
-      volumes:
-        - /cache:/cache
     env:
       RUST_BACKTRACE:              full
       SCCACHE_REDIS:               redis://172.17.0.1/0
@@ -43,46 +33,32 @@ jobs:
         uses:                      actions/checkout@master
         with:
           fetch-depth:             5
-          #submodules:              recursive
-      - name:                      Configure CARGO_HOME & CARGO_TARGET_DIR
-        run:                       ./scripts/ci-cache.sh "${{ github.head_ref }}" "${{ matrix.toolchain }}"
-      - name:                      Cache checking
-        if:                        github.event_name == 'pull_request' && github.event.action == 'opened' || github.event.action == 'reopened'
-        continue-on-error:         true
-        run:                       |
-            echo "Copy cache from master";
-            apt update&&apt install rsync -y;
-            # TODO add rsync in docker
-            rsync -aq /cache/${{ matrix.toolchain }}/ $CARGO_TARGET_DIR/ || true;
-        shell:                     bash
-      - name:                      Sccache stats
-        run:                       sccache --show-stats
-        shell:                     bash
-      - name:                      Checking rust-${{ matrix.toolchain }}
+      - name:                      Install nightly
+        uses:                      actions-rs/toolchain@v1
+        with:
+            target:                wasm32-unknown-unknown
+            components:            rustfmt, clippy
+      #- name:                      add WASM
+      #     run:                    rustup target add wasm32-unknown-unknown
+
+      - name:                      Checking rust
         uses:                      actions-rs/cargo@master
         with:
           command:                 check
-          toolchain:               ${{ matrix.toolchain }}
           args:                    --all  --verbose
 
 ## Test Stage
-      - name:                      Testing rust-${{ matrix.toolchain }}
+      - name:                      Testing rust
         uses:                      actions-rs/cargo@master
         with:
           command:                 test
-          toolchain:               ${{ matrix.toolchain }}
           args:                    --all  --verbose
 
 ## Linting Stage
-      - name:                      Add clippy
-        if:                        startsWith(matrix.toolchain,'nightly')
-        run:                       rustup component add clippy --toolchain ${{ matrix.toolchain }}
       - name:                      Clippy
         uses:                      actions-rs/cargo@master
-        if:                        startsWith(matrix.toolchain,'nightly')
         with:
           command:                 clippy
-          toolchain:               ${{ matrix.toolchain }}
           args:                    --all-targets -- -D warnings
 
 ## Check Node Benchmarks
@@ -90,16 +66,14 @@ jobs:
         uses:                      actions-rs/cargo@master
         with:
           command:                 check
-          toolchain:               ${{ matrix.toolchain }}
           args:                    --verbose
 
 ## Build Stage
-      - name:                      Building rust-${{ matrix.toolchain }}
+      - name:                      Building rust
         uses:                      actions-rs/cargo@master
         if:                        github.ref == 'refs/heads/master'
         with:
           command:                 build
-          toolchain:               ${{ matrix.toolchain }}
           args:                    --all --release --verbose
       - name:                      Prepare artifacts
         if:                        github.ref == 'refs/heads/master'
@@ -111,5 +85,5 @@ jobs:
         if:                        github.ref == 'refs/heads/master'
         uses:                      actions/upload-artifact@v1
         with:
-          name:                    ${{ matrix.toolchain }}.zip
+          name:                    evercity-substrate.zip
           path:                    artifacts/
