@@ -65,10 +65,9 @@ Here is the basic scenario on of Smart Sustainable Bond Protocol:
  - In the end of bond duration period Emitent returns full debt to bond's balance, and Investors can receive their funds back
 
 
-An illustration of how the coupon rate changes depending on the data on the environmental impact of the project is shown in the figure below:
+An illustration of how the coupon rate changes depending on the data on the environmental impact of the project is shown in the [figure](./docs/interest_rate_periods.png):
 
-![Evercity interest rate change scheme](./interest_rate_periods.png "Evercity interest rate change scheme")
-
+![Figure](https://github.com/EvercityEcosystem/evercity-substrate/raw/docs/docs/interest_rate_periods.png)
 
 The parameters shown on the chart are set out by Emitent at the bond structuring stage and allow him to flexibly set the financial policy of the bond. It is possible to provide any combination of penalties / rewards (for example, there can be bonds without penalties), as well as to set short periods (for regular data feed by automatic sensors). The project can accommodate financial models of almost any complexity and the reception of data of different types and formats.
 
