@@ -1,7 +1,6 @@
 # 1. Evercity Substrate Node
 
-This repositary contains source code of blockchain node of Evercity project, implementing business logic of Evercity green bonds. Project is based on Parity Substrate and allows to use logic of Evercity green bonds in any Substate-based blockchains.
-
+This repositary contains source code of blockchain node, which is a main part of Evercity's Smart Sustainable Bond project.
 
 # 2. Introduction
 
