@@ -2,6 +2,8 @@
 
 This repositary contains source code of blockchain node, which is a main part of Evercity's Smart Sustainable Bond project.
 
+![Web3 Foundation Badge](https://github.com/EvercityEcosystem/evercity-substrate/raw/docs/docs/web3_foundation_badge.jpg)
+
 # 2. Introduction
 
 The market of green and sustainability-linked bonds is expected to reach a new record of 350 bln USD in 2020. However, there are still challenges preventing market growth: low accuracy and transparency of impact measurement due to lack of on-site data; lack of tools to distribute financial and impact results between projects and investors; high back office costs; relatively low liquidity and profitability of impact finance. Digital technologies have a great potential to solve these challenges, which is confirmed in the UN and EU documents.
