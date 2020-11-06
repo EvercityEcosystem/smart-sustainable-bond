@@ -10,14 +10,16 @@ on:
     paths-ignore:
       - 'README.md'
       - diagrams/
-  schedule:                        # Weekly build
-    - cron:                        '0 0 * * 0'
 jobs:
 
 ## Check Stage
   check-test-build:
     name:                          Check, test and build
     runs-on:                       self-hosted
+    container:
+      image:                       paritytech/ci-linux:production
+      volumes:
+        - /cache:/cache
     env:
       RUST_BACKTRACE:              full
       SCCACHE_REDIS:               redis://172.17.0.1/0
@@ -30,9 +32,10 @@ jobs:
         with:
           access_token:            ${{ github.token }}
       - name:                      Checkout sources & submodules
-        uses:                      actions/checkout@master
+        uses:                      actions/checkout@v2
         with:
           fetch-depth:             5
+          submodules:              true
       - name:                      Install nightly
         uses:                      actions-rs/toolchain@v1
         with:
