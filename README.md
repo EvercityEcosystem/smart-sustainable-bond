@@ -69,7 +69,7 @@ An illustration of how the coupon rate changes depending on the data on the envi
 
 ![Figure](https://github.com/EvercityEcosystem/evercity-substrate/raw/docs/docs/interest_rate_periods.png)
 
-The parameters shown on the chart are set out by Emitent at the bond structuring stage and allow him to flexibly set the financial policy of the bond. It is possible to provide any combination of penalties / rewards (for example, there can be bonds without penalties), as well as to set short periods (for regular data feed by automatic sensors). The project can accommodate financial models of almost any complexity and the reception of data of different types and formats.
+The parameters shown on the figure(interest rate base, cap, floor, periods, penalty, etc...) are set out by Emitent at the bond structuring stage and allow him to flexibly set the financial policy of the bond. It is possible to provide any combination of penalties / rewards (for example, there can be bonds without penalties), as well as to set short periods (for regular data feed by automatic sensors). The project can accommodate financial models of almost any complexity and the reception of data of different types and formats.
 
 Emitent pays the coupon rate calculated on the basis of impact data to Investors, replenishing the bond balance with the required amount of EVERUSD. At the end of the bond circulation period, the Emitent must repay all debt to Investors within a specified time.
 
@@ -84,7 +84,7 @@ Any significant operations with a token, bond, accounts and roles (including com
 
 ### 6.1 Runtime methods
 
-Methods of pallet-evercity are described in Rust documentation [here](http://51.15.47.43/pallet_evercity/)[TEMP]
+Methods of pallet-evercity are described in Rust documentation [here](http://51.15.47.43/pallet_evercity/) [TEMP]
 
 ### 6.2 Build
 
