@@ -705,12 +705,20 @@ fn bond_advanced_calc_coupon_yield() {
             2
         );
 
-        let investor1_balance = Evercity::balance_everusd(&INVESTOR1);
-        let investor2_balance = Evercity::balance_everusd(&INVESTOR2);
+        let _investor1_balance = Evercity::balance_everusd(&INVESTOR1);
+        let _investor2_balance = Evercity::balance_everusd(&INVESTOR2);
         // set impact data
-        Evercity::set_impact_data(&bondid1, 0, chain_block1.inner.impact_baseline);
+        assert_ok!(Evercity::set_impact_data(
+            &bondid1,
+            0,
+            chain_block1.inner.impact_baseline
+        ));
         //Evercity::set_impact_data(&bondid1, 1, chain_block1.inner.impact_baseline );
-        Evercity::set_impact_data(&bondid2, 0, chain_block2.inner.impact_baseline);
+        assert_ok!(Evercity::set_impact_data(
+            &bondid2,
+            0,
+            chain_block2.inner.impact_baseline
+        ));
 
         // request coupon yield
     });
@@ -829,7 +837,7 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
 
     bond.mincap_deadline = 50000;
     assert_ok!(Evercity::bond_add_new(Origin::signed(acc), bondid, bond));
-    <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10000);
+    <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10_000);
     assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid));
     let chain_block = Evercity::get_bond(&bondid);
     assert_eq!(chain_block.issued_amount, 0);
@@ -840,7 +848,7 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
         bondid,
         600
     ));
-    <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20000);
+    <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20_000);
     assert_ok!(Evercity::bond_unit_take_package(
         Origin::signed(INVESTOR2),
         bondid,
@@ -849,7 +857,7 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
 
     let chain_block = Evercity::get_bond(&bondid);
     assert_eq!(chain_block.issued_amount, 1200);
-    assert_eq!(chain_block.bond_debit, 1200 * 4000_000_000_000);
+    assert_eq!(chain_block.bond_debit, 1200 * 4_000_000_000_000);
     assert_eq!(chain_block.bond_debit, chain_block.bond_credit);
 
     assert_ok!(Evercity::bond_set_auditor(
@@ -867,15 +875,15 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
     assert_eq!(chain_block.bond_debit, 0);
     assert_eq!(chain_block.bond_credit, 0);
 
-    assert_eq!(Evercity::balance_everusd(&acc), 1200 * 4000_000_000_000);
+    assert_eq!(Evercity::balance_everusd(&acc), 1200 * 4_000_000_000_000);
 
     assert_eq!(
         investor1_balance - Evercity::balance_everusd(&INVESTOR1),
-        600 * 4000_000_000_000
+        600 * 4_000_000_000_000
     );
     assert_eq!(
         investor2_balance - Evercity::balance_everusd(&INVESTOR2),
-        600 * 4000_000_000_000
+        600 * 4_000_000_000_000
     );
 
     // Try revoke
@@ -926,14 +934,14 @@ fn bond_create_release_update() {
             new_bond
         ));
 
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10000);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10_000);
 
         assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid));
         let chain_block = Evercity::get_bond(&bondid);
         assert_eq!(chain_block.state, BondState::BOOKING);
-        assert_eq!(chain_block.booking_start_date, 10000);
+        assert_eq!(chain_block.booking_start_date, 10_000);
         assert_eq!(chain_block.manager, MANAGER);
-        assert_eq!(chain_block.inner.base_price, 100000);
+        assert_eq!(chain_block.inner.base_price, 100_000);
     });
 }
 
@@ -951,11 +959,17 @@ fn bond_activate_bond_and_withdraw_bondfund() {
         assert_eq!(chain_block.bond_debit, 0);
         assert_eq!(chain_block.bond_credit, 0);
 
-        assert_eq!(Evercity::balance_everusd(&ACCOUNT), 1200 * 4000_000_000_000);
+        assert_eq!(
+            Evercity::balance_everusd(&ACCOUNT),
+            1200 * 4_000_000_000_000
+        );
 
         let chain_block = Evercity::get_bond(&bondid);
         assert_eq!(chain_block.bond_debit, 0);
-        assert_eq!(Evercity::balance_everusd(&ACCOUNT), 1200 * 4000_000_000_000);
+        assert_eq!(
+            Evercity::balance_everusd(&ACCOUNT),
+            1200 * 4_000_000_000_000
+        );
     });
 }
 
@@ -968,7 +982,7 @@ fn bond_buy_bond_units_after_activation() {
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
         bond_activate(bondid, ACCOUNT, get_test_bond().inner);
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(600000);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(600_000);
         assert_ok!(Evercity::bond_unit_take_package(
             Origin::signed(INVESTOR1),
             bondid,
@@ -976,9 +990,12 @@ fn bond_buy_bond_units_after_activation() {
         ));
 
         let chain_block = Evercity::get_bond(&bondid);
-        assert_eq!(Evercity::balance_everusd(&ACCOUNT), 1600 * 4000_000_000_000); // (600 + 600 + 400) * 4000
+        assert_eq!(
+            Evercity::balance_everusd(&ACCOUNT),
+            1600 * 4_000_000_000_000
+        ); // (600 + 600 + 400) * 4000
         assert_eq!(chain_block.bond_debit, 0);
-        assert_eq!(bond_current_period(&chain_block, 600000), 0);
+        assert_eq!(bond_current_period(&chain_block, 600_000), 0);
     });
 }
 
@@ -993,8 +1010,8 @@ fn bond_give_back_bondunit_package() {
     let bondid: BondId = "BOND0".into();
 
     new_test_ext().execute_with(|| {
-        assert_ok!(add_token(INVESTOR1, 6000000_000_000_000));
-        assert_ok!(add_token(INVESTOR2, 6000000_000_000_000));
+        assert_ok!(add_token(INVESTOR1, 6_000_000_000_000_000));
+        assert_ok!(add_token(INVESTOR2, 6_000_000_000_000_000));
 
         let mut bond = get_test_bond().inner;
         bond.mincap_deadline = 50000;
@@ -1052,7 +1069,7 @@ fn bond_iter_periods() {
         bond_activate(bondid, ACCOUNT, get_test_bond().inner);
         let chain_block = Evercity::get_bond(&bondid);
 
-        for period in chain_block.iter_periods() {
+        for _period in chain_block.iter_periods() {
             //println!("{:?}", period);
         }
         let periods: Vec<_> = chain_block.iter_periods().collect();
@@ -1070,8 +1087,8 @@ fn bond_cancel_after_release() {
     let bondid: BondId = "BOND1".into();
 
     new_test_ext().execute_with(|| {
-        assert_ok!(add_token(INVESTOR1, 10000000_000_000_000));
-        assert_ok!(add_token(INVESTOR2, 10000000_000_000_000));
+        assert_ok!(add_token(INVESTOR1, 10_000_000_000_000_000));
+        assert_ok!(add_token(INVESTOR2, 10_000_000_000_000_000));
 
         let mut bond = get_test_bond().inner;
         bond.mincap_deadline = 50000;
@@ -1089,13 +1106,13 @@ fn bond_cancel_after_release() {
             bondid,
             400
         ));
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20000);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20_000);
         assert_ok!(Evercity::bond_unit_take_package(
             Origin::signed(INVESTOR2),
             bondid,
             200
         ));
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(30000);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(30_000);
         assert_ok!(Evercity::bond_unit_take_package(
             Origin::signed(INVESTOR2),
             bondid,
@@ -1104,16 +1121,16 @@ fn bond_cancel_after_release() {
 
         let chain_block = Evercity::get_bond(&bondid);
         assert_eq!(chain_block.issued_amount, 800);
-        assert_eq!(chain_block.bond_debit, 800 * 4000_000_000_000);
+        assert_eq!(chain_block.bond_debit, 800 * 4_000_000_000_000);
         assert_eq!(chain_block.bond_debit, chain_block.bond_credit);
 
         assert_eq!(
             Evercity::balance_everusd(&INVESTOR1),
-            10000000_000_000_000 - 400 * 4000_000_000_000
+            10_000_000_000_000_000 - 400 * 4_000_000_000_000
         );
         assert_eq!(
             Evercity::balance_everusd(&INVESTOR2),
-            10000000_000_000_000 - 400 * 4000_000_000_000
+            10_000_000_000_000_000 - 400 * 4_000_000_000_000
         );
 
         // Bond unit packages
@@ -1146,8 +1163,14 @@ fn bond_cancel_after_release() {
         assert_eq!(chain_block.bond_debit, 0);
         assert_eq!(chain_block.bond_credit, 0);
 
-        assert_eq!(Evercity::balance_everusd(&INVESTOR1), 10000000_000_000_000);
-        assert_eq!(Evercity::balance_everusd(&INVESTOR2), 10000000_000_000_000);
+        assert_eq!(
+            Evercity::balance_everusd(&INVESTOR1),
+            10_000_000_000_000_000
+        );
+        assert_eq!(
+            Evercity::balance_everusd(&INVESTOR2),
+            10_000_000_000_000_000
+        );
 
         let packages1 = Evercity::bond_packages(&bondid, &INVESTOR1);
         let packages2 = Evercity::bond_packages(&bondid, &INVESTOR2);
