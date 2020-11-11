@@ -552,10 +552,14 @@ macro_rules! ensure_active {
     };
 }
 
+/// Bondholder's bond units on hand
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondUnitPackage<Moment> {
+    // amount of bond units
     bond_units: BondUnitAmount,
+    // acquisition date as seconds after start date
     acquisition: BondPeriod,
+    // paid coupon yield
     coupon_yield: EverUSDBalance,
     create_date: Moment,
 }
@@ -752,12 +756,13 @@ decl_error! {
         BurnRequestParamIncorrect,
 
         /// Bond with same ticker already exists
+        /// Every bond on the platform has unique BondId: 8 bytes, like "MUSKPWR1" or "SOLGEN02"
         BondAlreadyExists,
 
         /// Incorrect bond data
         BondParamIncorrect,
 
-        /// Incorrect bond ticker
+        /// Incorrect bond ticker provided or bond has been revoked
         BondNotFound,
 
         /// Bond access rules do not permit the requested action
@@ -1159,7 +1164,7 @@ decl_module! {
             })
         }
 
-        /// Method: bond_unit_package_take(origin, bond: BondId, unit_amount: BondUnitAmount )
+        /// Method: bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            unit_amount: BondUnitAmount - amount of bond units
@@ -1168,7 +1173,7 @@ decl_module! {
         /// Access: only accounts with Investor role
         // Investor loans tokens to the bond issuer by staking bond units
         #[weight = 10_000]
-        fn bond_unit_package_take(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
@@ -1246,7 +1251,7 @@ decl_module! {
             })
         }
 
-        /// Method: bond_unit_give_back_package(origin, bond: BondId, unit_amount: BondUnitAmount )
+        /// Method: bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            unit_amount: BondUnitAmount - amount of bond units
@@ -1255,7 +1260,7 @@ decl_module! {
         /// Access: only accounts with Investor role who hold bond units
         // Investor gives back bond units and withdraw tokens
         #[weight = 10_000]
-        fn bond_unit_give_back_package(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             // Active Bond cannot be withdrawn
@@ -1385,7 +1390,7 @@ decl_module! {
             })
         }
 
-        /// Method: bond_issue_impact_report(origin, bond: BondId, impact_data: u64 )
+        /// Method: bond_impact_report_send(origin, bond: BondId, impact_data: u64 )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            impact_data: u64 - report value
@@ -1415,7 +1420,7 @@ decl_module! {
             })
         }
 
-        /// Method: bond_sign_impact_report(origin, bond: BondId, period: u64, impact_data: u64 )
+        /// Method: bond_impact_report_approve(origin, bond: BondId, period: u64, impact_data: u64 )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            period: u32 - report period starting from 0
@@ -1425,7 +1430,7 @@ decl_module! {
         /// Access: only auditor assigned to the bond
         // Auditor signs impact report
         #[weight = 5_000]
-        fn bond_sign_impact_report(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
+        fn bond_impact_report_approve(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_auditor(&caller), Error::<T>::AccountNotAuthorized);
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1502,6 +1507,7 @@ decl_module! {
 
             Self::with_bond(&bond, |item|{
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
+                ensure!(item.get_debt()>0, Error::<T>::BondOutOfOrder );
                 // @TODO refine condition
                 item.state = BondState::BANKRUPT;
 
@@ -1626,7 +1632,7 @@ decl_module! {
             })
         }
 
-        /// Method: bond_unit_sale(origin, bond: BondId, lot: BondUnitSaleLotStruct)
+        /// Method: bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStruct)
         /// Arguments: origin: AccountId - bond unit bondholder
         ///            bond: BondId - bond identifier
         ///            lot: BondUnitSaleLotStruct - lot data
@@ -1634,7 +1640,7 @@ decl_module! {
         ///
         /// Create sale lot
         #[weight = 5_000]
-        fn bond_unit_sale(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
+        fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
             // how many bond units does the caller have
@@ -1663,16 +1669,16 @@ decl_module! {
             Ok(())
         }
 
-        /// Method: bond_unit_close_deal(origin, bond: BondId,bondholder: AccountId, lot: BondUnitSaleLotStruct)
+        /// Method: bond_unit_lot_settle(origin, bond: BondId,bondholder: AccountId, lot: BondUnitSaleLotStruct)
         /// Arguments: origin: AccountId - bond unit bondholder
         ///            bond: BondId - bond identifier
         ///            bondholder: Current bondholder of of bond
         ///            lot: BondUnitSaleLotStruct - lot data
         /// Access: Bond bondholder
         ///
-        /// Buy the lot created by bond_unit_sale call
+        /// Buy the lot created by bond_unit_lot_bid call
         #[weight = 5_000]
-        fn bond_unit_close_deal(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
+        fn bond_unit_lot_settle(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1747,13 +1753,6 @@ decl_module! {
                     Err(Error::<T>::BondParamIncorrect.into())
                 }
             })
-        }
-
-        #[weight = 5_000]
-        fn bond_dummy(origin) -> DispatchResult {
-            let now = <pallet_timestamp::Module<T>>::get();
-            ensure!(now>0.into(), Error::<T>::BondParamIncorrect );
-            Ok(())
         }
     }
 }

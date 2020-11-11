@@ -346,16 +346,6 @@ fn it_token_burn_create_with_revoke() {
     });
 }
 
-#[test]
-fn it_bond_test() {
-    const ACCOUNT: u64 = 3; // EMITENT
-    new_test_ext().execute_with(|| {
-        Timestamp::set_timestamp(12345);
-
-        assert_ok!(Evercity::bond_dummy(Origin::signed(ACCOUNT)));
-    });
-}
-
 fn get_test_bond() -> BondStruct {
     BondStruct {
         inner: BondInnerStruct {
@@ -667,7 +657,7 @@ fn bond_advanced_calc_coupon_yield() {
             start_moment + (100 * DAY_DURATION) as u64 * 1000,
         );
 
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR1),
             bondid1,
             400
@@ -684,7 +674,7 @@ fn bond_advanced_calc_coupon_yield() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             start_moment + (140 * DAY_DURATION) as u64 * 1000,
         );
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR2),
             bondid2,
             400
@@ -854,13 +844,13 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
     assert_eq!(chain_bond_item.issued_amount, 0);
 
     // Buy two packages
-    assert_ok!(Evercity::bond_unit_package_take(
+    assert_ok!(Evercity::bond_unit_package_buy(
         Origin::signed(INVESTOR1),
         bondid,
         600
     ));
     <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20_000);
-    assert_ok!(Evercity::bond_unit_package_take(
+    assert_ok!(Evercity::bond_unit_package_buy(
         Origin::signed(INVESTOR2),
         bondid,
         600
@@ -903,7 +893,7 @@ fn bond_activate(bondid: BondId, acc: u64, mut bond: BondInnerStruct) {
     );
     // Try give back
     assert_noop!(
-        Evercity::bond_unit_give_back_package(Origin::signed(INVESTOR1), bondid, 600),
+        Evercity::bond_unit_package_return(Origin::signed(INVESTOR1), bondid, 600),
         RuntimeError::BondStateNotPermitAction
     );
 }
@@ -993,7 +983,7 @@ fn bond_buy_bond_units_time_passed_after_activation() {
         bond_grand_everusd();
         bond_activate(bondid, ACCOUNT, get_test_bond().inner);
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(600_000);
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR1),
             bondid,
             400
@@ -1034,13 +1024,13 @@ fn bond_give_back_bondunit_package() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10000);
         assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid));
 
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR1),
             bondid,
             600
         ));
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20000);
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR2),
             bondid,
             600
@@ -1049,7 +1039,7 @@ fn bond_give_back_bondunit_package() {
         let packages1 = Evercity::bond_packages(&bondid, &INVESTOR1);
         assert_eq!(packages1.len(), 1);
         assert_eq!(packages1[0].bond_units, 600);
-        assert_ok!(Evercity::bond_unit_give_back_package(
+        assert_ok!(Evercity::bond_unit_package_return(
             Origin::signed(INVESTOR1),
             bondid,
             600
@@ -1059,7 +1049,7 @@ fn bond_give_back_bondunit_package() {
         assert_eq!(packages1.len(), 0);
         // you cannot give back part of the package
         assert_noop!(
-            Evercity::bond_unit_give_back_package(Origin::signed(INVESTOR2), bondid, 100),
+            Evercity::bond_unit_package_return(Origin::signed(INVESTOR2), bondid, 100),
             RuntimeError::BondParamIncorrect
         );
 
@@ -1111,19 +1101,19 @@ fn bond_cancel_after_release() {
         assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid));
 
         // Buy three packages
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR1),
             bondid,
             400
         ));
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20_000);
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR2),
             bondid,
             200
         ));
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(30_000);
-        assert_ok!(Evercity::bond_unit_package_take(
+        assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR2),
             bondid,
             200
