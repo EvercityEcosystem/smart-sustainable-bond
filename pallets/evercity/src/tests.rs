@@ -349,10 +349,10 @@ fn it_token_burn_create_with_revoke() {
 fn get_test_bond() -> BondStruct {
     BondStruct {
         inner: BondInnerStruct {
-            data_hash_main: Default::default(),
-            data_hash_legal: Default::default(),
-            data_hash_finance: Default::default(),
-            data_hash_tech: Default::default(),
+            docs_pack_root_hash_main: Default::default(),
+            docs_pack_root_hash_legal: Default::default(),
+            docs_pack_root_hash_finance: Default::default(),
+            docs_pack_root_hash_tech: Default::default(),
 
             impact_data_type: Default::default(),
             impact_data_baseline: 20000_u64,
@@ -409,12 +409,12 @@ fn bond_equation() {
 
         let mut bond2 = bond1.clone();
         assert_eq!(bond1.inner, bond2.inner);
-        bond2.inner.data_hash_legal = Blake2_256::hash(b"").into();
+        bond2.inner.docs_pack_root_hash_legal = Blake2_256::hash(b"").into();
 
         assert!(bond1.inner.is_financial_options_eq(&bond2.inner));
         assert_ne!(bond1.inner, bond2.inner);
 
-        bond2.inner.data_hash_legal = bond1.inner.data_hash_legal;
+        bond2.inner.docs_pack_root_hash_legal = bond1.inner.docs_pack_root_hash_legal;
         bond2.inner.payment_period += 1;
 
         assert!(!bond1.inner.is_financial_options_eq(&bond2.inner));
