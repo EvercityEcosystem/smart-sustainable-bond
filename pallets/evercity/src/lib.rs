@@ -191,10 +191,10 @@ const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondInnerStruct<Moment, Hash> {
     // bond document hashes
-    pub data_hash_main: Hash,
-    pub data_hash_legal: Hash,
-    pub data_hash_finance: Hash,
-    pub data_hash_tech: Hash,
+    pub docs_pack_root_hash_main: Hash,
+    pub docs_pack_root_hash_legal: Hash,
+    pub docs_pack_root_hash_finance: Hash,
+    pub docs_pack_root_hash_tech: Hash,
 
     // bond impact parameters
     pub impact_data_type: BondImpactType,
@@ -1178,7 +1178,7 @@ decl_module! {
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
                 ensure!(
-                    item.state==BondState::ACTIVE || item.state == BondState::BOOKING,
+                    matches!(item.state, BondState::BANKRUPT | BondState::ACTIVE | BondState::BOOKING),
                     Error::<T>::BondStateNotPermitAction
                 );
                 // issuer cannot buy his own bonds
@@ -1216,19 +1216,20 @@ decl_module! {
 
                 item.issued_amount = issued_amount;
 
-                // everusd received can be forwarded to pay off the debt
-                if item.state==BondState::ACTIVE {
+
+                if matches!(item.state, BondState::ACTIVE | BondState::BANKRUPT) {
                     item.bond_debit += package_value;
-
+                    // in BondState::ACTIVE or BondState::BANKRUPT received everusd
+                    // can be forwarded to pay off the debt
                     Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-
+                    // surplus to the emitent balance
                     let free_balance = item.get_free_balance();
                     if free_balance > 0 {
                         item.bond_debit -= free_balance;
                         Self::balance_add(&item.emitent, free_balance)?;
                     }
                 }else{
-                    // increase assets and liabilities of the Bond
+                    // in BondState::PREPARE just increase assets and liabilities of the Bond
                     item.increase( package_value );
                 }
 
