@@ -364,7 +364,7 @@ fn get_test_bond() -> BondStruct {
             data_hash_finance: Default::default(),
             data_hash_tech: Default::default(),
 
-            impact_data_type: 0,
+            impact_data_type: Default::default(),
             impact_data_baseline: 20000_u64,
             impact_data_max_deviation_cap: 30000_u64,
             impact_data_max_deviation_floor: 14000_u64,
