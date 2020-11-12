@@ -676,13 +676,13 @@ decl_event!(
         /// parameters. [something, who]
         // [TODO] document events
 
-        // 1: author, 2: newly added account
+        // 1: author, 2: newly added account, 3: role, 4: identity
         AccountAdd(AccountId, AccountId, u8, u64),
 
         // 1: author, 2:  updated account, 3: role, 4: identity
         AccountSet(AccountId, AccountId, u8, u64),
 
-        // 1: author, 2: disabled account, 3: role, 4: identity
+        // 1: author, 2: disabled account
         AccountDisable(AccountId, AccountId),
 
         MintRequestCreated(AccountId, EverUSDBalance),
