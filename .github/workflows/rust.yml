@@ -22,6 +22,7 @@ jobs:
         - /cache:/cache
     env:
       RUST_BACKTRACE:              full
+      CARGO_TARGET_DIR:            /cache/master
       SCCACHE_REDIS:               redis://172.17.0.1/0
       SCCACHE_IDLE_TIMEOUT:        0
       CMAKE_C_COMPILER_LAUNCHER:   sccache
