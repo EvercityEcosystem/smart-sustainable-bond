@@ -114,6 +114,10 @@ pub struct EvercityAccountStructT<Moment> {
 
 type EvercityAccountStructOf<T> = EvercityAccountStructT<<T as pallet_timestamp::Trait>::Moment>;
 
+
+/// Structure, created by Emitent or Investor to receive EverUSD on her balance
+/// by paying USD to Custodian. Then Custodian confirms request, adding corresponding
+/// amount to mint request creator's balance
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct TokenMintRequestStruct<Moment> {
@@ -129,6 +133,8 @@ impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<M
 
 type TokenMintRequestStructOf<T> = TokenMintRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
 
+/// Structure, created by Emitent or Investor to burn EverUSD on her balance
+/// and receive corresponding amount of USD from Custodian. 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct TokenBurnRequestStruct<Moment> {
@@ -187,55 +193,92 @@ type BondPeriodNumber = u32;
 const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
 const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
 
+/// Inner part of BondStruct, containing parameters, related to
+/// calculation of coupon interest rate using impact data, sent to bond.
+/// This part of bond data can be configured only at BondState::PREPARE
+/// and cannot be changed when Bond Units sell process is started
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondInnerStruct<Moment, Hash> {
     // bond document hashes
+    /// Merkle root hash of general purpose documents pack of bond
     pub docs_pack_root_hash_main: Hash,
+    /// Merkle root hash of legal documents pack of bond
     pub docs_pack_root_hash_legal: Hash,
+    /// Merkle root hash of financial documents pack of bond
     pub docs_pack_root_hash_finance: Hash,
+    /// Merkle root hash of technical documents pack of bond
     pub docs_pack_root_hash_tech: Hash,
 
     // bond impact parameters
+    /// Type of data, sent to bond each payment_period.
+    /// It can be amount of power generated or CO2 emissions avoided (more types will be added)
+    /// This value affects the interest_rate calculation logic
+    /// (now all types have same linear dependency)
     pub impact_data_type: BondImpactType,
+    /// Base value Now, all types has same interest_rate calculation logic
+    /// greater the value -> lower the interest_rate and vice-versa
     pub impact_data_baseline: u64,
-    // Coupon interest regulatory options
-    pub impact_data_max_deviation_cap: u64,
-    pub impact_data_max_deviation_floor: u64,
-    // seconds before end of a period
-    // when issuer should release regular impact report
-    pub impact_data_send_period: BondPeriod,
-    // increase interest rate if impact report was missed
-    pub interest_rate_penalty_for_missed_report: BondInterest,
-    // base coupon interest rate, ppm
-    pub interest_rate_base_value: BondInterest,
-    // max coupon interest rate, ppm
-    pub interest_rate_margin_cap: BondInterest,
-    // min coupon interest rate, ppm
-    pub interest_rate_margin_floor: BondInterest,
-    // interest rate from activation up to start_period, ppm
-    pub interest_rate_start_period_value: BondInterest,
 
-    // days from activation when effective interest rate
-    // invariably equals to interest_rate_start_period_value
-    pub start_period: BondPeriod,
-    // interest rate change and payment period
-    pub payment_period: BondPeriod,
-    // seconds after every payment_period when Emitent should pay off coupon interests
+    // Coupon interest regulatory options
+    /// Cap of impact_data value (absolute value). Values more then cap
+    /// are considered equal to impact_data_max_deviation_cap
+    /// when calculating coupon interest_rate depending on impact_data
+    pub impact_data_max_deviation_cap: u64,
+    /// Floor of impact_data value (absolute value). Values less then floor
+    /// are considered equal to impact_data_max_deviation_floor
+    /// when calculating coupon interest_rate depending on impact_data
+    pub impact_data_max_deviation_floor: u64,
+    /// Amount of seconds before end of a payment_period
+    /// when Emitent should release regular impact report (confirmed by Auditor)
+    pub impact_data_send_period: BondPeriod,
+    /// Penalty, adding to interest rate when impact report was not
+    /// released during impact_data_send_period, ppm
+    pub interest_rate_penalty_for_missed_report: BondInterest,
+    /// Base coupon interest rate, ppm. All changes of interest_rate
+    /// during payment periods are based on this value, ppm
+    pub interest_rate_base_value: BondInterest,
+    /// Upper margin of interest_rate. Interest rate cannot
+    /// be more than this value, ppm
+    pub interest_rate_margin_cap: BondInterest,
+    /// Lower margin of interest_rate. Interest rate cannot
+    /// be less than this value, ppm
+    pub interest_rate_margin_floor: BondInterest,
+    /// Interest rate during the start_periodm when interest rate is constant
+    /// (from activation to first payment period), ppm
+    pub interest_rate_start_period_value: BondInterest,
+    /// Period when Emitent should pay off coupon interests, sec
     pub interest_pay_period: BondPeriod,
-    // the number of periods from active_start_date until maturity date
-    // bond maturity period = start_period + bond_duration * payment_period
+
+    /// Period from activation when effective interest rate
+    /// invariably equals to interest_rate_start_period_value, sec
+    pub start_period: BondPeriod,
+
+    /// This is "main" recalcualtion period of bond. Each payment_period:
+    ///  - impact_data is sent to bond and confirmed by Auditor (while impact_data_send_period is active)
+    ///  - coupon interest rate is recalculated for next payment_period
+    ///  - required coupon interest payment is sent to bond by Emitent (while interest_pay_period is active)
+    pub payment_period: BondPeriod,
+
+    /// The number of periods from active_start_date (when bond becomes active,
+    /// all periods and interest rate changes begin to work, funds become available for Emitent)
+    /// until maturity date (when full bond debt must be paid).
+    /// (bond maturity period = start_period + bond_duration * payment_period)
     pub bond_duration: BondPeriodNumber,
-    // seconds from maturity date until full repayment
+
+    /// Period from maturity date until full repayment.
+    /// After this period bond can be moved to BondState::BANKRUPT, sec
     pub bond_finishing_period: BondPeriod,
-    // mincap_amount bond units should be raised up to this date
-    // otherwise bond can be withdrawn by issuer
+
+    /// Minimal amount(mincap_amount) of bond units should be raised up to this date,
+    /// otherwise bond can be withdrawn by issuer back to BondState::PREPARE
     pub mincap_deadline: Moment,
-    // minimal amount of issued bond units
+    /// Minimal amount of bond units, that should be raised
     pub bond_units_mincap_amount: BondUnitAmount,
-    // maximal amount of issued bond units
+    /// Maximal amount of bond units, that can be raised durill all bond lifetime
     pub bond_units_maxcap_amount: BondUnitAmount,
-    // bond unit par value
+
+    /// Base price of Bond Unit
     pub bond_units_base_price: EverUSDBalance,
 }
 
@@ -319,19 +362,21 @@ impl PeriodDescr {
     }
 }
 
+/// Struct, accumulating per-account coupon_yield for each period num
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct AccountYield {
     coupon_yield: EverUSDBalance,
     period_num: BondPeriodNumber,
 }
 
+/// Struct, storing per-period coupon_yield and effective interest_rate for given bond
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct PeriodYield {
-    // bond cumulative accrued yield
+    /// bond cumulative accrued yield for this period
     total_yield: EverUSDBalance,
-    // bond fund to pay off coupon yield
+    /// bond fund to pay off coupon yield for this period
     coupon_yield_before: EverUSDBalance,
-    // effective interested rate
+    /// effective interest rate for current period
     interest_rate: BondInterest,
 }
 
@@ -388,35 +433,49 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
     }
 }
 
+/// Main bond struct, storing all data about given bond
+/// Consists of:
+///  - issuance-related, inner part (BondInnerStruct): financial and impact data parameters, related to issuance of bond
+///  - working part: bond state, connected accounts, raised and issued amounts, dates, etc
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
-    // bond issuer
+    /// bond issuer account
     pub emitent: AccountId,
     // #Auxiliary roles
+    /// bond manager account
     pub manager: AccountId,
+    /// bond auditor
     pub auditor: AccountId,
+    /// bond impact data reporter
     pub impact_reporter: AccountId,
 
-    // total amount of issued bond units
+    /// total amount of issued bond units
     pub issued_amount: BondUnitAmount,
 
     // #Timestamps
+    /// Moment, when bond was created first time (moved to BondState::PREPARE)
     pub creation_date: Moment,
+    /// Moment, when bond was opened for booking (moved to BondState::BOOKING)
     pub booking_start_date: Moment,
+    /// Moment, when bond became active (moved to BondState::ACTIVE)
     pub active_start_date: Moment,
-    // Bond current state
+
+    /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
 
     // #Bond ledger
-    // everusd bond fund
+    
+	/// Bond fund, keeping EverUSD sent to bond
     pub bond_debit: EverUSDBalance,
-    // issuer liabilities
+    /// Bond liabilities: amount of EverUSD bond needs to pay to Bond Units bearers
     pub bond_credit: EverUSDBalance,
+
     // free balance is difference between bond_debit and bond_credit
-    // ever-increasing coupon fund which was distributed among bondholders
-    // undistributed bond fund is equal to  (bond_debit - coupon_yield)
+    
+	/// Ever-increasing coupon fund which was distributed among bondholders.
+    /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
     coupon_yield: EverUSDBalance,
 }
 
@@ -449,12 +508,12 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
             0
         }
     }
-    /// Increase bond fund
+    /// Increase bond fund (credit + debit)
     fn increase(&mut self, amount: EverUSDBalance) {
         self.bond_credit += amount;
         self.bond_debit += amount;
     }
-    /// Decrease bond fund
+    /// Decrease bond fund (credit + debit)
     fn decrease(&mut self, amount: EverUSDBalance) {
         self.bond_credit -= amount;
         self.bond_debit -= amount;
@@ -475,15 +534,16 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
     }
 
     /// Returns  time limits of the period
-    #[allow(dead_code)]
     fn period_desc(&self, period: BondPeriodNumber) -> Option<PeriodDescr> {
         let mut iter = PeriodIterator::new(&self);
         iter.index = period;
         iter.next()
     }
 
-    #[allow(dead_code)]
-    /// Calculate coupon effective interest rate
+	// @TODO rename this method to calc_effective_interest_rate()
+    /// Calculate coupon effective interest rate using impact_data
+	/// This method moves interest_rate up and down when good or bad impact_data
+	/// is sent to bond
     fn interest_rate(&self, impact_data: u64) -> BondInterest {
         let inner = &self.inner;
 
@@ -552,19 +612,24 @@ macro_rules! ensure_active {
     };
 }
 
-/// Bondholder's bond units on hand
+/// Pack of bond units, bought at given time, belonging to given Bearer
+/// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondUnitPackage<Moment> {
-    // amount of bond units
+    /// amount of bond units
     bond_units: BondUnitAmount,
-    // acquisition date as seconds after start date
+    /// acquisition moment (seconds after bond start date)
     acquisition: BondPeriod,
-    // paid coupon yield
+    /// paid coupon yield
     coupon_yield: EverUSDBalance,
+	/// moment of creation
     create_date: Moment,
 }
 type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
 
+/// Struct with impact_data sent to bond. In the future can become
+/// more complicated for other types of impact_data and processing logic. 
+/// Field "signed" is set to true by Auditor, when impact_data is verified.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct BondImpactReportStruct<Moment> {
@@ -574,13 +639,19 @@ pub struct BondImpactReportStruct<Moment> {
 }
 
 type BondImpactReportStructOf<T> = BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
-
+/// Struct, representing pack of bond units for sale
+/// Can include target bearer (to sell bond units only to given person)
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct BondUnitSaleLotStruct<AccountId, Moment> {
+    /// Sale lot is available for buy only before this deadline
     deadline: Moment,
+    /// If set (can be empty) - then buying of this lot is possible
+    /// only for new_bondholder
     new_bondholder: AccountId,
+    /// Amount of bond units to sell
     bond_units: BondUnitAmount,
+    /// Total price of this lot
     amount: EverUSDBalance,
 }
 
@@ -599,67 +670,60 @@ type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
 
 decl_storage! {
     trait Store for Module<T: Trait> as Evercity {
+        /// Storage map for accounts, their roles and corresponding info
         AccountRegistry
             get(fn account_registry)
             config(genesis_account_registry):
             map hasher(blake2_128_concat) T::AccountId => EvercityAccountStructOf<T>; //roles, identities, balances
 
-        // Token balances storages.
-        // Evercity tokens cannot be transferred
-        // Only mint/burn by Custodian accounts, invested/redeemed by Investor, paid by Emitent, etc...
+        /// Total supply of EverUSD token. Sum of all token balances in system
         TotalSupplyEverUSD
             get(fn total_supply_everusd):
             EverUSDBalance; // total supply of EverUSD token (u64)
 
+        /// Storage map for EverUSD token balances
         BalanceEverUSD
             get(fn balances_everusd):
             map hasher(blake2_128_concat) T::AccountId => EverUSDBalance;
 
-        // Structure, created by Emitent or Investor to receive EverUSD on her balance
-        // She pays USD to Custodian and Custodian confirms request, adding corresponding
-        // amount to mint request creator's balance
+        /// Storage map for EverUSD token mint requests (see TokenMintRequestStruct)
         MintRequestEverUSD
             get(fn mint_request_everusd):
                 map hasher(blake2_128_concat) T::AccountId => TokenMintRequestStructOf<T>;
 
-        // Same as MintRequest, but for burning EverUSD tokens, paying to creator in USD
-        // In future these actions can require different data, so it's separate structure
-        // than mint request
+        /// Storage map for EverUSD token burn requests (see TokenBurnRequestStruct)
         BurnRequestEverUSD
             get(fn burn_request_everusd):
                 map hasher(blake2_128_concat) T::AccountId => TokenBurnRequestStructOf<T>;
 
-        // Structure for storing bonds
+        /// Structure for storing all platform bonds.
+        /// BondId is now a ticker [u8; 8]: 8-bytes unique identifier like "MUSKPWR1" or "WINDGEN2" 
         BondRegistry
             get(fn bond_registry):
                 map hasher(blake2_128_concat) BondId => BondStructOf<T>;
 
-        // Bearer's Bond units
+        /// Investor's Bond units (packs of bond_units, received at the same time, belonging to Investor)
         BondUnitPackageRegistry
             get(fn bond_unit_registry):
                 double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitPackageOf<T>>;
 
-        // Bond coupon yield storage
-        // Every element has total bond yield of passed period recorded on accrual basis
+        /// Bond coupon yield storage
+        /// Every element has total bond yield of passed period recorded on accrual basis
         BondCouponYield
             get(fn bond_coupon_yield):
                 map hasher(blake2_128_concat) BondId=>Vec<PeriodYield>;
 
-        // Contains last requested by a bondholder period and bond fund value
+        /// Bondholder's last requested coupon yield for given period and bond
         BondLastCouponYield
             get(fn bond_last_coupon_yield):
                 double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => AccountYield;
 
-        // BondBalance
-        //     get(fn bond_balance):
-        //         map hasher(blake2_128_concat) BondId=>BondBalance;
-
-        // Bond sale lots
+        /// Bond sale lots for each bond
         BondUnitPackageLot
             get(fn bond_unit_lots):
                 double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitSaleLotStructOf<T>>;
 
-        // Bond impact report storage
+        /// Bond impact report storage
         BondImpactReport
             get(fn impact_reports):
                 map hasher(blake2_128_concat) BondId => Vec<BondImpactReportStructOf<T>>;
@@ -674,7 +738,6 @@ decl_event!(
     {
         /// Event documentation should end with an array that provides descriptive names for event
         /// parameters. [something, who]
-        // [TODO] document events
 
         // 1: author, 2: newly added account, 3: role, 4: identity
         AccountAdd(AccountId, AccountId, u8, u64),
@@ -685,6 +748,8 @@ decl_event!(
         // 1: author, 2: disabled account
         AccountDisable(AccountId, AccountId),
 
+        // @TODO document events and add many corresponding 
+        // data for each Event for syschronization service
         MintRequestCreated(AccountId, EverUSDBalance),
         MintRequestRevoked(AccountId, EverUSDBalance),
         MintRequestConfirmed(AccountId, EverUSDBalance),
@@ -722,19 +787,20 @@ decl_event!(
 decl_error! {
     pub enum Error for Module<T: Trait> {
         NoneValue,
-        /// Account tried to use more EverUSD  than was available on the balance
+
+        /// Account tried to use more EverUSD than was available on the balance
         BalanceOverdraft,
 
-        /// Account was already added and present in mapping
+        /// Account was already added and present in AccountRegistry
         AccountToAddAlreadyExists,
 
-        /// Account not authorized
+        /// Account not authorized(doesn't have a needed role, or doesnt present in AccountRegistry at all)
         AccountNotAuthorized,
 
-        /// Account does not exist
+        /// Account does not exist in AccountRegistry
         AccountNotExist,
 
-        /// Account parameters are invalid
+        /// Role parameter is invalid (bit mask of available roles includes non-existent role)
         AccountRoleParamIncorrect,
 
         /// Account already created one mint request, only one allowed at a time(to be changed in future)
@@ -759,13 +825,14 @@ decl_error! {
         /// Every bond on the platform has unique BondId: 8 bytes, like "MUSKPWR1" or "SOLGEN02"
         BondAlreadyExists,
 
-        /// Incorrect bond data
+        /// Incorrect bond parameters (many different cases)
+        // @TODO refactor this error to make it more descriptive in different cases
         BondParamIncorrect,
 
         /// Incorrect bond ticker provided or bond has been revoked
         BondNotFound,
 
-        /// Bond access rules do not permit the requested action
+        /// Requested action in bond is not permitted for this account
         BondAccessDenied,
 
         /// Current bond state doesn't permit the requested action
@@ -788,14 +855,16 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        /// Account management functions
+        // Account management functions
 
         /// Method: account_disable(who: AccountId)
-        /// Arguments: who: AccountId
+        /// Arguments: origin: AccountId - transaction caller
+        ///            who: AccountId - account to disable  
         /// Access: Master role
         ///
-        /// Disables access to platform. Disable all roles, account is not allowed to perform any actions
-        /// but still have her data in blockchain (to not loose related entities)
+        /// Disables all roles of account, setting roles bitmask to 0. 
+        /// Accounts are not allowed to perform any actions without role,
+        /// but still have its data in blockchain (to not loose related entities)
         #[weight = 10_000]
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -811,10 +880,15 @@ decl_module! {
         }
 
         /// Method: account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - id of account to add to accounts registry of platform
+        ///             role: u8 - role(s) of account (see ALL_ROLES_MASK for allowed roles)
+        ///             identity: u64 - reserved field for integration with external platforms
         /// Access: Master role
         ///
-        /// Adds new master account
-        /// Access: only accounts with Master role
+        /// Adds new account with given role(s). Roles are set as bitmask. Contains parameter
+        /// "identity", planned to use in the future to connect accounts with external services like
+        /// KYC providers
         #[weight = 10_000]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -834,11 +908,13 @@ decl_module! {
         }
 
         /// Method: account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64)
-        /// Arguments: who: AccountId, <account parameters(to be changed in future)>
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - account to modify
+        ///             role: u8 - role(s) of account (see ALL_ROLES_MASK for allowed roles)
+        ///             identity: u64 - reserved field for integration with external platforms
         /// Access: Master role
         ///
-        /// Adds new master account or modifies existing, adding Master role rights
-        /// Access: only accounts with Master role
+        /// Modifies existing account, assigning new role(s) or identity to it
         #[weight = 10_000]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -856,7 +932,15 @@ decl_module! {
 
         // Token balances manipulation functions
 
-        /// Creates mint request to mint given amount of tokens on address of caller(emitent or investor)
+        /// Method: token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             amount_to_mint: EverUSDBalance - amount of tokens to mint 
+        /// Access: Investor or Emitent role
+        ///
+        /// Creates a request to mint given amount of EverUSD tokens on caller's balance.
+        /// Custodian account confirms request after receiving payment in USD from target account's owner 
+        /// It's possible to create only one request per account. Mint request has a time-to-live
+        /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -876,6 +960,11 @@ decl_module! {
             Ok(())
         }
 
+        /// Method: token_mint_request_revoke_everusd(origin)
+        /// Arguments: origin: AccountId - transaction caller
+        /// Access: Investor or Emitent role
+        ///
+        /// Revokes and deletes currently existing mint request, created by caller's account
         #[weight = 5_000]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -886,7 +975,16 @@ decl_module! {
             Ok(())
         }
 
-        /// Token balances manipulation functions
+        /// Method: token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - target account
+        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian 
+        /// Access: Custodian role
+        ///
+        /// Confirms the mint request of account, creating "amount" of tokens on its balance.
+        /// (note) Amount of tokens is sent as parameter to avoid data race problem, when 
+        /// Custodian can confirm unwanted amount of tokens, because attacker is modified mint request
+        /// while Custodian makes a decision
         #[weight = 15_000]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -913,6 +1011,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Method: token_mint_request_decline_everusd(origin, who: T::AccountId)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - target account
+        /// Access: Custodian role
+        ///
+        /// Declines and deletes the mint request of account (Custodian)
         #[weight = 5_000]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -924,8 +1028,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Burn tokens
-        /// Creates mint request to mint given amount of tokens on address of caller(emitent or investor)
+        /// Method: token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             amount_to_burn: EverUSDBalance - amount of tokens to burn
+        /// Access: Investor or Emitent role
+        ///
+        /// Creates a request to burn given amount of EverUSD tokens on caller's balance.
+        /// Custodian account confirms request after sending payment in USD to target account's owner 
+        /// It's possible to create only one request per account. Burn request has a time-to-live
+        /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -947,6 +1058,11 @@ decl_module! {
             Ok(())
         }
 
+        /// Method: token_burn_request_revoke_everusd(origin)
+        /// Arguments: origin: AccountId - transaction caller
+        /// Access: Investor or Emitent role
+        ///
+        /// Revokes and deletes currently existing burn request, created by caller's account
         #[weight = 5_000]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -957,7 +1073,13 @@ decl_module! {
             Ok(())
         }
 
-        /// Token balances manipulation functions
+        /// Method: token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - target account
+        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian 
+        /// Access: Custodian role
+        ///
+        /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
         #[weight = 15_000]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -982,6 +1104,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Method: token_burn_request_decline_everusd(origin, who: T::AccountId)
+        /// Arguments:  origin: AccountId - transaction caller
+        ///             who: AccountId - target account
+        /// Access: Custodian role
+        ///
+        /// Declines and deletes the burn request of account (Custodian)
         #[weight = 5_000]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let _caller = ensure_signed(origin)?;
@@ -999,9 +1127,12 @@ decl_module! {
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            body: BondInnerStruct
+        /// Access: Emitent role
         ///
-        /// Create new bond.
-        /// Access: only accounts with Emitent role
+        /// Creates new bond with given BondId (8 bytes) and pack of parameters, set by BondInnerStruct.
+        /// Bond is created in BondState::PREPARE, and can be modified many times until it becomes ready
+        /// for next BondState::BOOKING, when most of BondInnerStruct parameters cannot be changed, and
+        /// Investors can buy bond units
         #[weight = 20_000]
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1035,10 +1166,12 @@ decl_module! {
         /// Method: bond_set_auditor(origin, bond: BondId, acc: T::AccountId)
         /// Arguments: origin: AccountId - transaction caller, assigner
         ///            bond: BondId - bond identifier
-        ///            acc: AccountId - assignee
+        ///            acc: AccountId - assignee account
+        /// Access: Master role
         ///
-        /// Assigns manager to the bond
-        /// Access: only accounts with Master role
+        /// Assigns target account to be the manager of the bond. Manager can make
+        /// almost the same actions with bond as Emitent, instead of most important,
+        /// helping Emitent to manage bond parameters, work with documents, etc...
         #[weight = 5_000]
         fn bond_set_manager(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1061,9 +1194,10 @@ decl_module! {
         /// Arguments: origin: AccountId - transaction caller, assigner
         ///            bond: BondId - bond identifier
         ///            acc: AccountId - assignee
+        /// Access: Master role
         ///
-        /// Assigns auditor to the bond
-        /// Access: only accounts with Master role
+        /// Assigns target account to be the auditor of the bond. Auditor confirms
+        /// impact data coming in bond, and performs other verification-related actions
         #[weight = 5_000]
         fn bond_set_auditor(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
