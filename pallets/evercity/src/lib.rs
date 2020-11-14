@@ -94,7 +94,7 @@ pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
 
 pub const TOKEN_BURN_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
 pub const TOKEN_MINT_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
-const INTEREST_RATE_YEAR: u64 = 3_153_600;
+const INTEREST_RATE_YEAR: u64 = 365;
 const MAX_PURGE_REQUESTS: usize = 100;
 
 /// Evercity project types
@@ -371,11 +371,11 @@ struct PeriodDescr {
 impl PeriodDescr {
     fn duration(&self, moment: BondPeriod) -> BondPeriod {
         if moment <= self.start_period {
-            self.payment_period - self.start_period
+            (self.payment_period - self.start_period) / DAY_DURATION
         } else if moment >= self.payment_period {
             0
         } else {
-            (self.payment_period - moment) / DAY_DURATION * DAY_DURATION
+            (self.payment_period - moment) / DAY_DURATION
         }
     }
 }
@@ -644,6 +644,7 @@ pub struct BondUnitPackage<Moment> {
 	/// moment of creation
     create_date: Moment,
 }
+
 type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
 
 /// Struct with impact_data sent to bond. In the future can become
@@ -1636,16 +1637,14 @@ decl_module! {
                 if amount <= item.bond_debit {
                     // withdraw free balance
                     Self::balance_add(&item.emitent, item.bond_debit - amount)?;
-                    item.bond_debit = amount;
                 }else{
                     let transfer = amount - item.bond_debit;
                     // pay off debt
                     Self::balance_sub(&item.emitent, transfer)?;
-                    item.bond_debit+=transfer;
-                    item.state = BondState::FINISHED;
                 }
-                item.bond_credit = amount;
-                item.coupon_yield = amount;
+                item.bond_credit = 0;
+                //item.coupon_yield = amount;
+                item.bond_debit = amount;
                 item.state = BondState::FINISHED;
 
                 Self::deposit_event(RawEvent::BondRedeemed(caller, bond ));
@@ -2161,6 +2160,10 @@ impl<T: Trait> Module<T> {
                 )
             };
 
+            let package_yield = bond.inner.bond_units_base_price / 1000
+                * interest_rate as EverUSDBalance
+                / INTEREST_RATE_YEAR;
+
             // calculate yield for period equal to bond_yields.len()
             let period_coupon_yield: EverUSDBalance =
                 match bond.period_desc(index as BondPeriodNumber) {
@@ -2173,13 +2176,11 @@ impl<T: Trait> Module<T> {
                                     .iter()
                                     .map(|package| {
                                         // @TODO use checked arithmetics
-                                        package.bond_units as EverUSDBalance
-                                            * bond.inner.bond_units_base_price
-                                            / 1000000_u64
+                                        package_yield
+                                            * package.bond_units as EverUSDBalance
                                             * period_desc.duration(package.acquisition)
                                                 as EverUSDBalance
-                                            / INTEREST_RATE_YEAR
-                                            * interest_rate as EverUSDBalance
+                                            / 100
                                     })
                                     .sum::<EverUSDBalance>()
                             })
@@ -2218,39 +2219,43 @@ impl<T: Trait> Module<T> {
         bondholder: &T::AccountId,
     ) -> EverUSDBalance {
         let packages = BondUnitPackageRegistry::<T>::take(id, &bondholder);
-        let bond_units = packages.iter().map(|package| package.bond_units).sum();
 
         let bond_yields = BondCouponYield::get(id);
         assert!(!bond_yields.is_empty());
         // calc coupon yield
-        let mut total: EverUSDBalance = bond_yields
+        let mut payable: EverUSDBalance = bond_yields
             .iter()
             .enumerate()
             .map(|(i, bond_yield)| {
                 let period_desc = bond.period_desc(i as BondPeriodNumber).unwrap();
+                let package_yield = bond.inner.bond_units_base_price / 1000
+                    * bond_yield.interest_rate as EverUSDBalance
+                    / INTEREST_RATE_YEAR;
                 packages
                     .iter()
                     .map(|package| {
-                        package.bond_units as EverUSDBalance * bond.inner.bond_units_base_price
-                            / 1000000_u64
+                        package_yield
+                            * package.bond_units as EverUSDBalance
                             * period_desc.duration(package.acquisition) as EverUSDBalance
-                            / INTEREST_RATE_YEAR
-                            * bond_yield.interest_rate as EverUSDBalance
+                            / 100
                     })
                     .sum::<EverUSDBalance>()
             })
             .sum::<EverUSDBalance>();
+
+        let (bond_units, paid_yield): (BondUnitAmount, EverUSDBalance) =
+            packages.iter().fold((0, 0), |acc, package| {
+                (acc.0 + package.bond_units, acc.1 + package.coupon_yield)
+            });
         // substrate paid coupon
-        total -= packages
-            .iter()
-            .map(|package| package.coupon_yield)
-            .sum::<EverUSDBalance>();
+        payable -= paid_yield;
         // add principal value
-        total += bond.par_value(bond_units);
+        payable += bond.par_value(bond_units);
+        bond.coupon_yield += payable;
 
-        Self::balance_add(bondholder, total).unwrap();
+        Self::balance_add(bondholder, payable).unwrap();
 
-        total
+        payable
     }
 
     ///
@@ -2276,13 +2281,14 @@ impl<T: Trait> Module<T> {
             // no more accrued coupon yield
             return 0;
         }
-        let mut coupon_yield = 0;
+        let mut payable = 0;
+
         for (i, bond_yield) in bond_yields
             .iter()
             .enumerate()
             .skip(last_bondholder_coupon_yield.period_num as usize)
         {
-            let new_coupon_yield = if i == bond_yields.len() - 1 {
+            let instalment = if i == bond_yields.len() - 1 {
                 current_coupon_yield - last_bondholder_coupon_yield.coupon_yield
             } else {
                 let cy = last_bondholder_coupon_yield.coupon_yield;
@@ -2290,41 +2296,46 @@ impl<T: Trait> Module<T> {
                 bond_yields[i + 1].total_yield - cy
             };
 
-            if new_coupon_yield > 0 {
+            let package_yield = bond.inner.bond_units_base_price / 1000
+                * bond_yield.interest_rate as EverUSDBalance
+                / INTEREST_RATE_YEAR;
+
+            if instalment > 0 {
                 let period_desc = bond.period_desc(i as BondPeriodNumber).unwrap();
-                let total_yield = bond_yield.total_yield
+                let accrued_yield = bond_yield.total_yield
                     - if i == 0 {
                         0
                     } else {
                         bond_yields[i - 1].total_yield
                     };
 
-                assert!(new_coupon_yield <= total_yield);
+                assert!(instalment <= accrued_yield);
 
                 BondUnitPackageRegistry::<T>::mutate(id, &bondholder, |packages| {
                     for package in packages.iter_mut() {
-                        let t = package.bond_units as EverUSDBalance
-                            * bond.inner.bond_units_base_price
-                            / 1000000_u64
+                        let accrued = package_yield
+                            * package.bond_units as EverUSDBalance
                             * period_desc.duration(package.acquisition) as EverUSDBalance
-                            / INTEREST_RATE_YEAR
-                            * bond_yield.interest_rate as EverUSDBalance;
+                            / 100;
 
-                        let package_coupon_yield =
-                            new_coupon_yield as u128 * t as u128 / total_yield as u128;
-                        coupon_yield += package_coupon_yield as u64;
-
-                        package.coupon_yield += package_coupon_yield as u64;
+                        let package_coupon_yield = if instalment == accrued_yield {
+                            accrued
+                        } else {
+                            (instalment as u128 * accrued as u128 / accrued_yield as u128) as u64
+                        };
+                        payable += package_coupon_yield;
+                        package.coupon_yield += package_coupon_yield;
+                        assert!(package.coupon_yield <= accrued);
                     }
                 });
             }
         }
-        bond.coupon_yield += coupon_yield;
+        bond.coupon_yield += payable;
         last_bondholder_coupon_yield.period_num = (bond_yields.len() - 1) as BondPeriodNumber;
 
         BondLastCouponYield::<T>::insert(id, &bondholder, last_bondholder_coupon_yield);
-        Self::balance_add(bondholder, coupon_yield).unwrap();
-        coupon_yield
+        Self::balance_add(bondholder, payable).unwrap();
+        payable
     }
 
     /// Returns effective coupon interest rate for `period`
