@@ -1127,8 +1127,7 @@ fn bond_calc_coupon_yield_basic() {
             bond_yields[0].interest_rate,
             chain_bond_item.inner.interest_rate_start_period_value
         );
-        assert_eq!(bond_yields[0].total_yield, 29983561640400);
-        // 29982 = 4000(price) * (600+600)(count) * 120(days) / 365 * 1900(interest)/100000
+        assert_eq!(bond_yields[0].total_yield, 29_983_561_643_520);
 
         assert_eq!(
             bond_yields[1].interest_rate,
@@ -1137,8 +1136,7 @@ fn bond_calc_coupon_yield_basic() {
                     .inner
                     .interest_rate_penalty_for_missed_report
         );
-        assert_eq!(bond_yields[1].total_yield, 39057534239800);
-        // 9072 = 4000 * (600) * 30 / 365 * (1900+400)/100000  x 2
+        assert_eq!(bond_yields[1].total_yield, 39_057_534_246_240);
     });
 }
 
@@ -1371,8 +1369,8 @@ fn bond_calc_redeemed_yield() {
             125_000_000_000_000
         );
         assert_eq!(yield1, yield2);
-        assert_eq!(yield1, 62_334_246_556_200);
-        assert_eq!(Evercity::balance_everusd(&ACCOUNT), 331_506_887_600);
+        assert_eq!(yield1, 62_334_246_574_800);
+        assert_eq!(Evercity::balance_everusd(&ACCOUNT), 331_506_850_400);
 
         assert_eq!(chain_bond_item.state, BondState::FINISHED);
         // @TODO descrees credit on redemption
@@ -2448,13 +2446,13 @@ fn bond_deposit_bond() {
             bondid
         ));
         let chain_bond_item = Evercity::get_bond(&bondid);
-        assert_eq!(chain_bond_item.coupon_yield, 14_991_780_820_200);
+        assert_eq!(chain_bond_item.coupon_yield, 14_991_780_821_760);
         assert_eq!(chain_bond_item.get_debt(), 0);
         // 1.9 % - (600 + 600) x 4000 usd - 120 days
-        assert_eq!(chain_bond_item.bond_credit, 29_983_561_640_400);
+        assert_eq!(chain_bond_item.bond_credit, 29_983_561_643_520);
         assert_eq!(
             chain_bond_item.get_free_balance(),
-            100_000_000_000_000 - 29_983_561_640_400
+            100_000_000_000_000 - 29_983_561_643_520
         );
         assert!(Evercity::everusd_ledger().is_ok());
     });
@@ -2635,7 +2633,7 @@ fn bond_lot_paid_coupon() {
         // @TODO calc coupon yield
         assert_eq!(
             Evercity::balance_everusd(&INVESTOR1) - balance1,
-            400 * 3_000_000_000_000 + 22_487_671_230_300
+            400 * 3_000_000_000_000 + 22_487_671_232_640
         );
     });
 }
