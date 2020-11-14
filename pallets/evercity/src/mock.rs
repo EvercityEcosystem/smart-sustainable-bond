@@ -1,4 +1,4 @@
-use crate::{EvercityAccountStructT, Trait};
+use crate::{BondInnerStructOf, BondStructOf, EvercityAccountStructT, Trait, DAY_DURATION};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -167,7 +167,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (
                 7,
                 EvercityAccountStructT::<u64> {
-                    roles: crate::EMITENT_ROLE_MASK,
+                    roles: crate::EMITENT_ROLE_MASK | crate::INVESTOR_ROLE_MASK,
                     identity: 70u64,
                     create_time: 0,
                 },
@@ -187,4 +187,55 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .unwrap();
 
     t.into()
+}
+
+type BondInnerStruct = BondInnerStructOf<TestRuntime>;
+type BondStruct = BondStructOf<TestRuntime>;
+
+pub fn get_test_bond() -> BondStruct {
+    BondStruct {
+        inner: BondInnerStruct {
+            docs_pack_root_hash_main: Default::default(),
+            docs_pack_root_hash_legal: Default::default(),
+            docs_pack_root_hash_finance: Default::default(),
+            docs_pack_root_hash_tech: Default::default(),
+
+            impact_data_type: Default::default(),
+            impact_data_baseline: 20000_u64,
+            impact_data_max_deviation_cap: 30000_u64,
+            impact_data_max_deviation_floor: 14000_u64,
+            interest_rate_penalty_for_missed_report: 400, //0.4%
+
+            interest_rate_base_value: 2000,   // 2.0%
+            interest_rate_margin_cap: 4000,   // 4.0%
+            interest_rate_margin_floor: 1000, //1%
+            interest_rate_start_period_value: 1900,
+            start_period: 120 * DAY_DURATION,
+            payment_period: 30 * DAY_DURATION,     // every month
+            interest_pay_period: 7 * DAY_DURATION, // up to 7 days after the new period started
+            mincap_deadline: (20 * DAY_DURATION * 1000) as u64,
+            impact_data_send_period: 10 * DAY_DURATION, // 10 days before next period
+            bond_duration: 12,                          //
+            bond_finishing_period: 14 * DAY_DURATION,
+
+            bond_units_mincap_amount: 1000,
+            bond_units_maxcap_amount: 1800,
+            bond_units_base_price: 4_000_000_000_000,
+        },
+
+        emitent: 0,
+        manager: 0,
+        auditor: 0,
+        impact_reporter: 0,
+
+        issued_amount: 0,
+        booking_start_date: Default::default(),
+        active_start_date: Default::default(),
+        creation_date: Default::default(),
+        state: Default::default(),
+
+        bond_debit: 0,
+        bond_credit: 0,
+        coupon_yield: 0,
+    }
 }
