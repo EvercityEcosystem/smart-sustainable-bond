@@ -103,6 +103,23 @@ const MAX_PURGE_REQUESTS: usize = 100;
 
 pub type EverUSDBalance = u64;
 
+#[cfg(test)]
+#[derive(Debug)]
+pub struct EvercityLedger {
+    // custodian emitted
+    supply: EverUSDBalance,
+    // account balance
+    account: EverUSDBalance,
+    // bond fund balance
+    bond_fund: EverUSDBalance,
+}
+
+#[cfg(test)]
+impl EvercityLedger {
+    pub fn is_ok(&self) -> bool {
+        self.supply == self.account + self.bond_fund
+    }
+}
 /// Structures, specific for each role
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
@@ -319,6 +336,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && is_period_multiple_of_day(self.start_period)
             && is_period_multiple_of_day(self.impact_data_send_period)
             && is_period_multiple_of_day(self.bond_finishing_period)
+            && is_period_multiple_of_day(self.interest_pay_period)
             && (self.start_period == 0 || self.start_period >= self.payment_period)
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
@@ -614,6 +632,7 @@ macro_rules! ensure_active {
 
 /// Pack of bond units, bought at given time, belonging to given Bearer
 /// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
+/// Bond units that bondholder acquire
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondUnitPackage<Moment> {
     /// amount of bond units
@@ -788,7 +807,7 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         NoneValue,
 
-        /// Account tried to use more EverUSD than was available on the balance
+        /// Account tried to use more EverUSD  than was available on the balance
         BalanceOverdraft,
 
         /// Account was already added and present in AccountRegistry
@@ -1577,8 +1596,13 @@ decl_module! {
 
             let index: usize = period as usize;
             BondImpactReport::<T>::try_mutate(&bond, |reports|->DispatchResult {
-                ensure!(index < reports.len() && !reports[index].signed, Error::<T>::BondParamIncorrect );
-                ensure!(reports[index].impact_data == impact_data, Error::<T>::BondParamIncorrect );
+
+                ensure!(index < reports.len(), Error::<T>::BondParamIncorrect );
+                let report = &reports[index];
+                ensure!(report.create_date > 0.into() , Error::<T>::BondParamIncorrect);
+                ensure!(!report.signed && report.impact_data == impact_data,
+                 Error::<T>::BondParamIncorrect
+                );
 
                 reports[index].signed = true;
 
@@ -1603,12 +1627,11 @@ decl_module! {
 
                 match item.time_passed_after_activation(now){
                     Some((_, period))  if period == item.get_periods() => (),
-                    _ => return Err( Error::<T>::AccountNotAuthorized.into() ),
+                    _ => return Err( Error::<T>::BondOutOfOrder.into() ),
                 };
 
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                // now bond_credit has total coupon yield
-                // YTM = coupon yield + principal value
+                // now bond_credit has  YTM ( yield to mature )
                 let amount = item.bond_credit + item.par_value( item.issued_amount ) ;
                 if amount <= item.bond_debit {
                     // withdraw free balance
@@ -1622,6 +1645,7 @@ decl_module! {
                     item.state = BondState::FINISHED;
                 }
                 item.bond_credit = amount;
+                item.coupon_yield = amount;
                 item.state = BondState::FINISHED;
 
                 Self::deposit_event(RawEvent::BondRedeemed(caller, bond ));
@@ -1777,15 +1801,19 @@ decl_module! {
         #[weight = 5_000]
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(!lot.is_expired(now), Error::<T>::BondParamIncorrect);
+
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
             // how many bond units does the caller have
             let total_bond_units: BondUnitAmount = packages.iter()
             .map(|package| package.bond_units)
             .sum();
 
-            ensure!(total_bond_units>=lot.bond_units, Error::<T>::BondParamIncorrect );
 
-            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(total_bond_units>=lot.bond_units && lot.bond_units>0, Error::<T>::BondParamIncorrect );
+
+
             // all lots of the caller.
             let mut lots: Vec<_> = BondUnitPackageLot::<T>::get(&bond, &caller);
             // purge expired lots
@@ -1832,7 +1860,7 @@ decl_module! {
                         // purge expired lots
                         lots.retain( |item| !item.is_expired( now ) );
                      }
-
+                     // @TODO optimize out access to balances
                      BondRegistry::<T>::mutate(bond, |mut item|{
                         Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
                         Self::request_coupon_yield(&bond, &mut item, &bondholder);
@@ -1877,7 +1905,7 @@ decl_module! {
                      from_packages.shrink_to_fit();
                      // store new packages
                      BondUnitPackageRegistry::<T>::insert(&bond, &bondholder, from_packages);
-                     BondUnitPackageRegistry::<T>::insert(&bond, &bondholder, to_packages);
+                     BondUnitPackageRegistry::<T>::insert(&bond, &caller, to_packages);
 
                      // pay off deal
                      Self::balance_sub(&caller, lot.amount)?;
@@ -1992,8 +2020,31 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    pub fn bond_packages(bond: &BondId, bondholder: &T::AccountId) -> Vec<BondUnitPackageOf<T>> {
+    pub fn bond_holder_packages(
+        bond: &BondId,
+        bondholder: &T::AccountId,
+    ) -> Vec<BondUnitPackageOf<T>> {
         BondUnitPackageRegistry::<T>::get(bond, bondholder)
+    }
+
+    #[cfg(test)]
+    pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStructOf<T>> {
+        BondImpactReport::<T>::get(bond)
+    }
+
+    #[allow(dead_code)]
+    fn purge_expired_bondunit_lots(_before: T::Moment) {
+        //@TODO remove or implement
+    }
+
+    #[cfg(test)]
+    fn bond_packages(
+        id: &BondId,
+    ) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackageOf<T>>>
+    where
+        <T as frame_system::Trait>::AccountId: std::hash::Hash,
+    {
+        BondUnitPackageRegistry::<T>::iter_prefix(id).collect()
     }
 
     /// Same as BondRegistry::<T>::mutate(bond, f).
@@ -2060,9 +2111,6 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    #[allow(dead_code)]
-    fn purge_expired_bondunit_lots(_before: T::Moment) {}
-
     #[cfg(test)]
     fn get_coupon_yields(id: &BondId) -> Vec<PeriodYield> {
         BondCouponYield::get(id)
@@ -2096,15 +2144,26 @@ impl<T: Trait> Module<T> {
 
         // @TODO refactor. use `mutate` method instead  of get+insert
         let reports = BondImpactReport::<T>::get(id);
-        assert!(reports.len() >= period);
-        // interest rate.
-        // @TODO optimize calculation by using cached value stored in bond_yield struct
-        let mut interest_rate = Self::calc_bond_interest_rate(bond, &reports, bond_yields.len());
+        assert!(reports.len() + 1 >= period);
 
         while bond_yields.len() < period {
+            // index - accrued period number
+            let index = bond_yields.len();
+            let interest_rate = if index == 0 {
+                bond.inner.interest_rate_start_period_value
+            } else if reports[index - 1].signed {
+                bond.interest_rate(reports[index - 1].impact_data)
+            } else {
+                min(
+                    bond_yields[index - 1].interest_rate
+                        + bond.inner.interest_rate_penalty_for_missed_report,
+                    bond.inner.interest_rate_margin_cap,
+                )
+            };
+
             // calculate yield for period equal to bond_yields.len()
             let period_coupon_yield: EverUSDBalance =
-                match bond.period_desc(bond_yields.len() as BondPeriodNumber) {
+                match bond.period_desc(index as BondPeriodNumber) {
                     Some(period_desc) => {
                         // for every bond bondholder
                         BondUnitPackageRegistry::<T>::iter_prefix(id)
@@ -2139,17 +2198,6 @@ impl<T: Trait> Module<T> {
                 coupon_yield_before: coupon_yield,
                 interest_rate,
             });
-
-            let report: &BondImpactReportStructOf<T> = &reports[bond_yields.len()];
-            interest_rate = if report.signed {
-                bond.interest_rate(report.impact_data)
-            } else {
-                // if report missed add penalty rate value to the interest rate value of the previous period
-                min(
-                    bond.inner.interest_rate_margin_cap,
-                    interest_rate + bond.inner.interest_rate_penalty_for_missed_report,
-                )
-            };
         }
         // save current liability in bond_credit field
         bond.bond_credit = total_yield;
@@ -2174,7 +2222,7 @@ impl<T: Trait> Module<T> {
 
         let bond_yields = BondCouponYield::get(id);
         assert!(!bond_yields.is_empty());
-        // calc coupon
+        // calc coupon yield
         let mut total: EverUSDBalance = bond_yields
             .iter()
             .enumerate()
@@ -2199,6 +2247,7 @@ impl<T: Trait> Module<T> {
             .sum::<EverUSDBalance>();
         // add principal value
         total += bond.par_value(bond_units);
+
         Self::balance_add(bondholder, total).unwrap();
 
         total
@@ -2261,10 +2310,11 @@ impl<T: Trait> Module<T> {
                             / INTEREST_RATE_YEAR
                             * bond_yield.interest_rate as EverUSDBalance;
 
-                        let package_coupon_yield = new_coupon_yield * t / total_yield;
-                        coupon_yield += package_coupon_yield;
+                        let package_coupon_yield =
+                            new_coupon_yield as u128 * t as u128 / total_yield as u128;
+                        coupon_yield += package_coupon_yield as u64;
 
-                        package.coupon_yield += package_coupon_yield;
+                        package.coupon_yield += package_coupon_yield as u64;
                     }
                 });
             }
@@ -2273,12 +2323,13 @@ impl<T: Trait> Module<T> {
         last_bondholder_coupon_yield.period_num = (bond_yields.len() - 1) as BondPeriodNumber;
 
         BondLastCouponYield::<T>::insert(id, &bondholder, last_bondholder_coupon_yield);
-
+        Self::balance_add(bondholder, coupon_yield).unwrap();
         coupon_yield
     }
 
     /// Returns effective coupon interest rate for `period`
     /// common complexity O(1), O(N) in worst case then no reports was released
+    #[cfg(test)]
     pub fn calc_bond_interest_rate(
         bond: &BondStructOf<T>,
         reports: &[BondImpactReportStructOf<T>],
@@ -2328,8 +2379,23 @@ impl<T: Trait> Module<T> {
 
             reports[index].signed = true;
             reports[index].impact_data = impact_data;
+            reports[index].create_date = <pallet_timestamp::Module<T>>::get();
 
             Ok(())
         })
+    }
+
+    #[cfg(test)]
+    fn everusd_ledger() -> EvercityLedger {
+        let account: EverUSDBalance = BalanceEverUSD::<T>::iter_values().sum();
+        let bond_fund: EverUSDBalance = BondRegistry::<T>::iter_values()
+            .map(|bond| bond.bond_debit - bond.coupon_yield)
+            .sum();
+
+        EvercityLedger {
+            supply: TotalSupplyEverUSD::get(),
+            account,
+            bond_fund,
+        }
     }
 }
