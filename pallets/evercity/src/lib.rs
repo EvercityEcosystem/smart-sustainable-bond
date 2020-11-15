@@ -1,21 +1,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+use account::{
+    is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, TokenBurnRequestStruct,
+    TokenBurnRequestStructOf, TokenMintRequestStruct, TokenMintRequestStructOf, AUDITOR_ROLE_MASK,
+    CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
+    MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
+};
+use bond::{
+    period::PeriodYield, AccountYield, BondId, BondImpactReportStruct, BondImpactReportStructOf,
+    BondInnerStructOf, BondPeriod, BondPeriodNumber, BondState, BondStruct, BondStructOf,
+    BondUnitAmount, BondUnitPackageOf, BondUnitSaleLotStructOf,
+};
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
-    codec::{Decode, Encode},
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    sp_runtime::RuntimeDebug,
 };
 use frame_system::ensure_signed;
-
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
-use frame_support::sp_runtime::traits::AtLeast32Bit;
 use sp_core::sp_std::cmp::min;
-use sp_runtime::traits::{SaturatedConversion, UniqueSaturatedInto};
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -24,600 +27,29 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
 pub trait Expired<Moment> {
     fn is_expired(&self, now: Moment) -> bool;
 }
-
+pub type EverUSDBalance = u64;
 pub type Result<T> = core::result::Result<T, DispatchError>;
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
-pub struct BondId([u8; 8]);
-
-impl PartialEq for BondId {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl From<&str> for BondId {
-    fn from(name: &str) -> BondId {
-        let mut b = [0u8; 8];
-        unsafe {
-            core::intrinsics::copy_nonoverlapping(
-                name.as_ptr(),
-                b.as_mut_ptr(),
-                min(8, name.len()),
-            );
-        }
-        BondId(b)
-    }
-}
-
-impl Eq for BondId {}
-
-impl core::ops::Deref for BondId {
-    type Target = [u8; 8];
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
-pub const MASTER_ROLE_MASK: u8 = 1u8;
-pub const CUSTODIAN_ROLE_MASK: u8 = 2u8;
-pub const EMITENT_ROLE_MASK: u8 = 4u8;
-pub const INVESTOR_ROLE_MASK: u8 = 8u8;
-pub const AUDITOR_ROLE_MASK: u8 = 16u8;
-pub const MANAGER_ROLE_MASK: u8 = 32u8;
-pub const IMPACT_REPORTER_ROLE_MASK: u8 = 64u8;
-
-pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK
-    | CUSTODIAN_ROLE_MASK
-    | EMITENT_ROLE_MASK
-    | INVESTOR_ROLE_MASK
-    | AUDITOR_ROLE_MASK
-    | MANAGER_ROLE_MASK
-    | IMPACT_REPORTER_ROLE_MASK;
-
-#[inline]
-pub const fn is_roles_correct(roles: u8) -> bool {
-    // max value of any roles combinations
-    roles <= ALL_ROLES_MASK
-}
 
 pub const EVERUSD_DECIMALS: u64 = 9; // EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
 pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
-
+const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
 pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
 
-pub const TOKEN_BURN_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
-pub const TOKEN_MINT_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
+const TOKEN_BURN_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
+const TOKEN_MINT_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
 const INTEREST_RATE_YEAR: u64 = 365;
 const MAX_PURGE_REQUESTS: usize = 100;
+const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
 
+pub mod account;
 /// Evercity project types
 /// All these types must be put in CUSTOM_TYPES part of config for polkadot.js
 /// to be correctly presented in DApp
-
-pub type EverUSDBalance = u64;
-
+pub mod bond;
 #[cfg(test)]
-#[derive(Debug)]
-pub struct EvercityLedger {
-    // custodian emitted
-    supply: EverUSDBalance,
-    // account balance
-    account: EverUSDBalance,
-    // bond fund balance
-    bond_fund: EverUSDBalance,
-}
-
+mod mock;
 #[cfg(test)]
-impl EvercityLedger {
-    pub fn is_ok(&self) -> bool {
-        self.supply == self.account + self.bond_fund
-    }
-}
-/// Structures, specific for each role
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct EvercityAccountStructT<Moment> {
-    pub roles: u8,
-    pub identity: u64,
-    pub create_time: Moment,
-}
-
-type EvercityAccountStructOf<T> = EvercityAccountStructT<<T as pallet_timestamp::Trait>::Moment>;
-
-
-/// Structure, created by Emitent or Investor to receive EverUSD on her balance
-/// by paying USD to Custodian. Then Custodian confirms request, adding corresponding
-/// amount to mint request creator's balance
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct TokenMintRequestStruct<Moment> {
-    pub amount: EverUSDBalance,
-    pub deadline: Moment,
-}
-
-impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<Moment> {
-    fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
-    }
-}
-
-type TokenMintRequestStructOf<T> = TokenMintRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
-
-/// Structure, created by Emitent or Investor to burn EverUSD on her balance
-/// and receive corresponding amount of USD from Custodian. 
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct TokenBurnRequestStruct<Moment> {
-    pub amount: EverUSDBalance,
-    pub deadline: Moment,
-}
-
-impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<Moment> {
-    fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
-    }
-}
-
-type TokenBurnRequestStructOf<T> = TokenBurnRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
-
-/// Bond state
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
-pub enum BondState {
-    PREPARE,
-    BOOKING,
-    ACTIVE,
-    BANKRUPT,
-    FINISHED,
-}
-
-impl Default for BondState {
-    fn default() -> Self {
-        BondState::PREPARE
-    }
-}
-
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum BondImpactType {
-    POWER_GENERATED,
-    CO2_EMISSIONS_REDUCTION,
-}
-
-impl Default for BondImpactType {
-    fn default() -> Self {
-        BondImpactType::POWER_GENERATED
-    }
-}
-
-/// Bond period parametes type, seconds
-type BondPeriod = u32;
-/// The number of Bond units,
-type BondUnitAmount = u32;
-/// Annual coupon interest rate as 1/100000 of par value
-type BondInterest = u32;
-/// Bond period numerator
-type BondPeriodNumber = u32;
-
-const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
-const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
-
-/// Inner part of BondStruct, containing parameters, related to
-/// calculation of coupon interest rate using impact data, sent to bond.
-/// This part of bond data can be configured only at BondState::PREPARE
-/// and cannot be changed when Bond Units sell process is started
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct BondInnerStruct<Moment, Hash> {
-    // bond document hashes
-    /// Merkle root hash of general purpose documents pack of bond
-    pub docs_pack_root_hash_main: Hash,
-    /// Merkle root hash of legal documents pack of bond
-    pub docs_pack_root_hash_legal: Hash,
-    /// Merkle root hash of financial documents pack of bond
-    pub docs_pack_root_hash_finance: Hash,
-    /// Merkle root hash of technical documents pack of bond
-    pub docs_pack_root_hash_tech: Hash,
-
-    // bond impact parameters
-    /// Type of data, sent to bond each payment_period.
-    /// It can be amount of power generated or CO2 emissions avoided (more types will be added)
-    /// This value affects the interest_rate calculation logic
-    /// (now all types have same linear dependency)
-    pub impact_data_type: BondImpactType,
-    /// Base value Now, all types has same interest_rate calculation logic
-    /// greater the value -> lower the interest_rate and vice-versa
-    pub impact_data_baseline: u64,
-
-    // Coupon interest regulatory options
-    /// Cap of impact_data value (absolute value). Values more then cap
-    /// are considered equal to impact_data_max_deviation_cap
-    /// when calculating coupon interest_rate depending on impact_data
-    pub impact_data_max_deviation_cap: u64,
-    /// Floor of impact_data value (absolute value). Values less then floor
-    /// are considered equal to impact_data_max_deviation_floor
-    /// when calculating coupon interest_rate depending on impact_data
-    pub impact_data_max_deviation_floor: u64,
-    /// Amount of seconds before end of a payment_period
-    /// when Emitent should release regular impact report (confirmed by Auditor)
-    pub impact_data_send_period: BondPeriod,
-    /// Penalty, adding to interest rate when impact report was not
-    /// released during impact_data_send_period, ppm
-    pub interest_rate_penalty_for_missed_report: BondInterest,
-    /// Base coupon interest rate, ppm. All changes of interest_rate
-    /// during payment periods are based on this value, ppm
-    pub interest_rate_base_value: BondInterest,
-    /// Upper margin of interest_rate. Interest rate cannot
-    /// be more than this value, ppm
-    pub interest_rate_margin_cap: BondInterest,
-    /// Lower margin of interest_rate. Interest rate cannot
-    /// be less than this value, ppm
-    pub interest_rate_margin_floor: BondInterest,
-    /// Interest rate during the start_periodm when interest rate is constant
-    /// (from activation to first payment period), ppm
-    pub interest_rate_start_period_value: BondInterest,
-    /// Period when Emitent should pay off coupon interests, sec
-    pub interest_pay_period: BondPeriod,
-
-    /// Period from activation when effective interest rate
-    /// invariably equals to interest_rate_start_period_value, sec
-    pub start_period: BondPeriod,
-
-    /// This is "main" recalcualtion period of bond. Each payment_period:
-    ///  - impact_data is sent to bond and confirmed by Auditor (while impact_data_send_period is active)
-    ///  - coupon interest rate is recalculated for next payment_period
-    ///  - required coupon interest payment is sent to bond by Emitent (while interest_pay_period is active)
-    pub payment_period: BondPeriod,
-
-    /// The number of periods from active_start_date (when bond becomes active,
-    /// all periods and interest rate changes begin to work, funds become available for Emitent)
-    /// until maturity date (when full bond debt must be paid).
-    /// (bond maturity period = start_period + bond_duration * payment_period)
-    pub bond_duration: BondPeriodNumber,
-
-    /// Period from maturity date until full repayment.
-    /// After this period bond can be moved to BondState::BANKRUPT, sec
-    pub bond_finishing_period: BondPeriod,
-
-    /// Minimal amount(mincap_amount) of bond units should be raised up to this date,
-    /// otherwise bond can be withdrawn by issuer back to BondState::PREPARE
-    pub mincap_deadline: Moment,
-    /// Minimal amount of bond units, that should be raised
-    pub bond_units_mincap_amount: BondUnitAmount,
-    /// Maximal amount of bond units, that can be raised durill all bond lifetime
-    pub bond_units_maxcap_amount: BondUnitAmount,
-
-    /// Base price of Bond Unit
-    pub bond_units_base_price: EverUSDBalance,
-}
-
-type BondInnerStructOf<T> =
-    BondInnerStruct<<T as pallet_timestamp::Trait>::Moment, <T as frame_system::Trait>::Hash>;
-
-#[inline]
-fn is_period_multiple_of_day(period: BondPeriod) -> bool {
-    (period % DAY_DURATION) == 0
-}
-
-impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
-    /// Checks if other bond has the same financial properties
-    pub fn is_financial_options_eq(&self, other: &Self) -> bool {
-        self.bond_units_base_price == other.bond_units_base_price
-            && self.interest_rate_base_value == other.interest_rate_base_value
-            && self.interest_rate_margin_cap == other.interest_rate_margin_cap
-            && self.interest_rate_margin_floor == other.interest_rate_margin_floor
-            && self.impact_data_max_deviation_cap == other.impact_data_max_deviation_cap
-            && self.impact_data_max_deviation_floor == other.impact_data_max_deviation_floor
-            && self.bond_duration == other.bond_duration
-            && self.bond_units_mincap_amount == other.bond_units_mincap_amount
-            && self.bond_units_maxcap_amount == other.bond_units_maxcap_amount
-            && self.impact_data_type == other.impact_data_type
-            && self.impact_data_baseline == other.impact_data_baseline
-            && self.interest_pay_period == other.interest_pay_period
-            && self.impact_data_send_period == other.impact_data_send_period
-            && self.payment_period == other.payment_period
-            && self.bond_finishing_period == other.bond_finishing_period
-    }
-    /// Checks if bond data is valid
-    pub fn is_valid(&self) -> bool {
-        self.bond_units_mincap_amount > 0
-            && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
-            && self.payment_period >= MIN_PAYMENT_PERIOD
-            && self.impact_data_send_period <= self.payment_period
-            && is_period_multiple_of_day(self.payment_period)
-            && is_period_multiple_of_day(self.start_period)
-            && is_period_multiple_of_day(self.impact_data_send_period)
-            && is_period_multiple_of_day(self.bond_finishing_period)
-            && is_period_multiple_of_day(self.interest_pay_period)
-            && (self.start_period == 0 || self.start_period >= self.payment_period)
-            && self.interest_pay_period <= self.payment_period
-            && self.bond_units_base_price > 0
-            && self
-                .bond_units_base_price
-                .saturating_mul(self.bond_units_maxcap_amount as EverUSDBalance)
-                < EverUSDBalance::MAX
-            && self.interest_rate_base_value >= self.interest_rate_margin_floor
-            && self.interest_rate_base_value <= self.interest_rate_margin_cap
-            && self.impact_data_baseline <= self.impact_data_max_deviation_cap
-            && self.impact_data_baseline >= self.impact_data_max_deviation_floor
-            && self.bond_duration >= MIN_BOND_DURATION
-    }
-}
-
-// ... |         period            |   ...
-// --- | ------------------------- | -------------...
-//     |                  |        |          |
-//   start              report   reset    interest pay
-//    >----------------------------< coupon accrual
-// report release period  >--------<
-//              coupon pay period  >----------<
-#[cfg_attr(feature = "std", derive(Debug))]
-struct PeriodDescr {
-    start_period: BondPeriod,            // sec from activation
-    impact_data_send_period: BondPeriod, // sec from activation
-    payment_period: BondPeriod,          // sec from activation
-    #[allow(dead_code)]
-    interest_pay_period: BondPeriod, // sec from activation
-}
-
-impl PeriodDescr {
-    fn duration(&self, moment: BondPeriod) -> BondPeriod {
-        if moment <= self.start_period {
-            (self.payment_period - self.start_period) / DAY_DURATION
-        } else if moment >= self.payment_period {
-            0
-        } else {
-            (self.payment_period - moment) / DAY_DURATION
-        }
-    }
-}
-
-/// Struct, accumulating per-account coupon_yield for each period num
-#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct AccountYield {
-    coupon_yield: EverUSDBalance,
-    period_num: BondPeriodNumber,
-}
-
-/// Struct, storing per-period coupon_yield and effective interest_rate for given bond
-#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct PeriodYield {
-    /// bond cumulative accrued yield for this period
-    total_yield: EverUSDBalance,
-    /// bond fund to pay off coupon yield for this period
-    coupon_yield_before: EverUSDBalance,
-    /// effective interest rate for current period
-    interest_rate: BondInterest,
-}
-
-struct PeriodIterator<'a, AccountId, Moment, Hash> {
-    bond: &'a BondStruct<AccountId, Moment, Hash>,
-    index: BondPeriodNumber,
-}
-
-impl<'a, AccountId, Moment, Hash> PeriodIterator<'a, AccountId, Moment, Hash> {
-    #[allow(dead_code)]
-    fn new(bond: &'a BondStruct<AccountId, Moment, Hash>) -> Self {
-        PeriodIterator { bond, index: 0 }
-    }
-}
-
-impl<'a, AccountId, Moment, Hash> core::iter::Iterator
-    for PeriodIterator<'a, AccountId, Moment, Hash>
-{
-    type Item = PeriodDescr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let inner = &self.bond.inner;
-        let index = if inner.start_period > 0 {
-            self.index
-        } else {
-            self.index + 1
-        };
-
-        if index > inner.bond_duration {
-            None
-        } else {
-            let payment_period = inner.start_period + index * inner.payment_period;
-            self.index += 1;
-
-            // last pay period is special and lasts bond_finishing_period seconds
-            let pay_period = if index == inner.bond_duration {
-                inner.bond_finishing_period
-            } else {
-                inner.interest_pay_period
-            };
-
-            Some(PeriodDescr {
-                payment_period,
-                start_period: payment_period
-                    - if index == 0 {
-                        inner.start_period
-                    } else {
-                        inner.payment_period
-                    },
-                impact_data_send_period: payment_period - inner.impact_data_send_period,
-                interest_pay_period: payment_period + pay_period,
-            })
-        }
-    }
-}
-
-/// Main bond struct, storing all data about given bond
-/// Consists of:
-///  - issuance-related, inner part (BondInnerStruct): financial and impact data parameters, related to issuance of bond
-///  - working part: bond state, connected accounts, raised and issued amounts, dates, etc
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct BondStruct<AccountId, Moment, Hash> {
-    pub inner: BondInnerStruct<Moment, Hash>,
-    /// bond issuer account
-    pub emitent: AccountId,
-    // #Auxiliary roles
-    /// bond manager account
-    pub manager: AccountId,
-    /// bond auditor
-    pub auditor: AccountId,
-    /// bond impact data reporter
-    pub impact_reporter: AccountId,
-
-    /// total amount of issued bond units
-    pub issued_amount: BondUnitAmount,
-
-    // #Timestamps
-    /// Moment, when bond was created first time (moved to BondState::PREPARE)
-    pub creation_date: Moment,
-    /// Moment, when bond was opened for booking (moved to BondState::BOOKING)
-    pub booking_start_date: Moment,
-    /// Moment, when bond became active (moved to BondState::ACTIVE)
-    pub active_start_date: Moment,
-
-    /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
-    pub state: BondState,
-
-    // #Bond ledger
-    
-	/// Bond fund, keeping EverUSD sent to bond
-    pub bond_debit: EverUSDBalance,
-    /// Bond liabilities: amount of EverUSD bond needs to pay to Bond Units bearers
-    pub bond_credit: EverUSDBalance,
-
-    // free balance is difference between bond_debit and bond_credit
-    
-	/// Ever-increasing coupon fund which was distributed among bondholders.
-    /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
-    coupon_yield: EverUSDBalance,
-}
-
-type BondStructOf<T> = BondStruct<
-    <T as frame_system::Trait>::AccountId,
-    <T as pallet_timestamp::Trait>::Moment,
-    <T as frame_system::Trait>::Hash,
->;
-
-impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
-    /// Returns nominal value of unit_amount Bond units
-    #[inline]
-    fn par_value(&self, unit_amount: BondUnitAmount) -> EverUSDBalance {
-        unit_amount as EverUSDBalance * self.inner.bond_units_base_price as EverUSDBalance
-    }
-    /// Returns bond unpaid unliabilities
-    #[allow(dead_code)]
-    fn get_debt(&self) -> EverUSDBalance {
-        if self.bond_credit > self.bond_debit {
-            self.bond_credit - self.bond_debit
-        } else {
-            0
-        }
-    }
-    /// Returns the number of  tokens available for emitent
-    fn get_free_balance(&self) -> EverUSDBalance {
-        if self.bond_debit > self.bond_credit {
-            self.bond_debit - self.bond_credit
-        } else {
-            0
-        }
-    }
-    /// Increase bond fund (credit + debit)
-    fn increase(&mut self, amount: EverUSDBalance) {
-        self.bond_credit += amount;
-        self.bond_debit += amount;
-    }
-    /// Decrease bond fund (credit + debit)
-    fn decrease(&mut self, amount: EverUSDBalance) {
-        self.bond_credit -= amount;
-        self.bond_debit -= amount;
-    }
-
-    #[inline]
-    fn get_periods(&self) -> BondPeriodNumber {
-        if self.inner.start_period == 0 {
-            self.inner.bond_duration
-        } else {
-            self.inner.bond_duration + 1
-        }
-    }
-
-    #[allow(dead_code)]
-    fn iter_periods(&self) -> PeriodIterator<'_, AccountId, Moment, Hash> {
-        PeriodIterator::new(self)
-    }
-
-    /// Returns  time limits of the period
-    fn period_desc(&self, period: BondPeriodNumber) -> Option<PeriodDescr> {
-        let mut iter = PeriodIterator::new(&self);
-        iter.index = period;
-        iter.next()
-    }
-
-	// @TODO rename this method to calc_effective_interest_rate()
-    /// Calculate coupon effective interest rate using impact_data
-	/// This method moves interest_rate up and down when good or bad impact_data
-	/// is sent to bond
-    fn interest_rate(&self, impact_data: u64) -> BondInterest {
-        let inner = &self.inner;
-
-        if impact_data >= inner.impact_data_max_deviation_cap {
-            inner.interest_rate_margin_floor
-        } else if impact_data <= inner.impact_data_max_deviation_floor {
-            inner.interest_rate_margin_cap
-        } else if impact_data == inner.impact_data_baseline {
-            inner.interest_rate_base_value
-        } else if impact_data > inner.impact_data_baseline {
-            inner.interest_rate_base_value
-                - ((impact_data - inner.impact_data_baseline) as u128
-                    * (inner.interest_rate_base_value - inner.interest_rate_margin_floor) as u128
-                    / (inner.impact_data_max_deviation_cap - inner.impact_data_baseline) as u128)
-                    as BondInterest
-        } else {
-            inner.interest_rate_base_value
-                + ((inner.impact_data_baseline - impact_data) as u128
-                    * (inner.interest_rate_margin_cap - inner.interest_rate_base_value) as u128
-                    / (inner.impact_data_baseline - inner.impact_data_max_deviation_floor) as u128)
-                    as BondInterest
-        }
-    }
-}
-
-impl<AccountId, Moment: UniqueSaturatedInto<u64> + AtLeast32Bit + Copy, Hash>
-    BondStruct<AccountId, Moment, Hash>
-{
-    fn time_passed_after_activation(&self, now: Moment) -> Option<(BondPeriod, BondPeriodNumber)> {
-        if !matches!(self.state, BondState::ACTIVE | BondState::BANKRUPT)
-            || now < self.active_start_date
-        {
-            None
-        } else {
-            // gets the number or seconds since the bond was activated
-            let moment = (now - self.active_start_date).saturated_into::<u64>() / 1000_u64;
-            if moment >= u32::MAX as u64 {
-                return None;
-            }
-            let moment = moment as u32;
-            if moment < self.inner.start_period {
-                Some((moment, 0))
-            } else {
-                let has_start_period: BondPeriodNumber =
-                    if self.inner.start_period > 0 { 1 } else { 0 };
-                let period = min(
-                    ((moment - self.inner.start_period) / self.inner.payment_period)
-                        as BondPeriodNumber,
-                    self.inner.bond_duration,
-                );
-
-                Some((moment, period + has_start_period))
-            }
-        }
-    }
-}
+mod tests;
 
 macro_rules! ensure_active {
     ($f:expr, $err:expr) => {
@@ -629,64 +61,6 @@ macro_rules! ensure_active {
         }
     };
 }
-
-/// Pack of bond units, bought at given time, belonging to given Bearer
-/// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
-/// Bond units that bondholder acquire
-#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct BondUnitPackage<Moment> {
-    /// amount of bond units
-    bond_units: BondUnitAmount,
-    /// acquisition moment (seconds after bond start date)
-    acquisition: BondPeriod,
-    /// paid coupon yield
-    coupon_yield: EverUSDBalance,
-	/// moment of creation
-    create_date: Moment,
-}
-
-type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
-
-/// Struct with impact_data sent to bond. In the future can become
-/// more complicated for other types of impact_data and processing logic. 
-/// Field "signed" is set to true by Auditor, when impact_data is verified.
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct BondImpactReportStruct<Moment> {
-    create_date: Moment,
-    impact_data: u64,
-    signed: bool,
-}
-
-type BondImpactReportStructOf<T> = BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
-/// Struct, representing pack of bond units for sale
-/// Can include target bearer (to sell bond units only to given person)
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, Eq, PartialEq, RuntimeDebug)]
-pub struct BondUnitSaleLotStruct<AccountId, Moment> {
-    /// Sale lot is available for buy only before this deadline
-    deadline: Moment,
-    /// If set (can be empty) - then buying of this lot is possible
-    /// only for new_bondholder
-    new_bondholder: AccountId,
-    /// Amount of bond units to sell
-    bond_units: BondUnitAmount,
-    /// Total price of this lot
-    amount: EverUSDBalance,
-}
-
-impl<AccountId, Moment: core::cmp::PartialOrd> Expired<Moment>
-    for BondUnitSaleLotStruct<AccountId, Moment>
-{
-    fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
-    }
-}
-
-type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
-    <T as frame_system::Trait>::AccountId,
-    <T as pallet_timestamp::Trait>::Moment,
->;
 
 decl_storage! {
     trait Store for Module<T: Trait> as Evercity {
@@ -717,7 +91,7 @@ decl_storage! {
                 map hasher(blake2_128_concat) T::AccountId => TokenBurnRequestStructOf<T>;
 
         /// Structure for storing all platform bonds.
-        /// BondId is now a ticker [u8; 8]: 8-bytes unique identifier like "MUSKPWR1" or "WINDGEN2" 
+        /// BondId is now a ticker [u8; 8]: 8-bytes unique identifier like "MUSKPWR1" or "WINDGEN2"
         BondRegistry
             get(fn bond_registry):
                 map hasher(blake2_128_concat) BondId => BondStructOf<T>;
@@ -758,7 +132,6 @@ decl_event!(
     {
         /// Event documentation should end with an array that provides descriptive names for event
         /// parameters. [something, who]
-
         // 1: author, 2: newly added account, 3: role, 4: identity
         AccountAdd(AccountId, AccountId, u8, u64),
 
@@ -768,7 +141,7 @@ decl_event!(
         // 1: author, 2: disabled account
         AccountDisable(AccountId, AccountId),
 
-        // @TODO document events and add many corresponding 
+        // @TODO document events and add many corresponding
         // data for each Event for syschronization service
         MintRequestCreated(AccountId, EverUSDBalance),
         MintRequestRevoked(AccountId, EverUSDBalance),
@@ -879,10 +252,10 @@ decl_module! {
 
         /// Method: account_disable(who: AccountId)
         /// Arguments: origin: AccountId - transaction caller
-        ///            who: AccountId - account to disable  
+        ///            who: AccountId - account to disable
         /// Access: Master role
         ///
-        /// Disables all roles of account, setting roles bitmask to 0. 
+        /// Disables all roles of account, setting roles bitmask to 0.
         /// Accounts are not allowed to perform any actions without role,
         /// but still have its data in blockchain (to not loose related entities)
         #[weight = 10_000]
@@ -954,11 +327,11 @@ decl_module! {
 
         /// Method: token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
-        ///             amount_to_mint: EverUSDBalance - amount of tokens to mint 
+        ///             amount_to_mint: EverUSDBalance - amount of tokens to mint
         /// Access: Investor or Emitent role
         ///
         /// Creates a request to mint given amount of EverUSD tokens on caller's balance.
-        /// Custodian account confirms request after receiving payment in USD from target account's owner 
+        /// Custodian account confirms request after receiving payment in USD from target account's owner
         /// It's possible to create only one request per account. Mint request has a time-to-live
         /// and becomes invalidated after it.
         #[weight = 15_000]
@@ -998,11 +371,11 @@ decl_module! {
         /// Method: token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
-        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian 
+        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian
         /// Access: Custodian role
         ///
         /// Confirms the mint request of account, creating "amount" of tokens on its balance.
-        /// (note) Amount of tokens is sent as parameter to avoid data race problem, when 
+        /// (note) Amount of tokens is sent as parameter to avoid data race problem, when
         /// Custodian can confirm unwanted amount of tokens, because attacker is modified mint request
         /// while Custodian makes a decision
         #[weight = 15_000]
@@ -1054,7 +427,7 @@ decl_module! {
         /// Access: Investor or Emitent role
         ///
         /// Creates a request to burn given amount of EverUSD tokens on caller's balance.
-        /// Custodian account confirms request after sending payment in USD to target account's owner 
+        /// Custodian account confirms request after sending payment in USD to target account's owner
         /// It's possible to create only one request per account. Burn request has a time-to-live
         /// and becomes invalidated after it.
         #[weight = 15_000]
@@ -1096,7 +469,7 @@ decl_module! {
         /// Method: token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
-        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian 
+        ///             amount: EverUSDBalance - amount of tokens to mint, confirmed by Custodian
         /// Access: Custodian role
         ///
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
@@ -1175,8 +548,8 @@ decl_module! {
                     active_start_date: Default::default(),
                     creation_date: now,
                     state: BondState::PREPARE,
-                    bond_debit: 0, //Default::default(),
-                    bond_credit: 0, //Default::default(),
+                    bond_debit: 0,
+                    bond_credit: 0,
                     coupon_yield: 0
             };
             BondRegistry::<T>::insert(&bond, item);
@@ -2345,11 +1718,11 @@ impl<T: Trait> Module<T> {
         bond: &BondStructOf<T>,
         reports: &[BondImpactReportStructOf<T>],
         period: usize,
-    ) -> BondInterest {
+    ) -> bond::BondInterest {
         assert!(reports.len() >= period);
 
         let mut missed_periods = 0;
-        let mut interest: BondInterest = bond.inner.interest_rate_start_period_value;
+        let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
         for report in reports[0..period].iter().rev() {
             if report.signed {
                 interest = bond.interest_rate(report.impact_data);
@@ -2397,13 +1770,13 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    fn everusd_ledger() -> EvercityLedger {
+    fn evercity_balance() -> bond::ledger::EvercityBalance {
         let account: EverUSDBalance = BalanceEverUSD::<T>::iter_values().sum();
         let bond_fund: EverUSDBalance = BondRegistry::<T>::iter_values()
             .map(|bond| bond.bond_debit - bond.coupon_yield)
             .sum();
 
-        EvercityLedger {
+        bond::ledger::EvercityBalance {
             supply: TotalSupplyEverUSD::get(),
             account,
             bond_fund,

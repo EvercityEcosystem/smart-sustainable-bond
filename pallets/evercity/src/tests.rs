@@ -1,13 +1,10 @@
-#![allow(unused_imports)]
 use crate::mock::*;
 use crate::{
-    AccountRegistry, BondId, BondImpactReportStruct, BondImpactReportStructOf, BondInnerStructOf,
-    BondPeriod, BondPeriodNumber, BondState, BondStructOf, BondUnitAmount, BondUnitSaleLotStructOf,
-    Error, Event, EverUSDBalance, Module, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, DAY_DURATION,
-    EMITENT_ROLE_MASK, INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
+    BondId, BondImpactReportStructOf, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
+    BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
+    DAY_DURATION, EMITENT_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, Blake2_256, StorageHasher};
-use frame_system::Trait;
 use sp_core::sp_std::ops::RangeInclusive;
 
 type Evercity = Module<TestRuntime>;
@@ -1317,11 +1314,11 @@ fn bond_calc_redeemed_yield() {
 
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         let initial_balace1 = Evercity::balance_everusd(&INVESTOR1);
         let initial_balace2 = Evercity::balance_everusd(&INVESTOR2);
         bond_activate(bondid, ACCOUNT, get_test_bond().inner);
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let chain_bond_item = Evercity::get_bond(&bondid);
         assert_eq!(chain_bond_item.active_start_date, 30000);
@@ -1345,7 +1342,7 @@ fn bond_calc_redeemed_yield() {
         );
         // add extra everusd to pay off coupon yield
         assert_ok!(add_token(ACCOUNT, 125_000_000_000_000));
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT), bondid));
         // withdraw coupon & principal value
@@ -1358,7 +1355,7 @@ fn bond_calc_redeemed_yield() {
             bondid
         ));
 
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let chain_bond_item = Evercity::get_bond(&bondid);
         let yield1 = Evercity::balance_everusd(&INVESTOR1) - initial_balace1;
@@ -1811,7 +1808,7 @@ fn bond_return_bondunit_package() {
         ));
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(10000);
         assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid));
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR1),
@@ -1824,7 +1821,7 @@ fn bond_return_bondunit_package() {
             bondid,
             600
         ));
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let packages1 = Evercity::bond_holder_packages(&bondid, &INVESTOR1);
         assert_eq!(packages1.len(), 1);
@@ -1845,7 +1842,7 @@ fn bond_return_bondunit_package() {
 
         let packages2 = Evercity::bond_holder_packages(&bondid, &INVESTOR2);
         assert_eq!(packages2.len(), 1);
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
     });
 }
 
@@ -1863,7 +1860,6 @@ fn bond_iter_periods() {
         let mut start = 0;
         let mut count = 0;
         for period in chain_bond_item.iter_periods() {
-            println!("{:?}", period);
             assert_eq!(period.start_period, start);
             start = period.payment_period;
             count += 1;
@@ -2408,7 +2404,7 @@ fn bond_deposit_bond() {
 
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let bond = get_test_bond().inner;
         bond_activate(bondid, ACCOUNT, bond.clone());
@@ -2434,7 +2430,7 @@ fn bond_deposit_bond() {
         let chain_bond_item = Evercity::get_bond(&bondid);
         assert_eq!(chain_bond_item.bond_debit, 100_000_000_000_000);
         assert_eq!(chain_bond_item.coupon_yield, 0);
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         assert_eq!(
             Evercity::balance_everusd(&ACCOUNT),
@@ -2454,7 +2450,7 @@ fn bond_deposit_bond() {
             chain_bond_item.get_free_balance(),
             100_000_000_000_000 - 29_983_561_643_520
         );
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
     });
 }
 
@@ -2497,12 +2493,12 @@ fn bond_deposit_try_foreign() {
 
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let bond = get_test_bond().inner;
         bond_activate(bondid1, ACCOUNT1, bond.clone());
         bond_activate(bondid2, ACCOUNT2, bond);
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         assert_noop!(
             Evercity::bond_deposit_everusd(Origin::signed(ACCOUNT1), bondid2, 100_000_000_000_000),
@@ -2529,7 +2525,7 @@ fn bond_lot_bit_n_buy() {
             bond_units: 600,
             amount: 600 * 3_000_000_000_000,
         };
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         assert_ok!(Evercity::bond_unit_lot_bid(
             Origin::signed(INVESTOR1),
             bondid,
@@ -2541,7 +2537,7 @@ fn bond_lot_bit_n_buy() {
             INVESTOR1,
             lot
         ));
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         let packages1 = Evercity::bond_holder_packages(&bondid, &INVESTOR1);
         let bond_units1: BondUnitAmount = packages1.iter().map(|p| p.bond_units).sum();
         let packages2 = Evercity::bond_holder_packages(&bondid, &INVESTOR2);
@@ -2601,7 +2597,7 @@ fn bond_lot_paid_coupon() {
 
         let balance1 = Evercity::balance_everusd(&INVESTOR1);
 
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         assert_ok!(Evercity::bond_unit_lot_bid(
             Origin::signed(INVESTOR1),
             bondid,
@@ -2613,7 +2609,7 @@ fn bond_lot_paid_coupon() {
             INVESTOR1,
             lot
         ));
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
 
         let packages1 = Evercity::bond_holder_packages(&bondid, &INVESTOR1);
         let bond_units1: BondUnitAmount = packages1.iter().map(|p| p.bond_units).sum();
@@ -2656,7 +2652,7 @@ fn bond_lot_try_buy_foreign() {
             bond_units: 600,
             amount: 600 * 3_000_000_000_000,
         };
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         assert_ok!(Evercity::bond_unit_lot_bid(
             Origin::signed(INVESTOR1),
             bondid,
@@ -2713,7 +2709,7 @@ fn bond_lot_try_buy_expired() {
             bond_units: 600,
             amount: 600 * 3_000_000_000_000,
         };
-        assert!(Evercity::everusd_ledger().is_ok());
+        assert!(Evercity::evercity_balance().is_ok());
         assert_ok!(Evercity::bond_unit_lot_bid(
             Origin::signed(INVESTOR1),
             bondid,

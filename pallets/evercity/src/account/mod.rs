@@ -1,0 +1,77 @@
+use crate::{EverUSDBalance, Expired};
+use frame_support::{
+    codec::{Decode, Encode},
+    sp_runtime::RuntimeDebug,
+};
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+pub const MASTER_ROLE_MASK: u8 = 1u8;
+pub const CUSTODIAN_ROLE_MASK: u8 = 2u8;
+pub const EMITENT_ROLE_MASK: u8 = 4u8;
+pub const INVESTOR_ROLE_MASK: u8 = 8u8;
+pub const AUDITOR_ROLE_MASK: u8 = 16u8;
+pub const MANAGER_ROLE_MASK: u8 = 32u8;
+pub const IMPACT_REPORTER_ROLE_MASK: u8 = 64u8;
+
+pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK
+    | CUSTODIAN_ROLE_MASK
+    | EMITENT_ROLE_MASK
+    | INVESTOR_ROLE_MASK
+    | AUDITOR_ROLE_MASK
+    | MANAGER_ROLE_MASK
+    | IMPACT_REPORTER_ROLE_MASK;
+
+#[inline]
+pub const fn is_roles_correct(roles: u8) -> bool {
+    // max value of any roles combinations
+    roles <= ALL_ROLES_MASK
+}
+
+/// Structures, specific for each role
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct EvercityAccountStructT<Moment> {
+    pub roles: u8,
+    pub identity: u64,
+    pub create_time: Moment,
+}
+
+pub type EvercityAccountStructOf<T> =
+    EvercityAccountStructT<<T as pallet_timestamp::Trait>::Moment>;
+
+/// Structure, created by Emitent or Investor to receive EverUSD on her balance
+/// by paying USD to Custodian. Then Custodian confirms request, adding corresponding
+/// amount to mint request creator's balance
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct TokenMintRequestStruct<Moment> {
+    pub amount: EverUSDBalance,
+    pub deadline: Moment,
+}
+
+impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<Moment> {
+    fn is_expired(&self, now: Moment) -> bool {
+        self.deadline < now
+    }
+}
+
+pub type TokenMintRequestStructOf<T> =
+    TokenMintRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
+
+/// Structure, created by Emitent or Investor to burn EverUSD on her balance
+/// and receive corresponding amount of USD from Custodian.
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+pub struct TokenBurnRequestStruct<Moment> {
+    pub amount: EverUSDBalance,
+    pub deadline: Moment,
+}
+
+impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<Moment> {
+    fn is_expired(&self, now: Moment) -> bool {
+        self.deadline < now
+    }
+}
+
+pub type TokenBurnRequestStructOf<T> =
+    TokenBurnRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
