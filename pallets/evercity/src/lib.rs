@@ -2,7 +2,7 @@
 use account::{
     is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, TokenBurnRequestStruct,
     TokenBurnRequestStructOf, TokenMintRequestStruct, TokenMintRequestStructOf, AUDITOR_ROLE_MASK,
-    CUSTODIAN_ROLE_MASK, ISSUER_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
+    CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK,
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use bond::{
