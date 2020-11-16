@@ -7,7 +7,7 @@ use frame_support::{
 use serde::{Deserialize, Serialize};
 pub const MASTER_ROLE_MASK: u8 = 1u8;
 pub const CUSTODIAN_ROLE_MASK: u8 = 2u8;
-pub const EMITENT_ROLE_MASK: u8 = 4u8;
+pub const ISSUER_ROLE_MASK: u8 = 4u8;
 pub const INVESTOR_ROLE_MASK: u8 = 8u8;
 pub const AUDITOR_ROLE_MASK: u8 = 16u8;
 pub const MANAGER_ROLE_MASK: u8 = 32u8;
@@ -15,7 +15,7 @@ pub const IMPACT_REPORTER_ROLE_MASK: u8 = 64u8;
 
 pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK
     | CUSTODIAN_ROLE_MASK
-    | EMITENT_ROLE_MASK
+    | ISSUER_ROLE_MASK
     | INVESTOR_ROLE_MASK
     | AUDITOR_ROLE_MASK
     | MANAGER_ROLE_MASK
@@ -39,7 +39,7 @@ pub struct EvercityAccountStructT<Moment> {
 pub type EvercityAccountStructOf<T> =
     EvercityAccountStructT<<T as pallet_timestamp::Trait>::Moment>;
 
-/// Structure, created by Emitent or Investor to receive EverUSD on her balance
+/// Structure, created by Issuer or Investor to receive EverUSD on her balance
 /// by paying USD to Custodian. Then Custodian confirms request, adding corresponding
 /// amount to mint request creator's balance
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -58,7 +58,7 @@ impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<M
 pub type TokenMintRequestStructOf<T> =
     TokenMintRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
 
-/// Structure, created by Emitent or Investor to burn EverUSD on her balance
+/// Structure, created by Issuer or Investor to burn EverUSD on her balance
 /// and receive corresponding amount of USD from Custodian.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]

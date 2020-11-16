@@ -99,11 +99,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         balances: vec![
             (1, 99000), // MASTER
             (2, 98000), // CUSTODIAN
-            (3, 97000), // EMITENT
+            (3, 97000), // ISSUER
             (4, 96000), // INVESTOR
             (5, 95000), // AUDITOR
             (6, 10000), // INVESTOR
-            (7, 10000), // EMITENT
+            (7, 10000), // ISSUER
             (8, 10000), // MANAGER
             (9, 10000),
             (101, 1000), // random guy
@@ -136,7 +136,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (
                 3,
                 EvercityAccountStructT::<u64> {
-                    roles: EMITENT_ROLE_MASK,
+                    roles: ISSUER_ROLE_MASK,
                     identity: 30u64,
                     create_time: 0,
                 },
@@ -168,7 +168,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (
                 7,
                 EvercityAccountStructT::<u64> {
-                    roles: EMITENT_ROLE_MASK | INVESTOR_ROLE_MASK,
+                    roles: ISSUER_ROLE_MASK | INVESTOR_ROLE_MASK,
                     identity: 70u64,
                     create_time: 0,
                 },
@@ -224,7 +224,7 @@ pub fn get_test_bond() -> BondStruct {
             bond_units_base_price: 4_000_000_000_000,
         },
 
-        emitent: 0,
+        issuer: 0,
         manager: 0,
         auditor: 0,
         impact_reporter: 0,
