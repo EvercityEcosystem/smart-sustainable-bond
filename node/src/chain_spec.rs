@@ -5,8 +5,8 @@ use evercity_runtime::{
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
 use evercity_runtime::pallet_evercity::account::{
-    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, ISSUER_ROLE_MASK,
-    INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
+    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, INVESTOR_ROLE_MASK,
+    ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 
 type EvercityAccountStruct = EvercityAccountStructT<u64>;

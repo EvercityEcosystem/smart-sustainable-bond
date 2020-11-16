@@ -157,12 +157,7 @@ fn it_denies_add_and_set_roles_for_non_master() {
         );
 
         assert_noop!(
-            Evercity::account_set_with_role_and_data(
-                Origin::signed(3),
-                3,
-                ISSUER_ROLE_MASK,
-                88u64
-            ),
+            Evercity::account_set_with_role_and_data(Origin::signed(3), 3, ISSUER_ROLE_MASK, 88u64),
             RuntimeError::AccountNotAuthorized
         );
     });
