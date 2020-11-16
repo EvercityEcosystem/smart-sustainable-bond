@@ -2,7 +2,7 @@
 use account::{
     is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, TokenBurnRequestStruct,
     TokenBurnRequestStructOf, TokenMintRequestStruct, TokenMintRequestStructOf, AUDITOR_ROLE_MASK,
-    CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
+    CUSTODIAN_ROLE_MASK, ISSUER_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use bond::{
@@ -328,7 +328,7 @@ decl_module! {
         /// Method: token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             amount_to_mint: EverUSDBalance - amount of tokens to mint
-        /// Access: Investor or Emitent role
+        /// Access: Investor or Issuer role
         ///
         /// Creates a request to mint given amount of EverUSD tokens on caller's balance.
         /// Custodian account confirms request after receiving payment in USD from target account's owner
@@ -355,7 +355,7 @@ decl_module! {
 
         /// Method: token_mint_request_revoke_everusd(origin)
         /// Arguments: origin: AccountId - transaction caller
-        /// Access: Investor or Emitent role
+        /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing mint request, created by caller's account
         #[weight = 5_000]
@@ -424,7 +424,7 @@ decl_module! {
         /// Method: token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             amount_to_burn: EverUSDBalance - amount of tokens to burn
-        /// Access: Investor or Emitent role
+        /// Access: Investor or Issuer role
         ///
         /// Creates a request to burn given amount of EverUSD tokens on caller's balance.
         /// Custodian account confirms request after sending payment in USD to target account's owner
@@ -453,7 +453,7 @@ decl_module! {
 
         /// Method: token_burn_request_revoke_everusd(origin)
         /// Arguments: origin: AccountId - transaction caller
-        /// Access: Investor or Emitent role
+        /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing burn request, created by caller's account
         #[weight = 5_000]
@@ -520,7 +520,7 @@ decl_module! {
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            body: BondInnerStruct
-        /// Access: Emitent role
+        /// Access: Issuer role
         ///
         /// Creates new bond with given BondId (8 bytes) and pack of parameters, set by BondInnerStruct.
         /// Bond is created in BondState::PREPARE, and can be modified many times until it becomes ready
@@ -529,7 +529,7 @@ decl_module! {
         #[weight = 20_000]
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_emitent(&caller),Error::<T>::AccountNotAuthorized);
+            ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(body.is_valid(), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
@@ -538,7 +538,7 @@ decl_module! {
             let item = BondStruct{
                     inner: body,
 
-                    emitent: caller,
+                    issuer: caller,
                     auditor: Default::default(),
                     manager: Default::default(),
                     impact_reporter: Default::default(),
@@ -563,8 +563,8 @@ decl_module! {
         /// Access: Master role
         ///
         /// Assigns target account to be the manager of the bond. Manager can make
-        /// almost the same actions with bond as Emitent, instead of most important,
-        /// helping Emitent to manage bond parameters, work with documents, etc...
+        /// almost the same actions with bond as Issuer, instead of most important,
+        /// helping Issuer to manage bond parameters, work with documents, etc...
         #[weight = 5_000]
         fn bond_set_manager(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -649,7 +649,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 ensure!(
-                    item.emitent == caller || item.manager == caller ,
+                    item.issuer == caller || item.manager == caller ,
                     Error::<T>::BondAccessDenied
                 );
                 // Financial data shell not be changed after release
@@ -709,7 +709,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 // issuer cannot buy his own bonds
-                ensure!(item.emitent!=caller, Error::<T>::BondParamIncorrect );
+                ensure!(item.issuer!=caller, Error::<T>::BondParamIncorrect );
 
                 let issued_amount = unit_amount.checked_add(item.issued_amount)
                     .ok_or(Error::<T>::BondParamIncorrect)?;
@@ -749,11 +749,11 @@ decl_module! {
                     // in BondState::ACTIVE or BondState::BANKRUPT received everusd
                     // can be forwarded to pay off the debt
                     Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                    // surplus to the emitent balance
+                    // surplus to the issuer balance
                     let free_balance = item.get_free_balance();
                     if free_balance > 0 {
                         item.bond_debit -= free_balance;
-                        Self::balance_add(&item.emitent, free_balance)?;
+                        Self::balance_add(&item.issuer, free_balance)?;
                     }
                 }else{
                     // in BondState::PREPARE just increase assets and liabilities of the Bond
@@ -835,7 +835,7 @@ decl_module! {
                 // Ensure the Bond raises less then bond_units_mincap_amount bond units
                 ensure!(item.inner.bond_units_mincap_amount > item.issued_amount, Error::<T>::BondParamIncorrect);
                 ensure!(
-                    item.emitent == caller || item.manager == caller || Self::account_is_master(&caller) ,
+                    item.issuer == caller || item.manager == caller || Self::account_is_master(&caller) ,
                     Error::<T>::BondAccessDenied
                 );
                 let now = <pallet_timestamp::Module<T>>::get();
@@ -910,7 +910,7 @@ decl_module! {
                 BondImpactReport::<T>::insert(&bond, &reports);
 
                 // withdraw all available bond fund
-                Self::balance_add(&item.emitent, item.bond_debit)?;
+                Self::balance_add(&item.issuer, item.bond_debit)?;
                 item.bond_debit = 0;
 
                 Self::deposit_event(RawEvent::BondActivated(caller, bond ));
@@ -931,7 +931,7 @@ decl_module! {
             let now = <pallet_timestamp::Module<T>>::get();
             {
                 let item = BondRegistry::<T>::get(bond);
-                ensure!(item.emitent == caller || item.impact_reporter == caller, Error::<T>::BondAccessDenied );
+                ensure!(item.issuer == caller || item.impact_reporter == caller, Error::<T>::BondAccessDenied );
                 ensure!(Self::is_report_in_time(&item, now, period), Error::<T>::BondOutOfOrder );
             }
 
@@ -1009,11 +1009,11 @@ decl_module! {
                 let amount = item.bond_credit + item.par_value( item.issued_amount ) ;
                 if amount <= item.bond_debit {
                     // withdraw free balance
-                    Self::balance_add(&item.emitent, item.bond_debit - amount)?;
+                    Self::balance_add(&item.issuer, item.bond_debit - amount)?;
                 }else{
                     let transfer = amount - item.bond_debit;
                     // pay off debt
-                    Self::balance_sub(&item.emitent, transfer)?;
+                    Self::balance_sub(&item.issuer, transfer)?;
                 }
                 item.bond_credit = 0;
                 //item.coupon_yield = amount;
@@ -1079,7 +1079,7 @@ decl_module! {
 
             ensure!( BondRegistry::<T>::contains_key(&bond), Error::<T>::BondNotFound );
             let item = BondRegistry::<T>::get(bond);
-            ensure!(item.emitent == caller || item.manager == caller, Error::<T>::BondAccessDenied);
+            ensure!(item.issuer == caller || item.manager == caller, Error::<T>::BondAccessDenied);
             ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
             assert!( BondRegistry::<T>::contains_key(bond) );
             BondRegistry::<T>::remove( &bond );
@@ -1106,11 +1106,11 @@ decl_module! {
                 let now = <pallet_timestamp::Module<T>>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
 
-                let amount: EverUSDBalance = if item.emitent == caller {
+                let amount: EverUSDBalance = if item.issuer == caller {
                     // issuer withdraw bond fund
                     let amount = item.get_free_balance();
                     if amount>0{
-                        Self::balance_add(&item.emitent, amount)?;
+                        Self::balance_add(&item.issuer, amount)?;
                         // it's safe to do unchecked subtraction
                         item.bond_debit -= amount;
                     }
@@ -1150,7 +1150,7 @@ decl_module! {
                     matches!(item.state , BondState::ACTIVE | BondState::BANKRUPT),
                     Error::<T>::BondStateNotPermitAction
                 );
-                ensure!(item.emitent == caller, Error::<T>::BondAccessDenied);
+                ensure!(item.issuer == caller, Error::<T>::BondAccessDenied);
 
                 Self::balance_sub(&caller, amount)?;
 
@@ -1311,13 +1311,13 @@ impl<T: Trait> Module<T> {
             && (AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0)
     }
 
-    /// Method: account_is_emitent(acc: &T::AccountId) -> bool
+    /// Method: account_is_issuer(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
-    /// Checks if the acc has global Emitent role
-    pub fn account_is_emitent(acc: &T::AccountId) -> bool {
+    /// Checks if the acc has global Issuer role
+    pub fn account_is_issuer(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & EMITENT_ROLE_MASK != 0)
+            && (AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0)
     }
 
     /// Method: account_is_investor(acc: &T::AccountId) -> bool
@@ -1361,7 +1361,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc can create burn and mint tokens requests
     pub fn account_token_mint_burn_allowed(acc: &T::AccountId) -> bool {
-        const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | EMITENT_ROLE_MASK;
+        const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | ISSUER_ROLE_MASK;
         AccountRegistry::<T>::contains_key(acc)
             && (AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0)
     }

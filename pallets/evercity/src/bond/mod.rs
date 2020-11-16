@@ -126,7 +126,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// when calculating coupon interest_rate depending on impact_data
     pub impact_data_max_deviation_floor: u64,
     /// Amount of seconds before end of a payment_period
-    /// when Emitent should release regular impact report (confirmed by Auditor)
+    /// when Issuer should release regular impact report (confirmed by Auditor)
     pub impact_data_send_period: BondPeriod,
     /// Penalty, adding to interest rate when impact report was not
     /// released during impact_data_send_period, ppm
@@ -143,7 +143,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// Interest rate during the start_periodm when interest rate is constant
     /// (from activation to first payment period), ppm
     pub interest_rate_start_period_value: BondInterest,
-    /// Period when Emitent should pay off coupon interests, sec
+    /// Period when Issuer should pay off coupon interests, sec
     pub interest_pay_period: BondPeriod,
 
     /// Period from activation when effective interest rate
@@ -153,11 +153,11 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// This is "main" recalcualtion period of bond. Each payment_period:
     ///  - impact_data is sent to bond and confirmed by Auditor (while impact_data_send_period is active)
     ///  - coupon interest rate is recalculated for next payment_period
-    ///  - required coupon interest payment is sent to bond by Emitent (while interest_pay_period is active)
+    ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
     pub payment_period: BondPeriod,
 
     /// The number of periods from active_start_date (when bond becomes active,
-    /// all periods and interest rate changes begin to work, funds become available for Emitent)
+    /// all periods and interest rate changes begin to work, funds become available for Issuer)
     /// until maturity date (when full bond debt must be paid).
     /// (bond maturity period = start_period + bond_duration * payment_period)
     pub bond_duration: BondPeriodNumber,
@@ -240,7 +240,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
     /// bond issuer account
-    pub emitent: AccountId,
+    pub issuer: AccountId,
     // #Auxiliary roles
     /// bond manager account
     pub manager: AccountId,
@@ -295,7 +295,7 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
             0
         }
     }
-    /// Returns the number of  tokens available for emitent
+    /// Returns the number of  tokens available for issuer
     pub fn get_free_balance(&self) -> EverUSDBalance {
         if self.bond_debit > self.bond_credit {
             self.bond_debit - self.bond_credit

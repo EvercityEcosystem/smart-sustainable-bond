@@ -5,7 +5,7 @@ use evercity_runtime::{
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
 use evercity_runtime::pallet_evercity::account::{
-    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, EMITENT_ROLE_MASK,
+    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, ISSUER_ROLE_MASK,
     INVESTOR_ROLE_MASK, MASTER_ROLE_MASK,
 };
 
@@ -125,7 +125,7 @@ fn testnet_genesis(
         Ss58Codec::from_ss58check("5DJBx8EcrJqWqDQDe3xPd7Bw2zL3obvHigdLZKVGDHx7GRwW").unwrap();
     let _pre_custodian_account_id: AccountId =
         Ss58Codec::from_ss58check("5EZ4JyMCxR6k5oDPAV5Bh1hqvMreqLZMbaXX2XUTk6f3ZPDL").unwrap();
-    let _pre_emitent_account_id: AccountId =
+    let _pre_issuer_account_id: AccountId =
         Ss58Codec::from_ss58check("5FxdLBFRrE7NF3u2Tq95XE5gM1ve4YAd9ZnP8ZujUJ85gf7c").unwrap();
     let _pre_investor_account_id: AccountId =
         Ss58Codec::from_ss58check("5FzuNtedbrnQrsKZKpAUzRy6swX9hM1PiLemREKoN2tBc3W1").unwrap();
@@ -146,7 +146,7 @@ fn testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Bob\\stash"),
                 _pre_master_account_id.clone(),
                 _pre_custodian_account_id.clone(),
-                _pre_emitent_account_id.clone(),
+                _pre_issuer_account_id.clone(),
                 _pre_investor_account_id.clone(),
                 _pre_auditor_account_id.clone(),
             ]
@@ -185,9 +185,9 @@ fn testnet_genesis(
                     },
                 ),
                 (
-                    _pre_emitent_account_id.clone(),
+                    _pre_issuer_account_id.clone(),
                     EvercityAccountStruct {
-                        roles: EMITENT_ROLE_MASK,
+                        roles: ISSUER_ROLE_MASK,
                         identity: 3u64,
                         create_time: 0,
                     },

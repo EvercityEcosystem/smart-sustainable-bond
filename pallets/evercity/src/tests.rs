@@ -2,7 +2,7 @@ use crate::mock::*;
 use crate::{
     BondId, BondImpactReportStructOf, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
     BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
-    DAY_DURATION, EMITENT_ROLE_MASK, MASTER_ROLE_MASK,
+    DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, Blake2_256, StorageHasher};
 use sp_core::sp_std::ops::RangeInclusive;
@@ -20,10 +20,10 @@ type BondUnitSaleLotStruct = BondUnitSaleLotStructOf<TestRuntime>;
 // Test uses pack of accounts, pre-set in new_test_ext in mock.rs:
 // (1, EvercityAccountStruct { roles: MASTER,            identity: 10u64}), // MASTER    (accountId: 1)
 // (2, EvercityAccountStruct { roles: CUSTODIAN,         identity: 20u64}), // CUSTODIAN (accountID: 2)
-// (3, EvercityAccountStruct { roles: EMITENT,           identity: 30u64}), // EMITENT   (accountID: 3)
+// (3, EvercityAccountStruct { roles: ISSUER,           identity: 30u64}), // ISSUER   (accountID: 3)
 // (4, EvercityAccountStruct { roles: INVESTOR,          identity: 40u64}), // INVESTOR  (accountId: 4)
 // (5, EvercityAccountStruct { roles: AUDITOR,           identity: 50u64}), // AUDITOR   (accountId: 5)
-// (7, EvercityAccountStruct { roles: EMITENT | EMITENT, identity: 70u64}), // EMITENT   (accountId: 5)
+// (7, EvercityAccountStruct { roles: ISSUER | ISSUER, identity: 70u64}), // ISSUER   (accountId: 5)
 // (8, EvercityAccountStruct { roles: MANAGER,           identity: 80u64}), // MANAGER   (accountId: 8)
 // (101+ : some external accounts
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ fn it_returns_true_for_correct_role_checks() {
     new_test_ext().execute_with(|| {
         assert_eq!(Evercity::account_is_master(&1), true);
         assert_eq!(Evercity::account_is_custodian(&2), true);
-        assert_eq!(Evercity::account_is_emitent(&3), true);
+        assert_eq!(Evercity::account_is_issuer(&3), true);
         assert_eq!(Evercity::account_is_investor(&4), true);
         assert_eq!(Evercity::account_is_auditor(&5), true);
     });
@@ -66,7 +66,7 @@ fn it_returns_false_for_incorrect_role_checks() {
         //assert_ok!(AccountRegistry::insert(Origin::signed(1), EvercityAccountStruct {roles: 1u8, identity: 67u64}));
         // Read pallet storage and assert an expected result.
         assert_eq!(Evercity::account_is_auditor(&1), false);
-        assert_eq!(Evercity::account_is_emitent(&2), false);
+        assert_eq!(Evercity::account_is_issuer(&2), false);
         assert_eq!(Evercity::account_is_investor(&3), false);
         assert_eq!(Evercity::account_is_custodian(&4), false);
         assert_eq!(Evercity::account_is_master(&5), false);
@@ -101,27 +101,27 @@ fn it_adds_new_account_with_correct_roles() {
 fn it_correctly_sets_new_role_to_existing_account() {
     new_test_ext().execute_with(|| {
         // add new role to existing account (alowed only for master)
-        assert_eq!(Evercity::account_is_emitent(&3), true);
+        assert_eq!(Evercity::account_is_issuer(&3), true);
         assert_ok!(Evercity::account_set_with_role_and_data(
             Origin::signed(1),
             3,
             AUDITOR_ROLE_MASK,
             88u64
         ));
-        assert_eq!(Evercity::account_is_emitent(&3), true);
+        assert_eq!(Evercity::account_is_issuer(&3), true);
         assert_eq!(Evercity::account_is_auditor(&3), true);
         assert_eq!(Evercity::account_is_investor(&3), false);
 
         assert_eq!(Evercity::account_is_custodian(&2), true);
-        assert_eq!(Evercity::account_is_emitent(&2), false);
+        assert_eq!(Evercity::account_is_issuer(&2), false);
         assert_ok!(Evercity::account_set_with_role_and_data(
             Origin::signed(1),
             2,
-            EMITENT_ROLE_MASK,
+            ISSUER_ROLE_MASK,
             89u64
         ));
         assert_eq!(Evercity::account_is_custodian(&2), true);
-        assert_eq!(Evercity::account_is_emitent(&2), true);
+        assert_eq!(Evercity::account_is_issuer(&2), true);
     });
 }
 
@@ -160,7 +160,7 @@ fn it_denies_add_and_set_roles_for_non_master() {
             Evercity::account_set_with_role_and_data(
                 Origin::signed(3),
                 3,
-                EMITENT_ROLE_MASK,
+                ISSUER_ROLE_MASK,
                 88u64
             ),
             RuntimeError::AccountNotAuthorized
@@ -334,7 +334,7 @@ fn it_token_burn_create_with_confirm() {
 
 #[test]
 fn it_token_burn_create_overrun() {
-    const ACCOUNT: u64 = 3; // EMITENT
+    const ACCOUNT: u64 = 3; // ISSUER
     const BALANCE: EverUSDBalance = 10000;
 
     new_test_ext().execute_with(|| {
@@ -349,7 +349,7 @@ fn it_token_burn_create_overrun() {
 
 #[test]
 fn it_token_burn_create_with_revoke() {
-    const ACCOUNT: u64 = 3; // EMITENT
+    const ACCOUNT: u64 = 3; // ISSUER
 
     new_test_ext().execute_with(|| {
         assert_ok!(add_token(ACCOUNT, 10000));
@@ -641,12 +641,12 @@ fn bond_buy_bond_uc() {
 }
 
 #[test]
-fn bond_try_create_by_nonemitent() {
+fn bond_try_create_by_nonissuer() {
     let bond = get_test_bond();
     let bondid: BondId = "BOND".into();
 
     new_test_ext().execute_with(|| {
-        for acc in iter_accounts().filter(|acc| !Evercity::account_is_emitent(acc)) {
+        for acc in iter_accounts().filter(|acc| !Evercity::account_is_issuer(acc)) {
             assert_noop!(
                 Evercity::bond_add_new(Origin::signed(acc), bondid, bond.inner.clone()),
                 RuntimeError::AccountNotAuthorized
