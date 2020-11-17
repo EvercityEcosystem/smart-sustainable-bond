@@ -290,6 +290,8 @@ construct_runtime!(
     }
 );
 
+pub type Moment = u64;
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -324,6 +326,20 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
+    impl pallet_evercity::BondApi<Block,AccountId, Moment, Hash> for Runtime{
+
+        fn get_bond(bond: pallet_evercity::BondId) -> pallet_evercity::BondStruct<AccountId, Moment, Hash>{
+            Evercity::get_bond(&bond)
+        }
+        fn get_bond_yield(bond: pallet_evercity::BondId)-> Vec<pallet_evercity::PeriodYield>{
+            Evercity::get_coupon_yields(&bond)
+        }
+        fn get_impact_reports(bond: pallet_evercity::BondId)->Vec<pallet_evercity::BondImpactReportStruct<Moment>>{
+            Evercity::bond_impact_data(&bond)
+        }
+    }
+
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

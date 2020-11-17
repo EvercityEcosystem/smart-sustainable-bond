@@ -236,7 +236,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
 ///  - issuance-related, inner part (BondInnerStruct): financial and impact data parameters, related to issuance of bond
 ///  - working part: bond state, connected accounts, raised and issued amounts, dates, etc
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
     /// bond issuer account
@@ -425,7 +425,7 @@ pub type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::
 /// more complicated for other types of impact_data and processing logic.
 /// Field "signed" is set to true by Auditor, when impact_data is verified.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondImpactReportStruct<Moment> {
     pub create_date: Moment,
     pub impact_data: u64,

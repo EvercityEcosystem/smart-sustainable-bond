@@ -3509,6 +3509,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "serde",
+ "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",

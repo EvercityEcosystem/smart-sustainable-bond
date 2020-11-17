@@ -5,18 +5,19 @@ use account::{
     CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK,
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
+pub use bond::{period::PeriodYield, BondId, BondImpactReportStruct, BondStruct, BondStructOf};
 use bond::{
-    period::PeriodYield, AccountYield, BondId, BondImpactReportStruct, BondImpactReportStructOf,
-    BondInnerStructOf, BondPeriod, BondPeriodNumber, BondState, BondStruct, BondStructOf,
-    BondUnitAmount, BondUnitPackageOf, BondUnitSaleLotStructOf,
+    AccountYield, BondImpactReportStructOf, BondInnerStructOf, BondPeriod, BondPeriodNumber,
+    BondState, BondUnitAmount, BondUnitPackageOf, BondUnitSaleLotStructOf,
 };
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{Decode, DispatchError, DispatchResult},
     ensure,
 };
+
 use frame_system::ensure_signed;
 use sp_core::sp_std::cmp::min;
 
@@ -60,6 +61,14 @@ macro_rules! ensure_active {
             }
         }
     };
+}
+
+sp_api::decl_runtime_apis! {
+    pub trait BondApi<AccountId:Decode, Moment:Decode, Hash:Decode> {
+        fn get_bond(bond: BondId) -> BondStruct<AccountId, Moment, Hash>;
+        fn get_bond_yield(bond: BondId)-> Vec<PeriodYield>;
+        fn get_impact_reports(bond: BondId)->Vec<BondImpactReportStruct<Moment>>;
+    }
 }
 
 decl_storage! {
@@ -157,23 +166,24 @@ decl_event!(
         BondChanged(AccountId, BondId),
         BondRevoked(AccountId, BondId),
         BondReleased(AccountId, BondId),
-        BondActivated(AccountId, BondId),
+        BondActivated(AccountId, BondId, EverUSDBalance),
         BondWithdrawal(AccountId, BondId),
         BondImpactReportReceived(AccountId, BondId),
-        BondRedeemed(AccountId, BondId),
-        BondBankrupted(AccountId, BondId),
+        BondRedeemed(AccountId, BondId, EverUSDBalance),
+        BondBankrupted(AccountId, BondId, EverUSDBalance, EverUSDBalance),
 
         BondWithdrawEverUSD(AccountId, BondId, EverUSDBalance),
         BondDepositEverUSD(AccountId, BondId, EverUSDBalance),
 
-        BondSale(AccountId, BondId, u32),
-        BondGiveBack(AccountId, BondId, u32),
+        BondUnitSold(AccountId, BondId, u32),
+        BondUnitReturned(AccountId, BondId, u32),
 
-        BondImpactReportIssued(AccountId, BondId),
-        BondImpactReportSigned(AccountId, BondId),
+        BondImpactReportSent(AccountId, BondId, BondPeriodNumber, u64),
+        BondImpactReportApproved(AccountId, BondId, BondPeriodNumber, u64),
         BondCouponYield(BondId, EverUSDBalance),
 
-        BondNewSaleLot(AccountId, BondId, BondUnitSaleLotStruct),
+        BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStruct),
+        BondSaleLotSettle(AccountId, BondId, BondUnitSaleLotStruct),
     }
 );
 
@@ -284,8 +294,8 @@ decl_module! {
         /// KYC providers
         #[weight = 10_000]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_master(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
@@ -296,7 +306,7 @@ decl_module! {
             );
             debug::error!("account_add_with_role_and_data: who={:?} when={:?}", who, now);
 
-            Self::deposit_event(RawEvent::AccountAdd(_caller, who, role, identity));
+            Self::deposit_event(RawEvent::AccountAdd(caller, who, role, identity));
             Ok(())
         }
 
@@ -310,8 +320,8 @@ decl_module! {
         /// Modifies existing account, assigning new role(s) or identity to it
         #[weight = 10_000]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_master(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
@@ -319,7 +329,7 @@ decl_module! {
                 acc.roles |= role;
             });
 
-            Self::deposit_event(RawEvent::AccountSet(_caller, who, role, identity));
+            Self::deposit_event(RawEvent::AccountSet(caller, who, role, identity));
             Ok(())
         }
 
@@ -336,20 +346,20 @@ decl_module! {
         /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(amount_to_mint < EVERUSD_MAX_MINT_AMOUNT, Error::<T>::MintRequestParamIncorrect);
             // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
+            ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
             let new_mint_request = TokenMintRequestStruct{
                 amount: amount_to_mint,
                 deadline: now + TOKEN_MINT_REQUEST_TTL .into(),
             };
-            MintRequestEverUSD::<T>::insert(&_caller, new_mint_request);
+            MintRequestEverUSD::<T>::insert(&caller, new_mint_request);
 
-            Self::deposit_event(RawEvent::MintRequestCreated(_caller, amount_to_mint));
+            Self::deposit_event(RawEvent::MintRequestCreated(caller, amount_to_mint));
             Ok(())
         }
 
@@ -360,11 +370,11 @@ decl_module! {
         /// Revokes and deletes currently existing mint request, created by caller's account
         #[weight = 5_000]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestDoesntExist);
-            let _amount = MintRequestEverUSD::<T>::get(&_caller).amount;
-            MintRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::MintRequestRevoked(_caller, _amount));
+            let caller = ensure_signed(origin)?;
+            ensure!(MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestDoesntExist);
+            let _amount = MintRequestEverUSD::<T>::get(&caller).amount;
+            MintRequestEverUSD::<T>::remove(&caller);
+            Self::deposit_event(RawEvent::MintRequestRevoked(caller, _amount));
             Ok(())
         }
 
@@ -380,8 +390,8 @@ decl_module! {
         /// while Custodian makes a decision
         #[weight = 15_000]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let mint_request = MintRequestEverUSD::<T>::get(&who);
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
@@ -412,12 +422,12 @@ decl_module! {
         /// Declines and deletes the mint request of account (Custodian)
         #[weight = 5_000]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
-            let _amount = MintRequestEverUSD::<T>::get(&who).amount;
+            let amount = MintRequestEverUSD::<T>::get(&who).amount;
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestDeclined(_caller, _amount));
+            Self::deposit_event(RawEvent::MintRequestDeclined(caller, amount));
             Ok(())
         }
 
@@ -432,22 +442,22 @@ decl_module! {
         /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
             // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
+            ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
-            let _current_balance = BalanceEverUSD::<T>::get(&_caller);
-            ensure!(amount_to_burn <= _current_balance, Error::<T>::MintRequestParamIncorrect);
+            let current_balance = BalanceEverUSD::<T>::get(&caller);
+            ensure!(amount_to_burn <= current_balance, Error::<T>::MintRequestParamIncorrect);
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
 
             let new_burn_request = TokenBurnRequestStruct {
                 amount: amount_to_burn,
                 deadline: now + TOKEN_BURN_REQUEST_TTL .into(),
             };
-            BurnRequestEverUSD::<T>::insert(&_caller, new_burn_request);
+            BurnRequestEverUSD::<T>::insert(&caller, new_burn_request);
 
-            Self::deposit_event(RawEvent::BurnRequestCreated(_caller, amount_to_burn));
+            Self::deposit_event(RawEvent::BurnRequestCreated(caller, amount_to_burn));
             Ok(())
         }
 
@@ -458,11 +468,11 @@ decl_module! {
         /// Revokes and deletes currently existing burn request, created by caller's account
         #[weight = 5_000]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(BurnRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::BurnRequestDoesntExist);
-            let _amount = BurnRequestEverUSD::<T>::get(&_caller).amount;
-            BurnRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::BurnRequestRevoked(_caller, _amount));
+            let caller = ensure_signed(origin)?;
+            ensure!(BurnRequestEverUSD::<T>::contains_key(&caller), Error::<T>::BurnRequestDoesntExist);
+            let amount = BurnRequestEverUSD::<T>::get(&caller).amount;
+            BurnRequestEverUSD::<T>::remove(&caller);
+            Self::deposit_event(RawEvent::BurnRequestRevoked(caller, amount));
             Ok(())
         }
 
@@ -475,8 +485,8 @@ decl_module! {
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
         #[weight = 15_000]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let burn_request = BurnRequestEverUSD::<T>::get(&who);
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
@@ -505,12 +515,12 @@ decl_module! {
         /// Declines and deletes the burn request of account (Custodian)
         #[weight = 5_000]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
-            let _amount = BurnRequestEverUSD::<T>::get(&who).amount;
+            let amount = BurnRequestEverUSD::<T>::get(&who).amount;
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestDeclined(_caller, _amount));
+            Self::deposit_event(RawEvent::BurnRequestDeclined(caller, amount));
             Ok(())
         }
 
@@ -538,7 +548,7 @@ decl_module! {
             let item = BondStruct{
                     inner: body,
 
-                    issuer: caller,
+                    issuer: caller.clone(),
                     auditor: Default::default(),
                     manager: Default::default(),
                     impact_reporter: Default::default(),
@@ -553,6 +563,7 @@ decl_module! {
                     coupon_yield: 0
             };
             BondRegistry::<T>::insert(&bond, item);
+            Self::deposit_event(RawEvent::BondAdded(caller, bond));
             Ok(())
         }
 
@@ -760,7 +771,7 @@ decl_module! {
                     item.increase( package_value );
                 }
 
-                Self::deposit_event(RawEvent::BondSale(caller.clone(), bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount ));
 
                 // @FIXME
                 // According to the Design document
@@ -813,7 +824,7 @@ decl_module! {
                 item.issued_amount -= unit_amount;
 
                 Self::balance_add(&caller, package_value )?;
-                Self::deposit_event(RawEvent::BondGiveBack(caller, bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount ));
 
                 Ok(())
             })
@@ -910,10 +921,11 @@ decl_module! {
                 BondImpactReport::<T>::insert(&bond, &reports);
 
                 // withdraw all available bond fund
+                let amount = item.bond_debit;
                 Self::balance_add(&item.issuer, item.bond_debit)?;
                 item.bond_debit = 0;
 
-                Self::deposit_event(RawEvent::BondActivated(caller, bond ));
+                Self::deposit_event(RawEvent::BondActivated(caller, bond, amount ));
                 Ok(())
             })
         }
@@ -943,7 +955,7 @@ decl_module! {
                 reports[index].create_date = now;
                 reports[index].impact_data = impact_data;
 
-                Self::deposit_event(RawEvent::BondImpactReportIssued( caller, bond ));
+                Self::deposit_event(RawEvent::BondImpactReportSent( caller, bond, period, impact_data ));
                 Ok(())
             })
         }
@@ -980,7 +992,7 @@ decl_module! {
 
                 reports[index].signed = true;
 
-                Self::deposit_event(RawEvent::BondImpactReportSigned( caller, bond ));
+                Self::deposit_event(RawEvent::BondImpactReportApproved( caller, bond, period, impact_data ));
                 Ok(())
             })
         }
@@ -1015,12 +1027,13 @@ decl_module! {
                     // pay off debt
                     Self::balance_sub(&item.issuer, transfer)?;
                 }
+                let ytm = item.bond_credit;
                 item.bond_credit = 0;
                 //item.coupon_yield = amount;
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
 
-                Self::deposit_event(RawEvent::BondRedeemed(caller, bond ));
+                Self::deposit_event(RawEvent::BondRedeemed(caller, bond, ytm ));
                 Ok(())
             })
         }
@@ -1036,13 +1049,15 @@ decl_module! {
             let caller = ensure_signed(origin)?;
              ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
 
-            Self::with_bond(&bond, |item|{
+            Self::with_bond(&bond, |mut item|{
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.get_debt()>0, Error::<T>::BondOutOfOrder );
+                let now = <pallet_timestamp::Module<T>>::get();
+                Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
                 // @TODO refine condition
                 item.state = BondState::BANKRUPT;
 
-                Self::deposit_event(RawEvent::BondBankrupted(caller, bond ));
+                Self::deposit_event(RawEvent::BondBankrupted(caller, bond, item.bond_credit, item.bond_debit ));
                 Ok(())
             })
         }
@@ -1055,7 +1070,7 @@ decl_module! {
         /// Calculates bond coupon yield
         #[weight = 25_000]
         fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
 
             Self::with_bond(&bond, |mut item|{
                 let now = <pallet_timestamp::Module<T>>::get();
@@ -1200,7 +1215,7 @@ decl_module! {
             );
             // save  lots
             BondUnitPackageLot::<T>::insert(&bond, &caller, lots);
-            Self::deposit_event(RawEvent::BondNewSaleLot(caller, bond, lot ));
+            Self::deposit_event(RawEvent::BondSaleLotBid(caller, bond, lot ));
             Ok(())
         }
 
@@ -1282,7 +1297,7 @@ decl_module! {
                      // pay off deal
                      Self::balance_sub(&caller, lot.amount)?;
                      Self::balance_add(&bondholder, lot.amount)?;
-
+                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bond, lot ));
                      Ok(())
                 }else{
                     Err(Error::<T>::BondParamIncorrect.into())
@@ -1386,7 +1401,6 @@ impl<T: Trait> Module<T> {
     /// Arguments: bond: BondId - bond unique identifier
     ///
     ///  Returns bond structure if found
-    #[cfg(test)]
     pub fn get_bond(bond: &BondId) -> BondStructOf<T> {
         BondRegistry::<T>::get(bond)
     }
@@ -1399,7 +1413,6 @@ impl<T: Trait> Module<T> {
         BondUnitPackageRegistry::<T>::get(bond, bondholder)
     }
 
-    #[cfg(test)]
     pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStructOf<T>> {
         BondImpactReport::<T>::get(bond)
     }
@@ -1483,8 +1496,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    #[cfg(test)]
-    fn get_coupon_yields(id: &BondId) -> Vec<PeriodYield> {
+    pub fn get_coupon_yields(id: &BondId) -> Vec<PeriodYield> {
         BondCouponYield::get(id)
     }
     /// Calculate bond coupon yield
@@ -1572,6 +1584,7 @@ impl<T: Trait> Module<T> {
                 coupon_yield_before: coupon_yield,
                 interest_rate,
             });
+            Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
         }
         // save current liability in bond_credit field
         bond.bond_credit = total_yield;
