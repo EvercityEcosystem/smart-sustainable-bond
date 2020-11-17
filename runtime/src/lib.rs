@@ -46,6 +46,8 @@ pub use frame_support::{
 
 /// Import the pallet-evercity pallet.
 pub use pallet_evercity;
+/// Moment datatype
+pub type Moment = u64;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -107,7 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 60000;
 
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
@@ -226,7 +228,7 @@ parameter_types! {
 
 impl pallet_timestamp::Trait for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -290,7 +292,6 @@ construct_runtime!(
     }
 );
 
-pub type Moment = u64;
 
 /// The address format for describing accounts.
 pub type Address = AccountId;

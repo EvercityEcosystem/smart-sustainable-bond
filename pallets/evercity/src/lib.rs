@@ -1406,6 +1406,19 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
+    pub fn bond_check_invariant(bond: &BondId) -> bool{
+        let (bond_units, coupon_yield) = BondUnitPackageRegistry::<T>::iter_prefix_values(bond)
+            .fold( (0,0), |acc, packages| {
+                packages.iter().fold( acc, |acc, package|{
+                    (acc.0 + package.bond_units, acc.1 + package.coupon_yield )
+                })
+            });
+        let bond = BondRegistry::<T>::get(bond);
+
+        bond.issued_amount == bond_units && bond.coupon_yield == coupon_yield
+    }
+
+    #[cfg(test)]
     pub fn bond_holder_packages(
         bond: &BondId,
         bondholder: &T::AccountId,

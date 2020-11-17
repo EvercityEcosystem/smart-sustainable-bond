@@ -9,11 +9,11 @@
     "identity": "u64",
 	"create_time": "Moment"
   },
-  "MintRequestStructOf": {
+  "TokenMintRequestStructOf": {
     "amount": "EverUSDBalance",
 	"deadline": "Moment"
   },
-  "BurnRequestStructOf": {
+  "TokenBurnRequestStructOf": {
     "amount": "EverUSDBalance",
 	"deadline": "Moment"
   }
