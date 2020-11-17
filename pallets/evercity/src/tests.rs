@@ -1,6 +1,6 @@
 use crate::mock::*;
 use crate::{
-    BondId, BondImpactReportStructOf, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
+    BondId, BondImpactReportStruct, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
     BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
     DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
@@ -276,20 +276,16 @@ fn it_token_mint_create_toolarge() {
 fn it_token_burn_mint_overflow() {
     const ACCOUNT: u64 = 4;
     new_test_ext().execute_with(|| {
-        assert_ok!(
-            Evercity::token_mint_request_create_everusd(
-                Origin::signed(ACCOUNT),
-                1000
-            )
-        );
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            1000
+        ));
 
-        assert_ok!(
-            Evercity::token_mint_request_confirm_everusd(
-                Origin::signed(CUSTODIAN_ID),
-                ACCOUNT,
-                1000
-            )
-        );
+        assert_ok!(Evercity::token_mint_request_confirm_everusd(
+            Origin::signed(CUSTODIAN_ID),
+            ACCOUNT,
+            1000
+        ));
         assert_noop!(
             Evercity::token_burn_request_create_everusd(
                 Origin::signed(ACCOUNT),
@@ -496,50 +492,50 @@ fn bond_period_interest_rate() {
 
         assert_eq!(bond.inner.impact_data_baseline, 20000_u64);
 
-        let mut reports = Vec::<BondImpactReportStructOf<TestRuntime>>::new();
+        let mut reports = Vec::<BondImpactReportStruct>::new();
         //missing report
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 0,
             signed: false,
         });
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 20000_u64,
             signed: true,
         });
         //missing report
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 0,
             signed: false,
         });
         // worst result and maximal interest rate value
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 14000_u64,
             signed: true,
         });
         //missing report. it cannot make interest rate worse
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 0,
             signed: false,
         });
         // very good result lead to mininal interest rate
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 100000_u64,
             signed: true,
         });
         //first missing report.
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 0,
             signed: false,
         });
         //second missing report.
-        reports.push(BondImpactReportStructOf::<TestRuntime> {
+        reports.push(BondImpactReportStruct {
             create_date: 0,
             impact_data: 0,
             signed: false,
@@ -1108,13 +1104,13 @@ fn bond_try_activate_expired_fund_raising() {
 }
 
 #[test]
-fn bond_try_create_with_overflow(){
+fn bond_try_create_with_overflow() {
     const ACCOUNT: u64 = 3;
     let bondid: BondId = "BOND".into();
 
     new_test_ext().execute_with(|| {
         let mut bond = get_test_bond().inner;
-        bond.bond_units_maxcap_amount = BondUnitAmount::MAX-1;
+        bond.bond_units_maxcap_amount = BondUnitAmount::MAX - 1;
 
         assert_noop!(
             Evercity::bond_add_new(Origin::signed(ACCOUNT), bondid, bond),
@@ -1124,7 +1120,7 @@ fn bond_try_create_with_overflow(){
 }
 
 #[test]
-fn bond_try_buy_unit_with_overflow(){
+fn bond_try_buy_unit_with_overflow() {
     const ACCOUNT: u64 = 3;
     const INVESTOR1: u64 = 4;
     let bondid: BondId = "BOND".into();
@@ -1133,14 +1129,17 @@ fn bond_try_buy_unit_with_overflow(){
         bond_grand_everusd();
         let bond = get_test_bond().inner;
         let amount = bond.bond_units_maxcap_amount;
-        bond_release(bondid, ACCOUNT, bond );
+        bond_release(bondid, ACCOUNT, bond);
 
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(100_000);
-        assert_noop!(Evercity::bond_unit_package_buy(
-            Origin::signed(INVESTOR1),
-            bondid,
-            BondUnitAmount::MAX - amount
-        ), RuntimeError::BondParamIncorrect);
+        assert_noop!(
+            Evercity::bond_unit_package_buy(
+                Origin::signed(INVESTOR1),
+                bondid,
+                BondUnitAmount::MAX - amount
+            ),
+            RuntimeError::BondParamIncorrect
+        );
     });
 }
 
@@ -2011,10 +2010,6 @@ fn bond_cancel_after_release() {
         assert_eq!(packages1[0].bond_units, 400);
         assert_eq!(packages2[0].bond_units, 200);
         assert_eq!(packages2[0].bond_units, 200);
-
-        assert_eq!(packages1[0].create_date, 10000);
-        assert_eq!(packages2[0].create_date, 20000);
-        assert_eq!(packages2[1].create_date, 30000);
 
         assert_eq!(packages1[0].acquisition, 0);
         assert_eq!(packages2[0].acquisition, 0);

@@ -408,32 +408,30 @@ pub struct AccountYield {
 /// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
 /// Bond units that bondholder acquire
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct BondUnitPackage<Moment> {
+pub struct BondUnitPackage {
     /// amount of bond units
     pub bond_units: BondUnitAmount,
     /// acquisition moment (seconds after bond start date)
     pub acquisition: BondPeriod,
     /// paid coupon yield
     pub coupon_yield: EverUSDBalance,
-    /// moment of creation
-    pub create_date: Moment,
 }
 
-pub type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
+// pub type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
 
 /// Struct with impact_data sent to bond. In the future can become
 /// more complicated for other types of impact_data and processing logic.
 /// Field "signed" is set to true by Auditor, when impact_data is verified.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct BondImpactReportStruct<Moment> {
-    pub create_date: Moment,
+pub struct BondImpactReportStruct {
+    pub create_date: BondPeriod,
     pub impact_data: u64,
     pub signed: bool,
 }
 
-pub type BondImpactReportStructOf<T> =
-    BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
+//pub type BondImpactReportStructOf<T> =
+//    BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
 /// Struct, representing pack of bond units for sale
 /// Can include target bearer (to sell bond units only to given person)
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

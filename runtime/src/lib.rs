@@ -292,7 +292,6 @@ construct_runtime!(
     }
 );
 
-
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -335,7 +334,7 @@ impl_runtime_apis! {
         fn get_bond_yield(bond: pallet_evercity::BondId)-> Vec<pallet_evercity::PeriodYield>{
             Evercity::get_coupon_yields(&bond)
         }
-        fn get_impact_reports(bond: pallet_evercity::BondId)->Vec<pallet_evercity::BondImpactReportStruct<Moment>>{
+        fn get_impact_reports(bond: pallet_evercity::BondId)->Vec<pallet_evercity::BondImpactReportStruct>{
             Evercity::bond_impact_data(&bond)
         }
     }

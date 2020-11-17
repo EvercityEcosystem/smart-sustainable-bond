@@ -5,10 +5,12 @@ use account::{
     CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK,
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
-pub use bond::{period::PeriodYield, BondId, BondImpactReportStruct, BondStruct, BondStructOf};
+pub use bond::{
+    period::PeriodYield, BondId, BondImpactReportStruct, BondStruct, BondStructOf, BondUnitPackage,
+};
 use bond::{
-    AccountYield, BondImpactReportStructOf, BondInnerStructOf, BondPeriod, BondPeriodNumber,
-    BondState, BondUnitAmount, BondUnitPackageOf, BondUnitSaleLotStructOf,
+    AccountYield, BondInnerStructOf, BondPeriod, BondPeriodNumber, BondState, BondUnitAmount,
+    BondUnitSaleLotStructOf,
 };
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
@@ -67,7 +69,7 @@ sp_api::decl_runtime_apis! {
     pub trait BondApi<AccountId:Decode, Moment:Decode, Hash:Decode> {
         fn get_bond(bond: BondId) -> BondStruct<AccountId, Moment, Hash>;
         fn get_bond_yield(bond: BondId)-> Vec<PeriodYield>;
-        fn get_impact_reports(bond: BondId)->Vec<BondImpactReportStruct<Moment>>;
+        fn get_impact_reports(bond: BondId)->Vec<BondImpactReportStruct>;
     }
 }
 
@@ -108,7 +110,7 @@ decl_storage! {
         /// Investor's Bond units (packs of bond_units, received at the same time, belonging to Investor)
         BondUnitPackageRegistry
             get(fn bond_unit_registry):
-                double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitPackageOf<T>>;
+                double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitPackage>;
 
         /// Bond coupon yield storage
         /// Every element has total bond yield of passed period recorded on accrual basis
@@ -129,7 +131,7 @@ decl_storage! {
         /// Bond impact report storage
         BondImpactReport
             get(fn impact_reports):
-                map hasher(blake2_128_concat) BondId => Vec<BondImpactReportStructOf<T>>;
+                map hasher(blake2_128_concat) BondId => Vec<BondImpactReportStruct>;
     }
 }
 
@@ -743,11 +745,10 @@ decl_module! {
                 // compare them with a more efficient way to store data
                 BondUnitPackageRegistry::<T>::mutate(&bond, &caller, |packages|{
                     packages.push(
-                        BondUnitPackageOf::<T>{
+                        BondUnitPackage{
                              bond_units: unit_amount,
                              acquisition,
                              coupon_yield: 0,
-                             create_date: now,
                         }
                     );
                 });
@@ -911,14 +912,14 @@ decl_module! {
 
                 // create impact report struct.
                 // the total number or reports is equal to the number of periods plus 1 (start period)
-                let mut reports: Vec<BondImpactReportStructOf<T>> = Vec::new();
+                let mut reports: Vec<BondImpactReportStruct> = Vec::new();
                 reports.resize( ( item.inner.bond_duration + 1 ) as usize,  BondImpactReportStruct{
-                    create_date: Default::default(),
+                    create_date: 0,
                     impact_data: 0,
                     signed: false,
                 });
 
-                BondImpactReport::<T>::insert(&bond, &reports);
+                BondImpactReport::insert(&bond, &reports);
 
                 // withdraw all available bond fund
                 let amount = item.bond_debit;
@@ -941,18 +942,19 @@ decl_module! {
         fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
-            {
+            let moment = {
                 let item = BondRegistry::<T>::get(bond);
                 ensure!(item.issuer == caller || item.impact_reporter == caller, Error::<T>::BondAccessDenied );
                 ensure!(Self::is_report_in_time(&item, now, period), Error::<T>::BondOutOfOrder );
-            }
+                item.time_passed_after_activation( now ).map( |(moment, _period)| moment ).unwrap()
+            };
 
             let index: usize = period as usize;
-            BondImpactReport::<T>::try_mutate(&bond, |reports|->DispatchResult {
+            BondImpactReport::try_mutate(&bond, |reports|->DispatchResult {
 
                 ensure!(index < reports.len() && !reports[index].signed, Error::<T>::BondParamIncorrect );
 
-                reports[index].create_date = now;
+                reports[index].create_date = moment;
                 reports[index].impact_data = impact_data;
 
                 Self::deposit_event(RawEvent::BondImpactReportSent( caller, bond, period, impact_data ));
@@ -981,11 +983,11 @@ decl_module! {
             }
 
             let index: usize = period as usize;
-            BondImpactReport::<T>::try_mutate(&bond, |reports|->DispatchResult {
+            BondImpactReport::try_mutate(&bond, |reports|->DispatchResult {
 
                 ensure!(index < reports.len(), Error::<T>::BondParamIncorrect );
                 let report = &reports[index];
-                ensure!(report.create_date > 0.into() , Error::<T>::BondParamIncorrect);
+                ensure!(report.create_date > 0 , Error::<T>::BondParamIncorrect);
                 ensure!(!report.signed && report.impact_data == impact_data,
                  Error::<T>::BondParamIncorrect
                 );
@@ -1281,11 +1283,10 @@ decl_module! {
                            };
 
                            to_packages.push(
-                                BondUnitPackageOf::<T>{
+                                BondUnitPackage{
                                      bond_units,
                                      acquisition,
                                      coupon_yield,
-                                     create_date: now,
                                 }
                            );
                      }
@@ -1406,11 +1407,11 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    pub fn bond_check_invariant(bond: &BondId) -> bool{
+    pub fn bond_check_invariant(bond: &BondId) -> bool {
         let (bond_units, coupon_yield) = BondUnitPackageRegistry::<T>::iter_prefix_values(bond)
-            .fold( (0,0), |acc, packages| {
-                packages.iter().fold( acc, |acc, package|{
-                    (acc.0 + package.bond_units, acc.1 + package.coupon_yield )
+            .fold((0, 0), |acc, packages| {
+                packages.iter().fold(acc, |acc, package| {
+                    (acc.0 + package.bond_units, acc.1 + package.coupon_yield)
                 })
             });
         let bond = BondRegistry::<T>::get(bond);
@@ -1419,15 +1420,12 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    pub fn bond_holder_packages(
-        bond: &BondId,
-        bondholder: &T::AccountId,
-    ) -> Vec<BondUnitPackageOf<T>> {
+    pub fn bond_holder_packages(bond: &BondId, bondholder: &T::AccountId) -> Vec<BondUnitPackage> {
         BondUnitPackageRegistry::<T>::get(bond, bondholder)
     }
 
-    pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStructOf<T>> {
-        BondImpactReport::<T>::get(bond)
+    pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStruct> {
+        BondImpactReport::get(bond)
     }
 
     #[allow(dead_code)]
@@ -1436,9 +1434,7 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    fn bond_packages(
-        id: &BondId,
-    ) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackageOf<T>>>
+    fn bond_packages(id: &BondId) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackage>>
     where
         <T as frame_system::Trait>::AccountId: std::hash::Hash,
     {
@@ -1540,7 +1536,7 @@ impl<T: Trait> Module<T> {
         }
 
         // @TODO refactor. use `mutate` method instead  of get+insert
-        let reports = BondImpactReport::<T>::get(id);
+        let reports = BondImpactReport::get(id);
         assert!(reports.len() + 1 >= period);
 
         while bond_yields.len() < period {
@@ -1742,7 +1738,7 @@ impl<T: Trait> Module<T> {
     #[cfg(test)]
     pub fn calc_bond_interest_rate(
         bond: &BondStructOf<T>,
-        reports: &[BondImpactReportStructOf<T>],
+        reports: &[BondImpactReportStruct],
         period: usize,
     ) -> bond::BondInterest {
         assert!(reports.len() >= period);
@@ -1784,12 +1780,12 @@ impl<T: Trait> Module<T> {
         period: BondPeriodNumber,
         impact_data: u64,
     ) -> DispatchResult {
-        BondImpactReport::<T>::try_mutate(&bond, |reports| -> DispatchResult {
+        BondImpactReport::try_mutate(&bond, |reports| -> DispatchResult {
             let index = period as usize;
 
             reports[index].signed = true;
             reports[index].impact_data = impact_data;
-            reports[index].create_date = <pallet_timestamp::Module<T>>::get();
+            reports[index].create_date = 1; //dirty hack. test require nonzero value
 
             Ok(())
         })
