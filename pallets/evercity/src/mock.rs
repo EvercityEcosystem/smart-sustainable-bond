@@ -1,5 +1,5 @@
 use crate::account::*;
-use crate::{BondInnerStructOf, BondStructOf, EvercityAccountStructT, Trait, DAY_DURATION};
+use crate::{BondInnerStructOf, BondStructOf, EvercityAccountStructT, Trait, DAY_DURATION, EverUSDBalance};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -15,6 +15,7 @@ impl_outer_origin! {
 // Configure a mock runtime to test the pallet.
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestRuntime;
@@ -54,9 +55,17 @@ impl frame_system::Trait for TestRuntime {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
 }
+parameter_types! {
+    pub const BurnRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const MaxMintAmount: EverUSDBalance = EVERUSD_MAX_MINT_AMOUNT;
+}
 
 impl Trait for TestRuntime {
     type Event = ();
+    type BurnRequestTtl = BurnRequestTtl;
+    type MintRequestTtl = MintRequestTtl;
+    type MaxMintAmount = MaxMintAmount;
 }
 
 parameter_types! {

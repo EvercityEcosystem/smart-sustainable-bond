@@ -265,7 +265,7 @@ fn it_token_mint_create_toolarge() {
         assert_noop!(
             Evercity::token_mint_request_create_everusd(
                 Origin::signed(ACCOUNT), // INVESTOR
-                crate::EVERUSD_MAX_MINT_AMOUNT + 1
+                EVERUSD_MAX_MINT_AMOUNT + 1
             ),
             RuntimeError::MintRequestParamIncorrect
         );

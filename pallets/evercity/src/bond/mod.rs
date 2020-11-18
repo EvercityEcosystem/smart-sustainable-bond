@@ -1,4 +1,4 @@
-use crate::{EverUSDBalance, Expired, DAY_DURATION, MIN_BOND_DURATION, MIN_PAYMENT_PERIOD};
+use crate::{EverUSDBalance, Expired, DAY_DURATION, MIN_BOND_DURATION};
 #[cfg(feature = "std")]
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
@@ -16,6 +16,9 @@ use sp_core::sp_std::cmp::min;
 #[cfg(test)]
 pub mod ledger;
 pub mod period;
+
+pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
 pub struct BondId([u8; 8]);

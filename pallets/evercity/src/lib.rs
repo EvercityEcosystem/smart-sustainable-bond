@@ -9,7 +9,7 @@ pub use bond::{
     period::PeriodYield, BondId, BondImpactReportStruct, BondStruct, BondStructOf, BondUnitPackage,
 };
 use bond::{
-    AccountYield, BondInnerStructOf, BondPeriod, BondPeriodNumber, BondState, BondUnitAmount,
+    AccountYield, BondInnerStructOf, BondPeriodNumber, BondState, BondUnitAmount,
     BondUnitSaleLotStructOf,
 };
 use core::cmp::{Eq, PartialEq};
@@ -17,6 +17,7 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{Decode, DispatchError, DispatchResult},
+    traits::{Get},
     ensure,
 };
 
@@ -25,6 +26,9 @@ use sp_core::sp_std::cmp::min;
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type BurnRequestTtl: Get<u32>;
+    type MintRequestTtl: Get<u32>;
+    type MaxMintAmount: Get<EverUSDBalance>;
 }
 
 pub trait Expired<Moment> {
@@ -33,21 +37,21 @@ pub trait Expired<Moment> {
 pub type EverUSDBalance = u64;
 pub type Result<T> = core::result::Result<T, DispatchError>;
 
-pub const EVERUSD_DECIMALS: u64 = 9; // EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
-pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
-const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
-pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
-
-const TOKEN_BURN_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
-const TOKEN_MINT_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
+// EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
+pub const EVERUSD_DECIMALS: u64 = 9;
+// seconds in 1 DAY
+const DAY_DURATION: u32 = 86400;
+// Bank's year in days
 const INTEREST_RATE_YEAR: u64 = 365;
+// Gas limit settings for purge mint/burn requests
 const MAX_PURGE_REQUESTS: usize = 100;
-const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
+// a bond must have as least this amount of periods
+const MIN_BOND_DURATION: u32 = 1;
 
-pub mod account;
 /// Evercity project types
 /// All these types must be put in CUSTOM_TYPES part of config for polkadot.js
 /// to be correctly presented in DApp
+pub mod account;
 pub mod bond;
 #[cfg(test)]
 mod mock;
@@ -145,47 +149,63 @@ decl_event!(
         /// parameters. [something, who]
         // 1: author, 2: newly added account, 3: role, 4: identity
         AccountAdd(AccountId, AccountId, u8, u64),
-
         // 1: author, 2:  updated account, 3: role, 4: identity
         AccountSet(AccountId, AccountId, u8, u64),
-
         // 1: author, 2: disabled account
         AccountDisable(AccountId, AccountId),
-
         // @TODO document events and add many corresponding
         // data for each Event for syschronization service
+        // 1: author, 2: everusd tokens
         MintRequestCreated(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestRevoked(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestConfirmed(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestDeclined(AccountId, EverUSDBalance),
-
+        // 1: author, 2: everusd tokens
         BurnRequestCreated(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestRevoked(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestConfirmed(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestDeclined(AccountId, EverUSDBalance),
         // Bond events
+        // 1: author, 2: bond ticker
         BondAdded(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondChanged(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondRevoked(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondReleased(AccountId, BondId),
+        // 1: author, 2: bond ticker, 3: bond fund
         BondActivated(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker
         BondWithdrawal(AccountId, BondId),
-        BondImpactReportReceived(AccountId, BondId),
+        // 1: author, 2: bond ticker, 3: ymt, everusd
         BondRedeemed(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: bond credit, everused 4: bond debit, everusd
         BondBankrupted(AccountId, BondId, EverUSDBalance, EverUSDBalance),
-
+        // 1: author, 2: bond ticker, 3: withdrawal everused
         BondWithdrawEverUSD(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: deposited everused
         BondDepositEverUSD(AccountId, BondId, EverUSDBalance),
-
+        // 1: author, 2: bond ticker, 3: bond units
         BondUnitSold(AccountId, BondId, u32),
+        // 1: author, 2: bond ticker, 3: bond units
         BondUnitReturned(AccountId, BondId, u32),
-
+        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
         BondImpactReportSent(AccountId, BondId, BondPeriodNumber, u64),
+        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
         BondImpactReportApproved(AccountId, BondId, BondPeriodNumber, u64),
+        // 1: bond ticker, 2: accrued bond yield
         BondCouponYield(BondId, EverUSDBalance),
-
+        // 1: seller, 2: bond ticker, 3: lot struct
         BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStruct),
-        BondSaleLotSettle(AccountId, BondId, BondUnitSaleLotStruct),
+        // 1: buyer, 2: seller, 3: bond ticker, 4: lot struct
+        BondSaleLotSettle(AccountId, AccountId, BondId, BondUnitSaleLotStruct),
     }
 );
 
@@ -350,14 +370,14 @@ decl_module! {
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
-            ensure!(amount_to_mint < EVERUSD_MAX_MINT_AMOUNT, Error::<T>::MintRequestParamIncorrect);
+            ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
             // @TODO remove an existing request if it expired
             ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
             let new_mint_request = TokenMintRequestStruct{
                 amount: amount_to_mint,
-                deadline: now + TOKEN_MINT_REQUEST_TTL .into(),
+                deadline: now + T::MintRequestTtl::get().into(),
             };
             MintRequestEverUSD::<T>::insert(&caller, new_mint_request);
 
@@ -455,7 +475,7 @@ decl_module! {
 
             let new_burn_request = TokenBurnRequestStruct {
                 amount: amount_to_burn,
-                deadline: now + TOKEN_BURN_REQUEST_TTL .into(),
+                deadline: now +  T::BurnRequestTtl::get().into(),
             };
             BurnRequestEverUSD::<T>::insert(&caller, new_burn_request);
 
@@ -1199,9 +1219,7 @@ decl_module! {
             .map(|package| package.bond_units)
             .sum();
 
-
             ensure!(total_bond_units>=lot.bond_units && lot.bond_units>0, Error::<T>::BondParamIncorrect );
-
 
             // all lots of the caller.
             let mut lots: Vec<_> = BondUnitPackageLot::<T>::get(&bond, &caller);
@@ -1298,7 +1316,7 @@ decl_module! {
                      // pay off deal
                      Self::balance_sub(&caller, lot.amount)?;
                      Self::balance_add(&bondholder, lot.amount)?;
-                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bond, lot ));
+                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bondholder.clone(), bond, lot ));
                      Ok(())
                 }else{
                     Err(Error::<T>::BondParamIncorrect.into())

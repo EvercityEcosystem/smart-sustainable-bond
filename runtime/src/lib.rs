@@ -268,8 +268,19 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
+const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
+
+parameter_types! {
+    pub const BurnRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const MaxMintAmount: pallet_evercity::EverUSDBalance = 60_000_000_000_000_000;
+}
+
 impl pallet_evercity::Trait for Runtime {
     type Event = Event;
+    type BurnRequestTtl = BurnRequestTtl;
+    type MintRequestTtl = MintRequestTtl;
+    type MaxMintAmount = MaxMintAmount;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
