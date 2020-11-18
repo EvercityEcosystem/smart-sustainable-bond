@@ -17,8 +17,8 @@ use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{Decode, DispatchError, DispatchResult},
-    traits::{Get},
     ensure,
+    traits::Get,
 };
 
 use frame_system::ensure_signed;
@@ -275,7 +275,10 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
-        const Unknown: T::AccountId = Default::default();
+
+        const BurnRequestTtl:u32  = T::BurnRequestTtl::get();
+        const MintRequestTtl:u32 = T::MintRequestTtl::get();
+        const MaxMintAmount: EverUSDBalance = T::MaxMintAmount::get();
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;

@@ -1,5 +1,7 @@
 use crate::account::*;
-use crate::{BondInnerStructOf, BondStructOf, EvercityAccountStructT, Trait, DAY_DURATION, EverUSDBalance};
+use crate::{
+    BondInnerStructOf, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait, DAY_DURATION,
+};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
