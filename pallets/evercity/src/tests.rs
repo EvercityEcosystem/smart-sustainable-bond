@@ -142,6 +142,20 @@ fn it_disable_account() {
 }
 
 #[test]
+fn it_try_disable_yourself() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            Evercity::account_disable(Origin::signed(1), 1),
+            RuntimeError::InvalidAction
+        );
+        assert_noop!(
+            Evercity::account_set_with_role_and_data(Origin::signed(1), 1, 0, 0),
+            RuntimeError::InvalidAction
+        );
+    });
+}
+
+#[test]
 fn it_denies_add_and_set_roles_for_non_master() {
     new_test_ext().execute_with(|| {
         // trying to add account form non-master account

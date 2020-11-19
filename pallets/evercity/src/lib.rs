@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unnecessary_mut_passed)]
+#![allow(clippy::too_many_arguments)]
 use account::{
     is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, TokenBurnRequestStruct,
     TokenBurnRequestStructOf, TokenMintRequestStruct, TokenMintRequestStructOf, AUDITOR_ROLE_MASK,
@@ -16,7 +18,7 @@ use core::cmp::{Eq, PartialEq};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
-    dispatch::{Decode, DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
 };
@@ -70,7 +72,7 @@ macro_rules! ensure_active {
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait BondApi<AccountId:Decode, Moment:Decode, Hash:Decode> {
+    pub trait BondApi {
         fn get_impact_reports(bond: BondId)->Vec<BondImpactReportStruct>;
     }
 }
@@ -211,6 +213,8 @@ decl_error! {
     pub enum Error for Module<T: Trait> {
         NoneValue,
 
+        InvalidAction,
+
         /// Account tried to use more EverUSD  than was available on the balance
         BalanceOverdraft,
 
@@ -295,6 +299,7 @@ decl_module! {
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
+            ensure!(caller!=who, Error::<T>::InvalidAction);
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
 
             AccountRegistry::<T>::mutate(&who,|acc|{
@@ -344,6 +349,7 @@ decl_module! {
         #[weight = 10_000]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
+            ensure!(caller!=who, Error::<T>::InvalidAction);
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
