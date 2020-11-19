@@ -20,10 +20,10 @@ type BondUnitSaleLotStruct = BondUnitSaleLotStructOf<TestRuntime>;
 // Test uses pack of accounts, pre-set in new_test_ext in mock.rs:
 // (1, EvercityAccountStruct { roles: MASTER,            identity: 10u64}), // MASTER    (accountId: 1)
 // (2, EvercityAccountStruct { roles: CUSTODIAN,         identity: 20u64}), // CUSTODIAN (accountID: 2)
-// (3, EvercityAccountStruct { roles: ISSUER,           identity: 30u64}), // ISSUER   (accountID: 3)
+// (3, EvercityAccountStruct { roles: ISSUER,            identity: 30u64}), // ISSUER   (accountID: 3)
 // (4, EvercityAccountStruct { roles: INVESTOR,          identity: 40u64}), // INVESTOR  (accountId: 4)
 // (5, EvercityAccountStruct { roles: AUDITOR,           identity: 50u64}), // AUDITOR   (accountId: 5)
-// (7, EvercityAccountStruct { roles: ISSUER | ISSUER, identity: 70u64}), // ISSUER   (accountId: 5)
+// (7, EvercityAccountStruct { roles: ISSUER | ISSUER,   identity: 70u64}), // ISSUER   (accountId: 5)
 // (8, EvercityAccountStruct { roles: MANAGER,           identity: 80u64}), // MANAGER   (accountId: 8)
 // (101+ : some external accounts
 //////////////////////////////////////////////////////////////////////////////////////////////////////////

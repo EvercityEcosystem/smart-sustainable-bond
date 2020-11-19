@@ -71,8 +71,6 @@ macro_rules! ensure_active {
 
 sp_api::decl_runtime_apis! {
     pub trait BondApi<AccountId:Decode, Moment:Decode, Hash:Decode> {
-        fn get_bond(bond: BondId) -> BondStruct<AccountId, Moment, Hash>;
-        fn get_bond_yield(bond: BondId)-> Vec<PeriodYield>;
         fn get_impact_reports(bond: BondId)->Vec<BondImpactReportStruct>;
     }
 }
@@ -1423,6 +1421,7 @@ impl<T: Trait> Module<T> {
     /// Arguments: bond: BondId - bond unique identifier
     ///
     ///  Returns bond structure if found
+    #[cfg(test)]
     pub fn get_bond(bond: &BondId) -> BondStructOf<T> {
         BondRegistry::<T>::get(bond)
     }
@@ -1525,7 +1524,7 @@ impl<T: Trait> Module<T> {
             MintRequestEverUSD::<T>::remove(acc);
         }
     }
-
+    #[cfg(test)]
     pub fn get_coupon_yields(id: &BondId) -> Vec<PeriodYield> {
         BondCouponYield::get(id)
     }
