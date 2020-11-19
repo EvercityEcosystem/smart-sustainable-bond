@@ -3,8 +3,9 @@ authors = ["Sergey Prilutskiy <boogerwooger@mail.ru>", "Dmitry Dulesov <dmitry.d
 description = 'Pallet for Evercity green bonds emission project'
 edition = '2018'
 homepage = 'https://evercity.io'
-license = 'Apache 2.0'
+license = 'Apache-2.0'
 name = 'pallet-evercity'
+readme = '../README.md'
 repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
 version = '0.0.1'
 
@@ -16,7 +17,6 @@ default-features = false
 features = ['derive']
 version = '1.0.116'
 
-# alias "parity-scale-code" to "codec"
 [dependencies.codec]
 default-features = false
 features = ['derive']
@@ -31,7 +31,6 @@ sp-core = { default-features = false, version = '2.0.0' }
 sp-api = { default-features = false, version = '2.0.0' }
 sp-runtime = { default-features = false, version = '2.0.0' }
 sp-io = { default-features = false, version = '2.0.0' }
-#pallet-balances = { default-features = false, version = '2.0.0' }
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.0' }

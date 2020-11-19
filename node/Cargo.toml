@@ -1,10 +1,11 @@
 [package]
-authors = ['Substrate DevHub <https://github.com/substrate-developer-hub>']
+authors = ["Sergey Prilutskiy <boogerwooger@mail.ru>", "Dmitry Dulesov <dmitry.dulesov@gmail.com>"]
 build = 'build.rs'
-description = 'A fresh FRAME-based Substrate node, ready for hacking.'
+description = 'Frame-based node for Evercity green bonds emission project'
 edition = '2018'
-license = 'Unlicense'
+license = 'Apache-2.0'
 name = 'evercity-node'
+repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
 version = '2.0.0'
 
 [package.metadata.docs.rs]
