@@ -8,7 +8,7 @@ use frame_support::{
 // ... |         period            |   ...
 // --- | ------------------------- | -------------...
 //     |                  |        |          |
-//   start              report   reset    interest pay
+//   start              report   payment    interest pay
 //    >----------------------------< coupon accrual
 // report release period  >--------<
 //              coupon pay period  >----------<
@@ -73,30 +73,30 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
         } else {
             self.index + 1
         };
-
-        if index > inner.bond_duration {
+        self.index += 1;
+        let payment_period = inner.start_period + index * inner.payment_period;
+        if index > inner.bond_duration + 1 {
             None
+        } else if index == inner.bond_duration + 1 {
+            Some(PeriodDescr {
+                payment_period,
+                start_period: payment_period - inner.payment_period,
+                impact_data_send_period: payment_period,
+                interest_pay_period: payment_period + inner.bond_finishing_period,
+            })
         } else {
-            let payment_period = inner.start_period + index * inner.payment_period;
-            self.index += 1;
-
             // last pay period is special and lasts bond_finishing_period seconds
-            let pay_period = if index == inner.bond_duration {
-                inner.bond_finishing_period
+            let start_period = if index == 0 {
+                0
             } else {
-                inner.interest_pay_period
+                payment_period - inner.payment_period
             };
 
             Some(PeriodDescr {
                 payment_period,
-                start_period: payment_period
-                    - if index == 0 {
-                        inner.start_period
-                    } else {
-                        inner.payment_period
-                    },
+                start_period,
                 impact_data_send_period: payment_period - inner.impact_data_send_period,
-                interest_pay_period: payment_period + pay_period,
+                interest_pay_period: start_period + inner.interest_pay_period,
             })
         }
     }

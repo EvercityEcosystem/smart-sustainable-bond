@@ -1165,13 +1165,14 @@ decl_module! {
                     Self::redeem_bond_units(&bond, &mut item, &caller)
                 }else{
                     // investor (bondholder) withdraw coupon yield
+                    // set bankrupt state if bond fund cannot pay off
+                    if item.state == BondState::ACTIVE && item.get_debt()>0 && !Self::is_interest_pay_period(&item, now){
+                        item.state = BondState::BANKRUPT;
+                        Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit ));
+                    }
+
                     Self::request_coupon_yield(&bond, &mut item, &caller)
                 };
-
-                if item.get_debt()>0 {
-                    // @TODO refine condition, take into account payment period
-                    item.state = BondState::BANKRUPT;
-                }
 
                 if amount>0{
                     Self::deposit_event(RawEvent::BondWithdrawEverUSD(caller, bond, amount ));
@@ -1803,6 +1804,17 @@ impl<T: Trait> Module<T> {
         bond.period_desc(period)
             .map(|desc| moment >= desc.impact_data_send_period && moment < desc.payment_period)
             .unwrap_or(false)
+    }
+
+    fn is_interest_pay_period(
+        bond: &BondStructOf<T>,
+        now: <T as pallet_timestamp::Trait>::Moment,
+    ) -> bool {
+        let (moment, period) = ensure_active!(bond.time_passed_after_activation(now), true);
+
+        bond.period_desc(period)
+            .map(|desc| moment < desc.interest_pay_period)
+            .unwrap_or(true)
     }
 
     #[cfg(test)]

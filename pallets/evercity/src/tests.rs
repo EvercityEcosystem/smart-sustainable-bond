@@ -1924,7 +1924,6 @@ fn bond_return_bondunit_package() {
             Evercity::bond_unit_package_return(Origin::signed(INVESTOR2), bondid, 100),
             RuntimeError::BondParamIncorrect
         );
-
         let packages2 = Evercity::bond_holder_packages(&bondid, &INVESTOR2);
         assert_eq!(packages2.len(), 1);
         assert!(Evercity::evercity_balance().is_ok());
@@ -1951,8 +1950,8 @@ fn bond_iter_periods() {
             count += 1;
         }
 
-        assert_eq!(count, 13);
-        assert_eq!(chain_bond_item.get_periods(), count);
+        assert_eq!(count, 14);
+        assert_eq!(chain_bond_item.get_periods(), count - 1);
     });
 }
 

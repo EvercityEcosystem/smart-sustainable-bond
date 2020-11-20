@@ -253,27 +253,22 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub auditor: AccountId,
     /// bond impact data reporter
     pub impact_reporter: AccountId,
-
     /// total amount of issued bond units
     pub issued_amount: BondUnitAmount,
-
-    // #Timestamps
+    //#Timestamps
     /// Moment, when bond was created first time (moved to BondState::PREPARE)
     pub creation_date: Moment,
     /// Moment, when bond was opened for booking (moved to BondState::BOOKING)
     pub booking_start_date: Moment,
     /// Moment, when bond became active (moved to BondState::ACTIVE)
     pub active_start_date: Moment,
-
     /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
-
-    // #Bond ledger
+    //#Bond ledger
     /// Bond fund, keeping EverUSD sent to bond
     pub bond_debit: EverUSDBalance,
     /// Bond liabilities: amount of EverUSD bond needs to pay to Bond Units bearers
     pub bond_credit: EverUSDBalance,
-
     // free balance is difference between bond_debit and bond_credit
     /// Ever-increasing coupon fund which was distributed among bondholders.
     /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
@@ -422,8 +417,6 @@ pub struct BondUnitPackage {
     pub coupon_yield: EverUSDBalance,
 }
 
-// pub type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
-
 /// Struct with impact_data sent to bond. In the future can become
 /// more complicated for other types of impact_data and processing logic.
 /// Field "signed" is set to true by Auditor, when impact_data is verified.
@@ -435,8 +428,6 @@ pub struct BondImpactReportStruct {
     pub signed: bool,
 }
 
-//pub type BondImpactReportStructOf<T> =
-//    BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
 /// Struct, representing pack of bond units for sale
 /// Can include target bearer (to sell bond units only to given person)
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]

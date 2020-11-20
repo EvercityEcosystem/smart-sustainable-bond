@@ -2,11 +2,11 @@ use crate::EverUSDBalance;
 
 #[derive(Debug)]
 pub struct EvercityBalance {
-    // custodian supply
+    /// custodian supply
     pub supply: EverUSDBalance,
-    // account balance
+    /// account balance
     pub account: EverUSDBalance,
-    // bond fund balance
+    /// bond fund balance
     pub bond_fund: EverUSDBalance,
 }
 
