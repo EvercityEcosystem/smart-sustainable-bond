@@ -110,7 +110,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 pub const MILLISECS_PER_BLOCK: u64 = 60000;
-
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
@@ -268,12 +267,13 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
-const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
+const DEFAULT_DAY_DURATION: u32 = 86400; // seconds in 1 DAY
 
 parameter_types! {
-    pub const BurnRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
-    pub const MintRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MaxMintAmount: pallet_evercity::EverUSDBalance = 60_000_000_000_000_000;
+    pub const DayDuration: pallet_evercity::BondPeriod = DEFAULT_DAY_DURATION;
 }
 
 impl pallet_evercity::Trait for Runtime {
@@ -281,6 +281,7 @@ impl pallet_evercity::Trait for Runtime {
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
+    type DayDuration = DayDuration;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -343,7 +344,6 @@ impl_runtime_apis! {
             Evercity::bond_impact_data(&bond)
         }
     }
-
 
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {

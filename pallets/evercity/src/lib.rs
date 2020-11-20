@@ -8,7 +8,8 @@ use account::{
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 pub use bond::{
-    period::PeriodYield, BondId, BondImpactReportStruct, BondStruct, BondStructOf, BondUnitPackage,
+    period::PeriodYield, BondId, BondImpactReportStruct, BondPeriod, BondStruct, BondStructOf,
+    BondUnitPackage, DEFAULT_DAY_DURATION,
 };
 use bond::{
     AccountYield, BondInnerStructOf, BondPeriodNumber, BondState, BondUnitAmount,
@@ -31,6 +32,7 @@ pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type BurnRequestTtl: Get<u32>;
     type MintRequestTtl: Get<u32>;
     type MaxMintAmount: Get<EverUSDBalance>;
+    type DayDuration: Get<BondPeriod>;
 }
 
 pub trait Expired<Moment> {
@@ -41,8 +43,6 @@ pub type Result<T> = core::result::Result<T, DispatchError>;
 
 // EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
 pub const EVERUSD_DECIMALS: u64 = 9;
-// seconds in 1 DAY
-const DAY_DURATION: u32 = 86400;
 // Bank's year in days
 const INTEREST_RATE_YEAR: u64 = 365;
 // Gas limit settings for purge mint/burn requests
@@ -281,6 +281,7 @@ decl_module! {
         const BurnRequestTtl:u32  = T::BurnRequestTtl::get();
         const MintRequestTtl:u32 = T::MintRequestTtl::get();
         const MaxMintAmount: EverUSDBalance = T::MaxMintAmount::get();
+        const DayDuration: BondPeriod = T::DayDuration::get();
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
@@ -569,7 +570,7 @@ decl_module! {
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
-            ensure!(body.is_valid(), Error::<T>::BondParamIncorrect );
+            ensure!(body.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
@@ -680,7 +681,7 @@ decl_module! {
         #[weight = 10_000]
         fn bond_update(origin, bond: BondId, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            ensure!(body.is_valid(), Error::<T>::BondParamIncorrect );
+            ensure!(body.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
             // Bond can be update only by Owner or assigned Manager
             Self::with_bond(&bond, |item|{
                 // preserving the bond_units_base_price value
@@ -718,7 +719,7 @@ decl_module! {
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |item|{
                 ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
-                ensure!(item.inner.is_valid(), Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
@@ -1560,7 +1561,7 @@ impl<T: Trait> Module<T> {
             bond.bond_credit = total_yield;
             return false;
         }
-
+        let day_duration = T::DayDuration::get();
         // @TODO refactor. use `mutate` method instead  of get+insert
         let reports = BondImpactReport::get(id);
         assert!(reports.len() + 1 >= period);
@@ -1585,32 +1586,33 @@ impl<T: Trait> Module<T> {
                 / INTEREST_RATE_YEAR;
 
             // calculate yield for period equal to bond_yields.len()
-            let period_coupon_yield: EverUSDBalance =
-                match bond.period_desc(index as BondPeriodNumber) {
-                    Some(period_desc) => {
-                        // for every bond bondholder
-                        BondUnitPackageRegistry::<T>::iter_prefix(id)
-                            .map(|(_bondholder, packages)| {
-                                // for every package
-                                packages
-                                    .iter()
-                                    .map(|package| {
-                                        // @TODO use checked arithmetics
-                                        package_yield
-                                            * package.bond_units as EverUSDBalance
-                                            * period_desc.duration(package.acquisition)
-                                                as EverUSDBalance
-                                            / 100
-                                    })
-                                    .sum::<EverUSDBalance>()
-                            })
-                            .sum()
-                    }
-                    None => {
-                        // @TODO  it's best panic instead of return false
-                        return false;
-                    }
-                };
+            let period_coupon_yield: EverUSDBalance = match bond
+                .period_desc(index as BondPeriodNumber)
+            {
+                Some(period_desc) => {
+                    // for every bond bondholder
+                    BondUnitPackageRegistry::<T>::iter_prefix(id)
+                        .map(|(_bondholder, packages)| {
+                            // for every package
+                            packages
+                                .iter()
+                                .map(|package| {
+                                    // @TODO use checked arithmetics
+                                    package_yield
+                                        * package.bond_units as EverUSDBalance
+                                        * (period_desc.duration(package.acquisition) / day_duration)
+                                            as EverUSDBalance
+                                        / 100
+                                })
+                                .sum::<EverUSDBalance>()
+                        })
+                        .sum()
+                }
+                None => {
+                    // @TODO  it's best panic instead of return false
+                    return false;
+                }
+            };
             let coupon_yield = min(bond.bond_debit, total_yield);
             total_yield += period_coupon_yield;
 
@@ -1640,7 +1642,7 @@ impl<T: Trait> Module<T> {
         bondholder: &T::AccountId,
     ) -> EverUSDBalance {
         let packages = BondUnitPackageRegistry::<T>::take(id, &bondholder);
-
+        let day_duration = T::DayDuration::get();
         let bond_yields = BondCouponYield::get(id);
         assert!(!bond_yields.is_empty());
         // calc coupon yield
@@ -1657,7 +1659,8 @@ impl<T: Trait> Module<T> {
                     .map(|package| {
                         package_yield
                             * package.bond_units as EverUSDBalance
-                            * period_desc.duration(package.acquisition) as EverUSDBalance
+                            * (period_desc.duration(package.acquisition) / day_duration)
+                                as EverUSDBalance
                             / 100
                     })
                     .sum::<EverUSDBalance>()
@@ -1702,6 +1705,7 @@ impl<T: Trait> Module<T> {
             // no more accrued coupon yield
             return 0;
         }
+        let day_duration = T::DayDuration::get();
         let mut payable = 0;
 
         for (i, bond_yield) in bond_yields
@@ -1736,7 +1740,8 @@ impl<T: Trait> Module<T> {
                     for package in packages.iter_mut() {
                         let accrued = package_yield
                             * package.bond_units as EverUSDBalance
-                            * period_desc.duration(package.acquisition) as EverUSDBalance
+                            * (period_desc.duration(package.acquisition) / day_duration)
+                                as EverUSDBalance
                             / 100;
 
                         let package_coupon_yield = if instalment == accrued_yield {

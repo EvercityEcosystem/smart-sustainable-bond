@@ -2,7 +2,7 @@ use crate::mock::*;
 use crate::{
     BondId, BondImpactReportStruct, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
     BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
-    DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
+    DEFAULT_DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, Blake2_256, StorageHasher};
 use sp_core::sp_std::ops::RangeInclusive;
@@ -39,7 +39,7 @@ fn add_token(id: AccountId, amount: EverUSDBalance) -> DispatchResult {
 }
 /// Converts days into milliseconds
 fn days2timestamp(days: u32) -> Moment {
-    (days * DAY_DURATION) as u64 * 1000_u64
+    (days * DEFAULT_DAY_DURATION) as u64 * 1000_u64
 }
 /// Returns all accounts
 fn iter_accounts() -> RangeInclusive<u64> {
@@ -187,7 +187,6 @@ fn it_token_mint_create_with_confirm() {
             Origin::signed(ACCOUNT),
             100000
         ));
-
         assert_eq!(Evercity::total_supply(), 0);
 
         assert_ok!(Evercity::token_mint_request_confirm_everusd(
@@ -195,7 +194,6 @@ fn it_token_mint_create_with_confirm() {
             ACCOUNT,
             100000
         ));
-
         assert_eq!(Evercity::total_supply(), 100000);
     });
 }
@@ -440,7 +438,7 @@ fn it_token_burn_try_confirm_expired() {
 fn bond_validation() {
     new_test_ext().execute_with(|| {
         let bond = get_test_bond();
-        assert_eq!(bond.inner.is_valid(), true);
+        assert_eq!(bond.inner.is_valid(DEFAULT_DAY_DURATION), true);
     });
 }
 
@@ -1245,7 +1243,7 @@ fn bond_calc_coupon_yield_advanced() {
 
         let start_moment = chain_bond_item1.active_start_date;
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (100 * DAY_DURATION) as u64 * 1000,
+            start_moment + (100 * DEFAULT_DAY_DURATION) as u64 * 1000,
         );
 
         assert_ok!(Evercity::bond_unit_package_buy(
@@ -1257,13 +1255,13 @@ fn bond_calc_coupon_yield_advanced() {
         assert_eq!(
             bond_current_period(
                 &chain_bond_item1,
-                start_moment + (100 * DAY_DURATION) as u64 * 1000
+                start_moment + (100 * DEFAULT_DAY_DURATION) as u64 * 1000
             ),
             0
         );
 
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (140 * DAY_DURATION) as u64 * 1000,
+            start_moment + (140 * DEFAULT_DAY_DURATION) as u64 * 1000,
         );
         assert_ok!(Evercity::bond_unit_package_buy(
             Origin::signed(INVESTOR2),
@@ -1274,19 +1272,19 @@ fn bond_calc_coupon_yield_advanced() {
         assert_eq!(
             bond_current_period(
                 &chain_bond_item2,
-                start_moment + (140 * DAY_DURATION) as u64 * 1000
+                start_moment + (140 * DEFAULT_DAY_DURATION) as u64 * 1000
             ),
             1
         );
 
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (160 * DAY_DURATION) as u64 * 1000,
+            start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000,
         );
 
         assert_eq!(
             bond_current_period(
                 &chain_bond_item2,
-                start_moment + (160 * DAY_DURATION) as u64 * 1000
+                start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000
             ),
             2
         );
@@ -1524,38 +1522,38 @@ fn bond_periods() {
         bond.time_passed_after_activation(bond.active_start_date),
         Some((0, 0))
     );
-    let start_period = bond.active_start_date + 120 * 1000 * DAY_DURATION as u64;
-    assert_eq!(bond.inner.start_period, 120 * DAY_DURATION);
+    let start_period = bond.active_start_date + 120 * 1000 * DEFAULT_DAY_DURATION as u64;
+    assert_eq!(bond.inner.start_period, 120 * DEFAULT_DAY_DURATION);
 
     assert_eq!(
         bond.time_passed_after_activation(start_period),
-        Some((120 * DAY_DURATION, 1))
+        Some((120 * DEFAULT_DAY_DURATION, 1))
     );
     assert_eq!(
         bond.time_passed_after_activation(start_period - 1),
-        Some((120 * DAY_DURATION - 1, 0))
+        Some((120 * DEFAULT_DAY_DURATION - 1, 0))
     );
 
-    assert_eq!(bond.inner.payment_period, 30 * DAY_DURATION);
+    assert_eq!(bond.inner.payment_period, 30 * DEFAULT_DAY_DURATION);
     assert_eq!(
-        bond.time_passed_after_activation(start_period + 30 * 1000 * DAY_DURATION as u64),
-        Some(((120 + 30) * DAY_DURATION, 2))
+        bond.time_passed_after_activation(start_period + 30 * 1000 * DEFAULT_DAY_DURATION as u64),
+        Some(((120 + 30) * DEFAULT_DAY_DURATION, 2))
     );
     assert_eq!(
-        bond.time_passed_after_activation(start_period + 29 * 1000 * DAY_DURATION as u64),
-        Some(((120 + 29) * DAY_DURATION, 1))
+        bond.time_passed_after_activation(start_period + 29 * 1000 * DEFAULT_DAY_DURATION as u64),
+        Some(((120 + 29) * DEFAULT_DAY_DURATION, 1))
     );
     assert_eq!(
-        bond.time_passed_after_activation(start_period + 1000 * DAY_DURATION as u64),
-        Some(((120 + 1) * DAY_DURATION, 1))
+        bond.time_passed_after_activation(start_period + 1000 * DEFAULT_DAY_DURATION as u64),
+        Some(((120 + 1) * DEFAULT_DAY_DURATION, 1))
     );
     assert_eq!(
-        bond.time_passed_after_activation(start_period + 31 * 1000 * DAY_DURATION as u64),
-        Some(((31 + 120) * DAY_DURATION, 2))
+        bond.time_passed_after_activation(start_period + 31 * 1000 * DEFAULT_DAY_DURATION as u64),
+        Some(((31 + 120) * DEFAULT_DAY_DURATION, 2))
     );
     assert_eq!(
-        bond.time_passed_after_activation(start_period + 310 * 1000 * DAY_DURATION as u64),
-        Some(((120 + 310) * DAY_DURATION, 11))
+        bond.time_passed_after_activation(start_period + 310 * 1000 * DEFAULT_DAY_DURATION as u64),
+        Some(((120 + 310) * DEFAULT_DAY_DURATION, 11))
     );
 
     assert_eq!(

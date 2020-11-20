@@ -1,4 +1,4 @@
-use crate::{EverUSDBalance, Expired, DAY_DURATION, MIN_BOND_DURATION};
+use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 #[cfg(feature = "std")]
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
@@ -17,7 +17,9 @@ use sp_core::sp_std::cmp::min;
 pub mod ledger;
 pub mod period;
 
-pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
+// seconds in 1 DAY
+pub const DEFAULT_DAY_DURATION: u32 = 86400;
+pub const MIN_PAYMENT_PERIOD: BondPeriod = 7;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
@@ -185,8 +187,8 @@ pub type BondInnerStructOf<T> =
     BondInnerStruct<<T as pallet_timestamp::Trait>::Moment, <T as frame_system::Trait>::Hash>;
 
 #[inline]
-fn is_period_multiple_of_day(period: BondPeriod) -> bool {
-    (period % DAY_DURATION) == 0
+fn is_period_multiple_of_day(period: BondPeriod, day_duration: BondPeriod) -> bool {
+    (period % day_duration) == 0
 }
 
 impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
@@ -209,16 +211,16 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && self.bond_finishing_period == other.bond_finishing_period
     }
     /// Checks if bond data is valid
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(&self, day_duration: BondPeriod) -> bool {
         self.bond_units_mincap_amount > 0
             && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
-            && self.payment_period >= MIN_PAYMENT_PERIOD
+            && self.payment_period >= MIN_PAYMENT_PERIOD * day_duration
             && self.impact_data_send_period <= self.payment_period
-            && is_period_multiple_of_day(self.payment_period)
-            && is_period_multiple_of_day(self.start_period)
-            && is_period_multiple_of_day(self.impact_data_send_period)
-            && is_period_multiple_of_day(self.bond_finishing_period)
-            && is_period_multiple_of_day(self.interest_pay_period)
+            && is_period_multiple_of_day(self.payment_period, day_duration)
+            && is_period_multiple_of_day(self.start_period, day_duration)
+            && is_period_multiple_of_day(self.impact_data_send_period, day_duration)
+            && is_period_multiple_of_day(self.bond_finishing_period, day_duration)
+            && is_period_multiple_of_day(self.interest_pay_period, day_duration)
             && (self.start_period == 0 || self.start_period >= self.payment_period)
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0

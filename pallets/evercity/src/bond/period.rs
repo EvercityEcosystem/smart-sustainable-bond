@@ -1,5 +1,5 @@
 use crate::bond::{BondInterest, BondPeriod, BondPeriodNumber, BondStruct};
-use crate::{EverUSDBalance, DAY_DURATION};
+use crate::EverUSDBalance;
 use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::RuntimeDebug,
@@ -24,11 +24,11 @@ pub struct PeriodDescr {
 impl PeriodDescr {
     pub fn duration(&self, moment: BondPeriod) -> BondPeriod {
         if moment <= self.start_period {
-            (self.payment_period - self.start_period) / DAY_DURATION
+            self.payment_period - self.start_period
         } else if moment >= self.payment_period {
             0
         } else {
-            (self.payment_period - moment) / DAY_DURATION
+            self.payment_period - moment
         }
     }
 }

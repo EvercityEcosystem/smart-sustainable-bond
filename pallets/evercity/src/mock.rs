@@ -1,6 +1,7 @@
 use crate::account::*;
 use crate::{
-    BondInnerStructOf, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait, DAY_DURATION,
+    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
+    DEFAULT_DAY_DURATION,
 };
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
@@ -58,9 +59,10 @@ impl frame_system::Trait for TestRuntime {
     type SystemWeightInfo = ();
 }
 parameter_types! {
-    pub const BurnRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
-    pub const MintRequestTtl: u32 = DAY_DURATION as u32 * 7 * 1000;
+    pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MaxMintAmount: EverUSDBalance = EVERUSD_MAX_MINT_AMOUNT;
+    pub const DayDuration: BondPeriod = DEFAULT_DAY_DURATION;
 }
 
 impl Trait for TestRuntime {
@@ -68,6 +70,7 @@ impl Trait for TestRuntime {
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
+    type DayDuration = DayDuration;
 }
 
 parameter_types! {
@@ -222,13 +225,13 @@ pub fn get_test_bond() -> BondStruct {
             interest_rate_margin_cap: 4000,   // 4.0%
             interest_rate_margin_floor: 1000, // 1.0%
             interest_rate_start_period_value: 1900,
-            start_period: 120 * DAY_DURATION,
-            payment_period: 30 * DAY_DURATION, // every month (30 days)
-            interest_pay_period: 7 * DAY_DURATION, // up to 7 days after the new period started
-            mincap_deadline: (20 * DAY_DURATION * 1000) as u64,
-            impact_data_send_period: 10 * DAY_DURATION, // 10 days before next period
-            bond_duration: 12,                          //
-            bond_finishing_period: 14 * DAY_DURATION,
+            start_period: 120 * DEFAULT_DAY_DURATION,
+            payment_period: 30 * DEFAULT_DAY_DURATION, // every month (30 days)
+            interest_pay_period: 7 * DEFAULT_DAY_DURATION, // up to 7 days after the new period started
+            mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
+            impact_data_send_period: 10 * DEFAULT_DAY_DURATION, // 10 days before next period
+            bond_duration: 12,                                  //
+            bond_finishing_period: 14 * DEFAULT_DAY_DURATION,
 
             bond_units_mincap_amount: 1000,
             bond_units_maxcap_amount: 1800,
