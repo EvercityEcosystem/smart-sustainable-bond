@@ -252,5 +252,6 @@ pub fn get_test_bond() -> BondStruct {
         bond_debit: 0,
         bond_credit: 0,
         coupon_yield: 0,
+        nonce: 0,
     }
 }

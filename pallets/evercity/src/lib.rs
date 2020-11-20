@@ -270,6 +270,9 @@ decl_error! {
 
         /// Requested action is not allowed in current period of time
         BondOutOfOrder,
+
+        /// Bond version has gone
+        BondObsolete,
     }
 }
 
@@ -590,7 +593,8 @@ decl_module! {
                     state: BondState::PREPARE,
                     bond_debit: 0,
                     bond_credit: 0,
-                    coupon_yield: 0
+                    coupon_yield: 0,
+                    nonce: 0,
             };
             BondRegistry::<T>::insert(&bond, item);
             Self::deposit_event(RawEvent::BondAdded(caller, bond));
@@ -619,6 +623,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 item.manager = acc;
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -645,6 +650,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 item.auditor = acc;
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -666,6 +672,7 @@ decl_module! {
 
             Self::with_bond(&bond, |item|{
                 item.impact_reporter = acc;
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -674,16 +681,18 @@ decl_module! {
         /// Method: bond_update(origin, origin, bond: BondId, body: BondInnerStruct)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///            body: BondInnerStruct
         ///
         /// Updates bond data. Being released bond can be changed only in  part of document hashed
         /// Access: bond issuer or bond manager
         #[weight = 10_000]
-        fn bond_update(origin, bond: BondId, body: BondInnerStructOf<T>) -> DispatchResult {
+        fn bond_update(origin, bond: BondId, nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(body.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
             // Bond can be update only by Owner or assigned Manager
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondObsolete);
                 // preserving the bond_units_base_price value
                 ensure!(
                     matches!(item.state, BondState::PREPARE | BondState::BOOKING),
@@ -698,6 +707,7 @@ decl_module! {
                     ensure!( item.inner.is_financial_options_eq(&body), Error::<T>::BondStateNotPermitAction );
                 }
                 item.inner = body;
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
 
                 Ok(())
@@ -707,17 +717,19 @@ decl_module! {
         /// Method: bond_release(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///
         /// Releases the bond on the market starting presale .
         /// Marks the bond as `BOOKING` allowing investors to stake it.
         /// Access: only accounts with Master role
         // @TODO add timestamp parameter to prevent race conditions
         #[weight = 5_000]
-        fn bond_release(origin, bond: BondId) -> DispatchResult {
+        fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be released only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondObsolete);
                 ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.inner.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
 
@@ -727,6 +739,7 @@ decl_module! {
 
                 item.booking_start_date = now;
                 item.state = BondState::BOOKING;
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondReleased(caller, bond ));
                 Ok(())
             })
@@ -735,16 +748,18 @@ decl_module! {
         /// Method: bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///            unit_amount: BondUnitAmount - amount of bond units
         ///
         /// Bye bond units.
         /// Access: only accounts with Investor role
         // Investor loans tokens to the bond issuer by staking bond units
         #[weight = 10_000]
-        fn bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_buy(origin, bond: BondId, nonce: u64, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondObsolete);
                 ensure!(
                     matches!(item.state, BondState::BANKRUPT | BondState::ACTIVE | BondState::BOOKING),
                     Error::<T>::BondStateNotPermitAction
@@ -883,7 +898,7 @@ decl_module! {
                 ensure!(item.inner.mincap_deadline<=now, Error::<T>::BondParamIncorrect );
 
                 item.state = BondState::PREPARE;
-
+                item.nonce+=1;
                 assert!(item.bond_credit == item.par_value(item.issued_amount));
                 // @TODO make it lazy. this implementation do much work to restore balances
                 // that is too CPU and memory expensive
@@ -913,18 +928,20 @@ decl_module! {
         /// Method: bond_activate(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///
         /// Activates the bond after it raised minimum capacity of bond units.
         /// It makes bond fund available to the issuer and stop bond  withdrawal until
         /// maturity date.
         /// Access: only accounts with Master role
         #[weight = 5_000]
-        fn bond_activate(origin, bond: BondId) -> DispatchResult {
+        fn bond_activate(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             //Bond can be activated only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             //if it's raised enough bond units during bidding process
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondObsolete);
                 ensure!(item.state == BondState::BOOKING, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.inner.bond_units_mincap_amount <= item.issued_amount, Error::<T>::BondParamIncorrect);
                 // auditor should be assigned before
@@ -932,6 +949,7 @@ decl_module! {
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 item.state = BondState::ACTIVE;
+                item.nonce+=1;
                 item.active_start_date = now;
                 // Decrease liabilities by value of fund
                 assert_eq!(item.bond_credit, item.par_value( item.issued_amount ) );
@@ -1062,7 +1080,7 @@ decl_module! {
                 //item.coupon_yield = amount;
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
-
+                item.nonce+=1;
                 Self::deposit_event(RawEvent::BondRedeemed(caller, bond, ytm ));
                 Ok(())
             })
@@ -1083,11 +1101,12 @@ decl_module! {
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.get_debt()>0, Error::<T>::BondOutOfOrder );
                 let now = <pallet_timestamp::Module<T>>::get();
+                ensure!( !Self::is_interest_pay_period(&item, now),Error::<T>::BondOutOfOrder );
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                // @TODO refine condition
-                item.state = BondState::BANKRUPT;
 
-                Self::deposit_event(RawEvent::BondBankrupted(caller, bond, item.bond_credit, item.bond_debit ));
+                item.state = BondState::BANKRUPT;
+                item.nonce+=1;
+                Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit ));
                 Ok(())
             })
         }

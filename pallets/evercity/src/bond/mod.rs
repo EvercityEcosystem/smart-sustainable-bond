@@ -273,6 +273,8 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     /// Ever-increasing coupon fund which was distributed among bondholders.
     /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
     pub coupon_yield: EverUSDBalance,
+
+    pub nonce: u64,
 }
 
 pub type BondStructOf<T> = BondStruct<
