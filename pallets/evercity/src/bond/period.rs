@@ -17,8 +17,7 @@ pub struct PeriodDescr {
     pub start_period: BondPeriod,            // sec from activation
     pub impact_data_send_period: BondPeriod, // sec from activation
     pub payment_period: BondPeriod,          // sec from activation
-    #[allow(dead_code)]
-    pub interest_pay_period: BondPeriod, // sec from activation
+    pub interest_pay_period: BondPeriod,     // sec from activation
 }
 
 impl PeriodDescr {

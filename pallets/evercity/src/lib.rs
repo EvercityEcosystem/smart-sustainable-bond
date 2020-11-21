@@ -702,7 +702,7 @@ decl_module! {
                     item.issuer == caller || item.manager == caller ,
                     Error::<T>::BondAccessDenied
                 );
-                // Financial data shell not be changed after release
+                // Financial data shall not be changed after release
                 if item.state == BondState::BOOKING {
                     ensure!( item.inner.is_financial_options_eq(&body), Error::<T>::BondStateNotPermitAction );
                 }
@@ -722,7 +722,6 @@ decl_module! {
         /// Releases the bond on the market starting presale .
         /// Marks the bond as `BOOKING` allowing investors to stake it.
         /// Access: only accounts with Master role
-        // @TODO add timestamp parameter to prevent race conditions
         #[weight = 5_000]
         fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;

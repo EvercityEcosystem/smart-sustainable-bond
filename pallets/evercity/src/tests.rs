@@ -994,6 +994,18 @@ fn bond_try_update_after_release() {
             Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
             RuntimeError::BondStateNotPermitAction
         );
+        let mut update = get_test_bond().inner;
+        update.bond_units_base_price = 3000_000_000_000;
+        assert_noop!(
+            Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
+            RuntimeError::BondStateNotPermitAction
+        );
+        let mut update = get_test_bond().inner;
+        update.impact_data_baseline += 1;
+        assert_noop!(
+            Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
+            RuntimeError::BondStateNotPermitAction
+        );
 
         // buy bonds
         assert_ok!(Evercity::bond_unit_package_buy(
