@@ -19,7 +19,7 @@ pub mod period;
 
 // seconds in 1 DAY
 pub const DEFAULT_DAY_DURATION: u32 = 86400;
-pub const MIN_PAYMENT_PERIOD: BondPeriod = 7;
+pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]

@@ -109,7 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 60000;
+pub const MILLISECS_PER_BLOCK: u64 = 20000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
@@ -267,7 +267,7 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
-const DEFAULT_DAY_DURATION: u32 = 86400; // seconds in 1 DAY
+const DEFAULT_DAY_DURATION: u32 = 60; // 86400; seconds in 1 DAY
 
 parameter_types! {
     pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;

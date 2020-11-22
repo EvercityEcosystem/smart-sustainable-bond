@@ -143,7 +143,7 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        BondUnitSaleLotStruct = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
+        BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// Event documentation should end with an array that provides descriptive names for event
         /// parameters. [something, who]
@@ -203,9 +203,9 @@ decl_event!(
         // 1: bond ticker, 2: accrued bond yield
         BondCouponYield(BondId, EverUSDBalance),
         // 1: seller, 2: bond ticker, 3: lot struct
-        BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStruct),
+        BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStructOf),
         // 1: buyer, 2: seller, 3: bond ticker, 4: lot struct
-        BondSaleLotSettle(AccountId, AccountId, BondId, BondUnitSaleLotStruct),
+        BondSaleLotSettle(AccountId, AccountId, BondId, BondUnitSaleLotStructOf),
     }
 );
 
