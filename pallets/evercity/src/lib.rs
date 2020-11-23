@@ -192,10 +192,10 @@ decl_event!(
         BondWithdrawEverUSD(AccountId, BondId, EverUSDBalance),
         // 1: author, 2: bond ticker, 3: deposited everused
         BondDepositEverUSD(AccountId, BondId, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: bond units
-        BondUnitSold(AccountId, BondId, u32),
-        // 1: author, 2: bond ticker, 3: bond units
-        BondUnitReturned(AccountId, BondId, u32),
+        // 1: author, 2: bond ticker, 3: bond units, 4: paid everusd
+        BondUnitSold(AccountId, BondId, u32, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: bond units, 4: everusd withdrawal
+        BondUnitReturned(AccountId, BondId, u32, EverUSDBalance),
         // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
         BondImpactReportSent(AccountId, BondId, BondPeriodNumber, u64),
         // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
@@ -814,7 +814,7 @@ decl_module! {
                     item.increase( package_value );
                 }
 
-                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount, package_value ));
 
                 // @FIXME
                 // According to the Design document
@@ -867,7 +867,7 @@ decl_module! {
                 item.issued_amount -= unit_amount;
 
                 Self::balance_add(&caller, package_value )?;
-                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount, package_value ));
 
                 Ok(())
             })
