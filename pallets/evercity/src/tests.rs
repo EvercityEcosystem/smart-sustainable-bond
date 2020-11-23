@@ -1016,7 +1016,7 @@ fn bond_try_update_after_release() {
             RuntimeError::BondStateNotPermitAction
         );
         let mut update = get_test_bond().inner;
-        update.bond_units_base_price = 3000_000_000_000;
+        update.bond_units_base_price = 3_000_000_000_000;
         assert_noop!(
             Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
             RuntimeError::BondStateNotPermitAction
