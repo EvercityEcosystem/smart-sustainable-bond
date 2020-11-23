@@ -4,6 +4,7 @@ use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::RuntimeDebug,
 };
+use sp_core::sp_std::cmp::Ordering;
 
 // ... |         period            |   ...
 // --- | ------------------------- | -------------...
@@ -74,29 +75,29 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
         };
         self.index += 1;
         let payment_period = inner.start_period + index * inner.payment_period;
-        if index > inner.bond_duration + 1 {
-            None
-        } else if index == inner.bond_duration + 1 {
-            Some(PeriodDescr {
+        match (inner.bond_duration + 1).cmp(&index) {
+            Ordering::Greater => {
+                // last pay period is special and lasts bond_finishing_period seconds
+                let start_period = if index == 0 {
+                    0
+                } else {
+                    payment_period - inner.payment_period
+                };
+
+                Some(PeriodDescr {
+                    payment_period,
+                    start_period,
+                    impact_data_send_period: payment_period - inner.impact_data_send_period,
+                    interest_pay_period: start_period + inner.interest_pay_period,
+                })
+            }
+            Ordering::Less => None,
+            Ordering::Equal => Some(PeriodDescr {
                 payment_period,
                 start_period: payment_period - inner.payment_period,
                 impact_data_send_period: payment_period,
                 interest_pay_period: payment_period + inner.bond_finishing_period,
-            })
-        } else {
-            // last pay period is special and lasts bond_finishing_period seconds
-            let start_period = if index == 0 {
-                0
-            } else {
-                payment_period - inner.payment_period
-            };
-
-            Some(PeriodDescr {
-                payment_period,
-                start_period,
-                impact_data_send_period: payment_period - inner.impact_data_send_period,
-                interest_pay_period: start_period + inner.interest_pay_period,
-            })
+            }),
         }
     }
 }
