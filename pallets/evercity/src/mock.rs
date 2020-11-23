@@ -98,6 +98,7 @@ impl pallet_balances::Trait for TestRuntime {
     type WeightInfo = ();
     type MaxLocks = MaxLocks;
 }
+// (AccountId, role)
 static ROLES: [(u64, u8); 8] = [
     (1_u64, MASTER_ROLE_MASK),
     (2_u64, CUSTODIAN_ROLE_MASK),

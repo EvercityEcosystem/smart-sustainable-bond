@@ -59,13 +59,34 @@ pub fn development_config() -> Result<ChainSpec, String> {
                 // Initial PoA authorities
                 vec![authority_keys_from_seed("Alice")],
                 vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Evercity"),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
+                        MASTER_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Bob"),
+                        CUSTODIAN_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                        ISSUER_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Dave"),
+                        INVESTOR_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Eve"),
+                        AUDITOR_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                        MANAGER_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Evercity"),
+                        IMPACT_REPORTER_ROLE_MASK,
+                    ),
                 ],
                 // Sudo account
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -103,7 +124,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                 wasm_binary,
                 // @FIXME! setup Master and Custodian
                 vec![authority_keys_from_seed("Evercity//Master")],
-                vec![master_account_id.clone()],
+                vec![(master_account_id.clone(), MASTER_ROLE_MASK)],
                 // Sudo account
                 master_account_id,
             )
@@ -126,19 +147,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
-    endowed_accounts: Vec<AccountId>,
+    endowed_accounts: Vec<(AccountId, u8)>,
     _root_key: AccountId,
 ) -> GenesisConfig {
-    const ROLES: [u8; 7] = [
-        MASTER_ROLE_MASK,
-        CUSTODIAN_ROLE_MASK,
-        ISSUER_ROLE_MASK,
-        INVESTOR_ROLE_MASK,
-        AUDITOR_ROLE_MASK,
-        MANAGER_ROLE_MASK,
-        IMPACT_REPORTER_ROLE_MASK,
-    ];
-
     GenesisConfig {
         frame_system: Some(SystemConfig {
             // Add Wasm runtime to storage.
@@ -148,7 +159,7 @@ fn testnet_genesis(
         pallet_balances: Some(BalancesConfig {
             balances: endowed_accounts
                 .iter()
-                .map(|x| (x.clone(), 1 << 60))
+                .map(|x| (x.0.clone(), 1 << 60))
                 .collect(),
         }),
         pallet_aura: Some(AuraConfig {
@@ -165,12 +176,11 @@ fn testnet_genesis(
             // set roles for each pre-set accounts (set role)
             genesis_account_registry: endowed_accounts
                 .iter()
-                .zip(ROLES.iter())
-                .map(|(acc, &role)| {
+                .map(|(acc, role)| {
                     (
                         acc.clone(),
                         EvercityAccountStruct {
-                            roles: role,
+                            roles: *role,
                             identity: 0,
                             create_time: 0,
                         },
