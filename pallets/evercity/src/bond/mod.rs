@@ -7,11 +7,11 @@ use frame_support::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
+    sp_std::cmp::min,
 };
 use period::{PeriodDescr, PeriodIterator};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_core::sp_std::cmp::min;
 
 #[cfg(test)]
 pub mod ledger;
@@ -334,11 +334,10 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
         PeriodIterator::starts_with(&self, period).next()
     }
 
-    // @TODO rename this method to calc_effective_interest_rate()
     /// Calculate coupon effective interest rate using impact_data
     /// This method moves interest_rate up and down when good or bad impact_data
     /// is sent to bond
-    pub fn interest_rate(&self, impact_data: u64) -> BondInterest {
+    pub fn calc_effective_interest_rate(&self, impact_data: u64) -> BondInterest {
         let inner = &self.inner;
 
         if impact_data >= inner.impact_data_max_deviation_cap {

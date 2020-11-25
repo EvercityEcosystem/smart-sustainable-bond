@@ -21,11 +21,11 @@ use frame_support::{
     dispatch::Vec,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    sp_std::cmp::min,
     traits::Get,
 };
 
 use frame_system::ensure_signed;
-use sp_core::sp_std::cmp::min;
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -1474,11 +1474,6 @@ impl<T: Trait> Module<T> {
         BondImpactReport::get(bond)
     }
 
-    #[allow(dead_code)]
-    fn purge_expired_bondunit_lots(_before: T::Moment) {
-        //@TODO remove or implement
-    }
-
     #[cfg(test)]
     fn bond_packages(id: &BondId) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackage>>
     where
@@ -1591,7 +1586,7 @@ impl<T: Trait> Module<T> {
             let interest_rate = if index == 0 {
                 bond.inner.interest_rate_start_period_value
             } else if reports[index - 1].signed {
-                bond.interest_rate(reports[index - 1].impact_data)
+                bond.calc_effective_interest_rate(reports[index - 1].impact_data)
             } else {
                 min(
                     bond_yields[index - 1].interest_rate
@@ -1797,7 +1792,7 @@ impl<T: Trait> Module<T> {
         let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
         for report in reports[0..period].iter().rev() {
             if report.signed {
-                interest = bond.interest_rate(report.impact_data);
+                interest = bond.calc_effective_interest_rate(report.impact_data);
                 break;
             }
             missed_periods += 1;

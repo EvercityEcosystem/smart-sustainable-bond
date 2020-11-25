@@ -4,8 +4,10 @@ use crate::{
     BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
     DEFAULT_DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult, Blake2_256, StorageHasher};
-use sp_core::sp_std::ops::RangeInclusive;
+use frame_support::{
+    assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
+    StorageHasher,
+};
 
 type Evercity = Module<TestRuntime>;
 type Timestamp = pallet_timestamp::Module<TestRuntime>;
@@ -468,32 +470,32 @@ fn bond_interest_min_max() {
         let bond = get_test_bond();
         // full amplitude
         assert_eq!(
-            bond.interest_rate(bond.inner.impact_data_baseline),
+            bond.calc_effective_interest_rate(bond.inner.impact_data_baseline),
             bond.inner.interest_rate_base_value
         );
         assert_eq!(
-            bond.interest_rate(bond.inner.impact_data_max_deviation_cap),
+            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_cap),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
-            bond.interest_rate(bond.inner.impact_data_max_deviation_cap + 1),
+            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_cap + 1),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
-            bond.interest_rate(bond.inner.impact_data_max_deviation_floor),
+            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_floor),
             bond.inner.interest_rate_margin_cap
         );
         assert_eq!(
-            bond.interest_rate(bond.inner.impact_data_max_deviation_floor - 1),
+            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_floor - 1),
             bond.inner.interest_rate_margin_cap
         );
 
         // partial amplitude
-        assert_eq!(bond.interest_rate(25000_u64), 1500);
-        assert_eq!(bond.interest_rate(29000_u64), 1100);
+        assert_eq!(bond.calc_effective_interest_rate(25000_u64), 1500);
+        assert_eq!(bond.calc_effective_interest_rate(29000_u64), 1100);
 
-        assert_eq!(bond.interest_rate(17000_u64), 3000);
-        assert_eq!(bond.interest_rate(15000_u64), 3666);
+        assert_eq!(bond.calc_effective_interest_rate(17000_u64), 3000);
+        assert_eq!(bond.calc_effective_interest_rate(15000_u64), 3666);
     });
 }
 

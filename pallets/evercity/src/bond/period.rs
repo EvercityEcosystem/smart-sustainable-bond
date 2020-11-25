@@ -3,8 +3,9 @@ use crate::EverUSDBalance;
 use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::RuntimeDebug,
+    sp_std::cmp::Ordering,
 };
-use sp_core::sp_std::cmp::Ordering;
+//use sp_core::sp_std::cmp::Ordering;
 
 // ... |         period            |   ...
 // --- | ------------------------- | -------------...
