@@ -2096,6 +2096,89 @@ fn bond_return_bondunit_package() {
 }
 
 #[test]
+fn bond_return_partial_bondunit_package() {
+    const ACCOUNT: u64 = 3;
+    const MASTER: u64 = 1;
+
+    const INVESTOR1: u64 = 4;
+    const INVESTOR2: u64 = 6;
+
+    let bondid: BondId = "BOND0".into();
+    // investor1 = 100 + 100 + 200
+    //    return 200 + 200
+    // investor2 = 200
+    //    return 200
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(add_token(INVESTOR1, 6_000_000_000_000_000));
+        assert_ok!(add_token(INVESTOR2, 6_000_000_000_000_000));
+
+        let mut bond = get_test_bond().inner;
+        bond.mincap_deadline = 50000;
+
+        assert_ok!(Evercity::bond_add_new(
+            Origin::signed(ACCOUNT),
+            bondid,
+            bond
+        ));
+
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(20000);
+        assert_ok!(Evercity::bond_release(Origin::signed(MASTER), bondid, 0));
+        assert!(Evercity::evercity_balance().is_ok());
+
+        assert_ok!(Evercity::bond_unit_package_buy(
+            Origin::signed(INVESTOR1),
+            bondid,
+            1,
+            200
+        ));
+        assert_ok!(Evercity::bond_unit_package_buy(
+            Origin::signed(INVESTOR1),
+            bondid,
+            1,
+            100
+        ));
+        assert_ok!(Evercity::bond_unit_package_buy(
+            Origin::signed(INVESTOR1),
+            bondid,
+            1,
+            100
+        ));
+
+        assert_ok!(Evercity::bond_unit_package_buy(
+            Origin::signed(INVESTOR2),
+            bondid,
+            1,
+            200
+        ));
+        assert!(Evercity::bond_check_invariant(&bondid));
+
+        assert_ok!(Evercity::bond_unit_package_return(
+            Origin::signed(INVESTOR1),
+            bondid,
+            200
+        ));
+        assert_ok!(Evercity::bond_unit_package_return(
+            Origin::signed(INVESTOR1),
+            bondid,
+            200
+        ));
+        assert!(Evercity::bond_check_invariant(&bondid));
+        assert_noop!(
+            Evercity::bond_unit_package_return(Origin::signed(INVESTOR2), bondid, 100),
+            RuntimeError::BondParamIncorrect
+        );
+
+        assert_ok!(Evercity::bond_unit_package_return(
+            Origin::signed(INVESTOR2),
+            bondid,
+            200
+        ));
+        assert!(Evercity::bond_check_invariant(&bondid));
+    });
+}
+
+#[test]
 fn bond_iter_periods() {
     const ACCOUNT: u64 = 3;
     let bondid: BondId = "BOND1".into();

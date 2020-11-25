@@ -854,6 +854,7 @@ decl_module! {
         fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
+            ensure!(unit_amount>0, Error::<T>::BondParamIncorrect);
             // Active Bond cannot be withdrawn
             Self::with_bond(&bond, |item|{
                 ensure!(item.state == BondState::BOOKING, Error::<T>::BondStateNotPermitAction );
@@ -861,16 +862,18 @@ decl_module! {
                 let package_value =  item.par_value( unit_amount ) ;
                 ensure!(item.bond_credit>=package_value, Error::<T>::BondParamIncorrect);
 
-                //@TODO add ability to give back part of the package
-                let mut packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
-                ensure!(!packages.is_empty(), Error::<T>::BondParamIncorrect);
-
-                if let Some(index) = packages.iter().position(|item| item.bond_units == unit_amount ){
-                    packages.remove( index );
-                    BondUnitPackageRegistry::<T>::insert(&bond, &caller, packages);
-                }else{
-                    return Err( Error::<T>::BondParamIncorrect.into() );
-                }
+                BondUnitPackageRegistry::<T>::try_mutate(&bond, &caller, |packages|->DispatchResult{
+                    ensure!(!packages.is_empty(), Error::<T>::BondParamIncorrect);
+                    if packages.iter().map(|item| item.bond_units).sum::<BondUnitAmount>() == unit_amount {
+                        packages.clear();
+                        Ok(())
+                    } else if let Some(index) = packages.iter().position(|item| item.bond_units == unit_amount ){
+                        packages.remove( index );
+                        Ok(())
+                    } else {
+                        Err( Error::<T>::BondParamIncorrect.into() )
+                    }
+                })?;
 
                 item.decrease( package_value );
                 item.issued_amount -= unit_amount;
