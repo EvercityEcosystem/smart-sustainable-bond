@@ -1,8 +1,9 @@
+use crate::bond::transfer_bond_units;
 use crate::mock::*;
 use crate::{
     BondId, BondImpactReportStruct, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
-    BondUnitAmount, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module, AUDITOR_ROLE_MASK,
-    DEFAULT_DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
+    BondUnitAmount, BondUnitPackage, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module,
+    AUDITOR_ROLE_MASK, DEFAULT_DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
 };
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
@@ -472,6 +473,69 @@ fn it_token_burn_hasty() {
     })
 }
 // bonds
+
+fn create_bond_unit_package(amount: Vec<BondUnitAmount>) -> Vec<BondUnitPackage> {
+    amount
+        .into_iter()
+        .map(|bond_units| BondUnitPackage {
+            bond_units,
+            acquisition: 0,
+            coupon_yield: 0,
+        })
+        .collect()
+}
+
+fn bond_unit_package_amount(package: Vec<BondUnitPackage>) -> Vec<BondUnitAmount> {
+    package.into_iter().map(|item| item.bond_units).collect()
+}
+
+#[test]
+fn bond_transfer_units() {
+    new_test_ext().execute_with(|| {
+        let mut from_package = create_bond_unit_package(vec![5, 2, 10, 1]);
+        let mut to_package = create_bond_unit_package(vec![]);
+        assert_ok!(transfer_bond_units::<TestRuntime>(
+            &mut from_package,
+            &mut to_package,
+            3
+        ));
+
+        assert_eq!(bond_unit_package_amount(from_package), vec![10, 5]);
+        assert_eq!(bond_unit_package_amount(to_package), vec![1, 2]);
+
+        let mut from_package = create_bond_unit_package(vec![5, 2, 10, 1]);
+        let mut to_package = create_bond_unit_package(vec![]);
+
+        assert_ok!(transfer_bond_units::<TestRuntime>(
+            &mut from_package,
+            &mut to_package,
+            10
+        ));
+
+        assert_eq!(bond_unit_package_amount(from_package), vec![8]);
+        assert_eq!(bond_unit_package_amount(to_package), vec![1, 2, 5, 2]);
+
+        let mut from_package = create_bond_unit_package(vec![5, 2, 10, 1]);
+        let mut to_package = create_bond_unit_package(vec![]);
+
+        assert_ok!(transfer_bond_units::<TestRuntime>(
+            &mut from_package,
+            &mut to_package,
+            2
+        ));
+
+        assert_eq!(bond_unit_package_amount(from_package), vec![10, 5, 1]);
+        assert_eq!(bond_unit_package_amount(to_package), vec![1, 1]);
+
+        let mut from_package = create_bond_unit_package(vec![5, 2, 10, 1]);
+        let mut to_package = create_bond_unit_package(vec![]);
+
+        assert_noop!(
+            transfer_bond_units::<TestRuntime>(&mut from_package, &mut to_package, 20),
+            RuntimeError::BondParamIncorrect
+        );
+    });
+}
 
 #[test]
 fn bond_validation() {

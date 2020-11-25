@@ -3,6 +3,7 @@ use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
     codec::{Decode, Encode},
+    dispatch::{DispatchResult, Vec},
     sp_runtime::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
@@ -456,3 +457,39 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
     <T as frame_system::Trait>::AccountId,
     <T as pallet_timestamp::Trait>::Moment,
 >;
+
+// @TESTME try to compare sort performance with binaryheap
+// @TODO try to find the package with exact match at fist
+pub(crate) fn transfer_bond_units<T: crate::Trait>(
+    from_packages: &mut Vec<BondUnitPackage>,
+    to_packages: &mut Vec<BondUnitPackage>,
+    mut lot_bond_units: BondUnitAmount,
+) -> DispatchResult {
+    from_packages.sort_by_key(|package| core::cmp::Reverse(package.bond_units));
+
+    while lot_bond_units > 0 {
+        // last element has smallest number of bond units
+        let mut last = from_packages
+            .pop()
+            .ok_or(crate::Error::<T>::BondParamIncorrect)?;
+        let (bond_units, acquisition, coupon_yield) = if last.bond_units > lot_bond_units {
+            last.bond_units -= lot_bond_units;
+            let bond_units = lot_bond_units;
+            let acquisition = last.acquisition;
+            lot_bond_units = 0;
+            from_packages.push(last);
+            (bond_units, acquisition, 0)
+        } else {
+            lot_bond_units -= last.bond_units;
+            (last.bond_units, last.acquisition, last.coupon_yield)
+        };
+
+        to_packages.push(BondUnitPackage {
+            bond_units,
+            acquisition,
+            coupon_yield,
+        });
+    }
+    from_packages.shrink_to_fit();
+    Ok(())
+}

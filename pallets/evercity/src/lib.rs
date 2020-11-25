@@ -12,8 +12,8 @@ pub use bond::{
     BondUnitPackage, DEFAULT_DAY_DURATION,
 };
 use bond::{
-    AccountYield, BondInnerStructOf, BondPeriodNumber, BondState, BondUnitAmount,
-    BondUnitSaleLotStructOf,
+    transfer_bond_units, AccountYield, BondInnerStructOf, BondPeriodNumber, BondState,
+    BondUnitAmount, BondUnitSaleLotStructOf,
 };
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
@@ -336,7 +336,7 @@ decl_module! {
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             AccountRegistry::<T>::insert(&who,
                 EvercityAccountStructT { roles: role, identity, create_time: now }
@@ -389,7 +389,7 @@ decl_module! {
             ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
 
             MintRequestEverUSD::<T>::try_mutate(&caller, |request|->DispatchResult{
-                let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+                let now = <pallet_timestamp::Module<T>>::get();
                 if !request.is_expired(now) {
                     Err( Error::<T>::MintRequestAlreadyExist.into() )
                 }else{
@@ -434,7 +434,7 @@ decl_module! {
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let mint_request = MintRequestEverUSD::<T>::get(&who);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             ensure!(mint_request.deadline >= now, Error::<T>::MintRequestDoesntExist);
 
             // add tokens to user's balance and total supply of EverUSD
@@ -531,7 +531,7 @@ decl_module! {
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let burn_request = BurnRequestEverUSD::<T>::get(&who);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
             ensure!(burn_request.deadline >= now, Error::<T>::BurnRequestDoesntExist);
             // remove tokens from user's balance and decrease total supply of EverUSD
             let amount_to_sub = burn_request.amount;
@@ -585,7 +585,7 @@ decl_module! {
             ensure!(body.is_valid(T::DayDuration::get()), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             let item = BondStruct{
                     inner: body,
@@ -1311,40 +1311,9 @@ decl_module! {
                      });
 
                      let mut from_packages = BondUnitPackageRegistry::<T>::get(&bond, &bondholder);
-                     // @TESTME try to compare sort performance with binaryheap
-                     from_packages.sort_by_key(|package| core::cmp::Reverse(package.bond_units));
                      let mut to_packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
-
                      // transfer lot.bond_units from bondholder to caller
-
-                     // @TODO design as separate function
-                     let mut lot_bond_units = lot.bond_units;
-                     while lot_bond_units > 0 {
-                           // last element has smallest number of bond units
-                           let mut last = from_packages.pop().ok_or( Error::<T>::BondParamIncorrect )?;
-                           let (bond_units, acquisition, coupon_yield) = if last.bond_units > lot_bond_units {
-                                last.bond_units -= lot_bond_units;
-                                let bond_units = lot_bond_units;
-                                let acquisition = last.acquisition;
-                                lot_bond_units = 0;
-                                from_packages.push(
-                                    last
-                                );
-                                (bond_units, acquisition,  0)
-                           }else{
-                                lot_bond_units-=last.bond_units;
-                                (last.bond_units, last.acquisition, last.coupon_yield)
-                           };
-
-                           to_packages.push(
-                                BondUnitPackage{
-                                     bond_units,
-                                     acquisition,
-                                     coupon_yield,
-                                }
-                           );
-                     }
-                     from_packages.shrink_to_fit();
+                     transfer_bond_units::<T>(&mut from_packages, &mut to_packages, lot.bond_units)?;
                      // store new packages
                      BondUnitPackageRegistry::<T>::insert(&bond, &bondholder, from_packages);
                      BondUnitPackageRegistry::<T>::insert(&bond, &caller, to_packages);
