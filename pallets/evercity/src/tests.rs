@@ -269,6 +269,15 @@ fn it_token_mint_create_hasty() {
             Evercity::token_mint_request_create_everusd(Origin::signed(ACCOUNT), 10),
             RuntimeError::MintRequestAlreadyExist
         );
+
+        // make amend
+        let ttl: u32 = <TestRuntime as crate::Trait>::MintRequestTtl::get();
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(ttl.into());
+
+        assert_ok!(Evercity::token_mint_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            10
+        ));
     });
 }
 
@@ -435,6 +444,34 @@ fn it_token_burn_try_confirm_expired() {
         );
     });
 }
+
+#[test]
+fn it_token_burn_hasty() {
+    const ACCOUNT: u64 = 4; // INVESTOR
+
+    new_test_ext().execute_with(|| {
+        assert_ok!(add_token(ACCOUNT, 10000));
+
+        assert_ok!(Evercity::token_burn_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            5000
+        ));
+        assert_noop!(
+            Evercity::token_burn_request_create_everusd(Origin::signed(ACCOUNT), 10000),
+            RuntimeError::BurnRequestAlreadyExist
+        );
+
+        // make amend
+        let ttl: u32 = <TestRuntime as crate::Trait>::BurnRequestTtl::get();
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(ttl.into());
+
+        assert_ok!(Evercity::token_burn_request_create_everusd(
+            Origin::signed(ACCOUNT),
+            10000
+        ));
+    })
+}
+// bonds
 
 #[test]
 fn bond_validation() {

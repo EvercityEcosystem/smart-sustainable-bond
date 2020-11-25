@@ -253,7 +253,6 @@ decl_error! {
         BondAlreadyExists,
 
         /// Incorrect bond parameters (many different cases)
-        // @TODO refactor this error to make it more descriptive in different cases
         BondParamIncorrect,
 
         /// Incorrect bond ticker provided or bond has been revoked
@@ -388,18 +387,20 @@ decl_module! {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
-            // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
-            let new_mint_request = TokenMintRequestStruct{
-                amount: amount_to_mint,
-                deadline: now + T::MintRequestTtl::get().into(),
-            };
-            MintRequestEverUSD::<T>::insert(&caller, new_mint_request);
-
-            Self::deposit_event(RawEvent::MintRequestCreated(caller, amount_to_mint));
-            Ok(())
+            MintRequestEverUSD::<T>::try_mutate(&caller, |request|->DispatchResult{
+                let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+                if !request.is_expired(now) {
+                    Err( Error::<T>::MintRequestAlreadyExist.into() )
+                }else{
+                    *request = TokenMintRequestStruct{
+                        amount: amount_to_mint,
+                        deadline: now + T::MintRequestTtl::get().into(),
+                    };
+                    Self::deposit_event(RawEvent::MintRequestCreated(caller.clone(), amount_to_mint));
+                    Ok(())
+                }
+            })
         }
 
         /// Method: token_mint_request_revoke_everusd(origin)
@@ -483,21 +484,23 @@ decl_module! {
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
-            // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
             let current_balance = BalanceEverUSD::<T>::get(&caller);
             ensure!(amount_to_burn <= current_balance, Error::<T>::BalanceOverdraft);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
 
-            let new_burn_request = TokenBurnRequestStruct {
-                amount: amount_to_burn,
-                deadline: now +  T::BurnRequestTtl::get().into(),
-            };
-            BurnRequestEverUSD::<T>::insert(&caller, new_burn_request);
-
-            Self::deposit_event(RawEvent::BurnRequestCreated(caller, amount_to_burn));
-            Ok(())
+            BurnRequestEverUSD::<T>::try_mutate(&caller,|request|->DispatchResult{
+                let now = <pallet_timestamp::Module<T>>::get();
+                if !request.is_expired( now ) {
+                    Err( Error::<T>::BurnRequestAlreadyExist.into() )
+                }else{
+                    *request = TokenBurnRequestStruct {
+                        amount: amount_to_burn,
+                        deadline: now +  T::BurnRequestTtl::get().into(),
+                    };
+                    Self::deposit_event(RawEvent::BurnRequestCreated(caller.clone(), amount_to_burn));
+                    Ok(())
+                }
+            })
         }
 
         /// Method: token_burn_request_revoke_everusd(origin)

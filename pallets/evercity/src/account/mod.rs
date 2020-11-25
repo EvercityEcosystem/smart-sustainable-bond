@@ -51,7 +51,7 @@ pub struct TokenMintRequestStruct<Moment> {
 
 impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<Moment> {
     fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
+        self.deadline <= now
     }
 }
 
@@ -69,7 +69,7 @@ pub struct TokenBurnRequestStruct<Moment> {
 
 impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<Moment> {
     fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
+        self.deadline <= now
     }
 }
 
