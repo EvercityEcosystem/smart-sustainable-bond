@@ -305,7 +305,7 @@ fn it_token_burn_mint_overflow() {
                 Origin::signed(ACCOUNT),
                 EverUSDBalance::MAX - 1000
             ),
-            RuntimeError::MintRequestParamIncorrect
+            RuntimeError::BalanceOverdraft
         );
         // assert_noop!(
         //     Evercity::token_burn_request_confirm_everusd(
@@ -383,7 +383,7 @@ fn it_token_burn_create_overrun() {
 
         assert_noop!(
             Evercity::token_burn_request_create_everusd(Origin::signed(ACCOUNT), BALANCE + 1),
-            RuntimeError::MintRequestParamIncorrect
+            RuntimeError::BalanceOverdraft
         );
     });
 }
@@ -877,7 +877,7 @@ fn bond_try_withdraw_before_deadline() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(49000);
         assert_noop!(
             Evercity::bond_withdraw(Origin::signed(MASTER), bondid,),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::BondStateNotPermitAction
         );
         // make amends
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(51000);
@@ -1417,7 +1417,7 @@ fn bond_try_release_without_fundraising_period() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(100000);
         assert_noop!(
             Evercity::bond_release(Origin::signed(MASTER), bondid, 0),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::BondStateNotPermitAction
         );
 
         bond = get_test_bond();
@@ -2502,7 +2502,7 @@ fn bond_acquire_try_own_bond() {
 
         assert_noop!(
             Evercity::bond_unit_package_buy(Origin::signed(ACCOUNT1), bondid1, 3, 1),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::AccountNotAuthorized
         );
 
         let chain_bond_item = Evercity::get_bond(&bondid1);
@@ -2816,7 +2816,7 @@ fn bond_lot_try_buy_foreign() {
         ));
         assert_noop!(
             Evercity::bond_unit_lot_settle(Origin::signed(INVESTOR2), bondid, INVESTOR1, lot),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::LotNotFound
         );
     });
 }
@@ -2842,7 +2842,7 @@ fn bond_lot_try_create_expired() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(1000000 + 1);
         assert_noop!(
             Evercity::bond_unit_lot_bid(Origin::signed(INVESTOR1), bondid, lot),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::LotParamIncorrect
         );
     });
 }
@@ -2877,7 +2877,7 @@ fn bond_lot_try_buy_expired() {
 
         assert_noop!(
             Evercity::bond_unit_lot_settle(Origin::signed(INVESTOR2), bondid, INVESTOR1, lot),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::LotNotFound
         );
     });
 }
@@ -2907,7 +2907,7 @@ fn bond_lot_try_exceed_portfolio() {
         ));
         assert_noop!(
             Evercity::bond_unit_lot_bid(Origin::signed(INVESTOR1), bondid, lot.clone()),
-            RuntimeError::BondParamIncorrect
+            RuntimeError::BalanceOverdraft
         );
         // make amend. make prior lots expired
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(100000 + 1);

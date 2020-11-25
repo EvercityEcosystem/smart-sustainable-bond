@@ -273,6 +273,12 @@ decl_error! {
 
         /// Bond version has gone
         BondObsolete,
+
+        /// Bid lot not found
+        LotNotFound,
+
+        /// Incorrect parameter for the bond sale lot
+        LotParamIncorrect,
     }
 }
 
@@ -481,7 +487,7 @@ decl_module! {
             ensure!(!MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestAlreadyExist);
 
             let current_balance = BalanceEverUSD::<T>::get(&caller);
-            ensure!(amount_to_burn <= current_balance, Error::<T>::MintRequestParamIncorrect);
+            ensure!(amount_to_burn <= current_balance, Error::<T>::BalanceOverdraft);
             let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
 
             let new_burn_request = TokenBurnRequestStruct {
@@ -734,7 +740,7 @@ decl_module! {
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondStateNotPermitAction );
 
                 item.booking_start_date = now;
                 item.state = BondState::BOOKING;
@@ -764,10 +770,10 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 // issuer cannot buy his own bonds
-                ensure!(item.issuer!=caller, Error::<T>::BondParamIncorrect );
+                ensure!(item.issuer!=caller, Error::<T>::AccountNotAuthorized );
 
                 let issued_amount = unit_amount.checked_add(item.issued_amount)
-                    .ok_or(Error::<T>::BondParamIncorrect)?;
+                    .ok_or(Error::<T>::BalanceOverdraft)?;
 
                 ensure!(
                     issued_amount <= item.inner.bond_units_maxcap_amount,
@@ -894,7 +900,7 @@ decl_module! {
                 );
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline<=now, Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.mincap_deadline<=now, Error::<T>::BondStateNotPermitAction );
 
                 item.state = BondState::PREPARE;
                 item.nonce+=1;
@@ -1098,7 +1104,7 @@ decl_module! {
 
             Self::with_bond(&bond, |mut item|{
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
-                ensure!(item.get_debt()>0, Error::<T>::BondOutOfOrder );
+                ensure!(item.get_debt()>0, Error::<T>::BondParamIncorrect );
                 let now = <pallet_timestamp::Module<T>>::get();
                 ensure!( !Self::is_interest_pay_period(&item, now),Error::<T>::BondOutOfOrder );
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
@@ -1238,7 +1244,7 @@ decl_module! {
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
-            ensure!(!lot.is_expired(now), Error::<T>::BondParamIncorrect);
+            ensure!(!lot.is_expired(now), Error::<T>::LotParamIncorrect);
 
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
             // how many bond units does the caller have
@@ -1255,7 +1261,7 @@ decl_module! {
 
             let total_bond_units_inlot: BondUnitAmount = lots.iter().map(|lot| lot.bond_units).sum();
             // prevent new bid if the caller doesn't have enough bond units
-            ensure!(total_bond_units>= total_bond_units_inlot+lot.bond_units, Error::<T>::BondParamIncorrect);
+            ensure!(total_bond_units>= total_bond_units_inlot+lot.bond_units, Error::<T>::BalanceOverdraft);
 
             lots.push(
                 lot.clone()
@@ -1280,12 +1286,12 @@ decl_module! {
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             let now = <pallet_timestamp::Module<T>>::get();
             // prevent expired lots sales
-            ensure!(!lot.is_expired( now ), Error::<T>::BondParamIncorrect);
+            ensure!(!lot.is_expired( now ), Error::<T>::LotNotFound);
 
-            ensure!(lot.new_bondholder == Default::default() || lot.new_bondholder == caller, Error::<T>::BondParamIncorrect);
+            ensure!(lot.new_bondholder == Default::default() || lot.new_bondholder == caller, Error::<T>::LotNotFound);
             let balance = Self::balance_everusd(&caller);
             // ensure caller has enough tokens on its balance
-            ensure!(lot.amount <= balance , Error::<T>::BondParamIncorrect);
+            ensure!(lot.amount <= balance , Error::<T>::BalanceOverdraft);
 
             BondUnitPackageLot::<T>::try_mutate(&bond, &bondholder, |lots|->DispatchResult{
                 if let Some(index) = lots.iter().position(|item| item==&lot ){
