@@ -284,6 +284,9 @@ decl_error! {
         /// Bid lot not found
         LotNotFound,
 
+        /// Bid lot expired
+        LotObsolete,
+
         /// Incorrect parameter for the bond sale lot
         LotParamIncorrect,
     }
@@ -1300,7 +1303,7 @@ decl_module! {
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             let now = <pallet_timestamp::Module<T>>::get();
             // prevent expired lots sales
-            ensure!(!lot.is_expired( now ), Error::<T>::LotNotFound);
+            ensure!(!lot.is_expired( now ), Error::<T>::LotObsolete);
 
             ensure!(lot.new_bondholder == Default::default() || lot.new_bondholder == caller, Error::<T>::LotNotFound);
             let balance = Self::balance_everusd(&caller);

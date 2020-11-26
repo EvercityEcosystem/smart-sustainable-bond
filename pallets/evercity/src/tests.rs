@@ -3071,7 +3071,7 @@ fn bond_lot_try_buy_expired() {
 
         assert_noop!(
             Evercity::bond_unit_lot_settle(Origin::signed(INVESTOR2), bondid, INVESTOR1, lot),
-            RuntimeError::LotNotFound
+            RuntimeError::LotObsolete
         );
     });
 }
