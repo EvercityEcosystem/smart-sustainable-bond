@@ -1331,28 +1331,22 @@ fn bond_calc_coupon_yield_basic() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(moment);
 
         assert_eq!(bond_current_period(&chain_bond_item, moment), 1);
-        assert!(Evercity::calc_and_store_bond_coupon_yield(
-            &bondid,
-            &mut chain_bond_item,
-            moment
-        ));
+        assert!(
+            Evercity::calc_and_store_bond_coupon_yield(&bondid, &mut chain_bond_item, moment) > 0
+        );
         // second call should return false
-        assert!(!Evercity::calc_and_store_bond_coupon_yield(
-            &bondid,
-            &mut chain_bond_item,
-            moment
-        ));
+        assert!(
+            !Evercity::calc_and_store_bond_coupon_yield(&bondid, &mut chain_bond_item, moment) > 0
+        );
 
         // pass second (index=1) period
         moment += chain_bond_item.inner.payment_period as u64 * 1000_u64;
         assert_eq!(bond_current_period(&chain_bond_item, moment), 2);
         chain_bond_item.bond_debit = 2000;
 
-        assert!(Evercity::calc_and_store_bond_coupon_yield(
-            &bondid,
-            &mut chain_bond_item,
-            moment
-        ));
+        assert!(
+            Evercity::calc_and_store_bond_coupon_yield(&bondid, &mut chain_bond_item, moment) > 0
+        );
 
         let bond_yields = Evercity::get_coupon_yields(&bondid);
 

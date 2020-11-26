@@ -20,9 +20,10 @@ use core::cmp::{Eq, PartialEq};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     sp_std::cmp::min,
+    sp_std::result::Result,
     traits::Get,
 };
 
@@ -40,7 +41,6 @@ pub trait Expired<Moment> {
     fn is_expired(&self, now: Moment) -> bool;
 }
 pub type EverUSDBalance = u64;
-pub type Result<T> = core::result::Result<T, DispatchError>;
 
 /// EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
 pub const EVERUSD_DECIMALS: u64 = 9;
@@ -1139,14 +1139,14 @@ decl_module! {
         /// Access: any
         ///
         /// Calculates bond coupon yield
-        #[weight = 20_000]
-        fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResult {
+        #[weight = 0]
+        fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
-            Self::with_bond(&bond, |mut item|{
+            Self::with_bond(&bond, |mut item|->DispatchResultWithPostInfo {
                 let now = <pallet_timestamp::Module<T>>::get();
-                Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                Ok(())
+                let processed: u64 = Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now) as u64;
+                Ok(Some(processed * 10000).into())
             })
         }
 
@@ -1469,19 +1469,18 @@ impl<T: Trait> Module<T> {
     /// Same as BondRegistry::<T>::mutate(bond, f).
     /// unlike BondRegistry::<T>::mutate(bond, f) `with_bond` doesn't write to storage
     /// if f call returns error or bond key doesn't exist in the registry
-    fn with_bond<F: FnOnce(&mut BondStructOf<T>) -> DispatchResult>(
+    fn with_bond<R, E: From<Error<T>>, F: FnOnce(&mut BondStructOf<T>) -> Result<R, E>>(
         bond: &BondId,
         f: F,
-    ) -> DispatchResult {
+    ) -> Result<R, E> {
         ensure!(
             BondRegistry::<T>::contains_key(bond),
             Error::<T>::BondNotFound
         );
 
-        let mut item = BondRegistry::<T>::get(bond);
-        f(&mut item)?;
-        BondRegistry::<T>::insert(bond, item);
-        Ok(())
+        BondRegistry::<T>::try_mutate(bond, |mut item| f(&mut item))
+        //BondRegistry::<T>::insert(bond, item);
+        //Ok(())
     }
 
     /// Increase account balance by `amount` EverUSD
@@ -1554,13 +1553,13 @@ impl<T: Trait> Module<T> {
     /// Calculate bond coupon yield
     /// Store values in BondCouponYield value
     /// Update bond bond_credit value to the current coupon yield
-    /// Returns true if new periods was processed, false otherwise
+    /// Returns the number of processed periods.
     /// common complexity O(N), where N is the number of issued bond unit packages
     fn calc_and_store_bond_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
         now: <T as pallet_timestamp::Trait>::Moment,
-    ) -> bool {
+    ) -> usize {
         let (_, period) = ensure_active!(bond.time_passed_after_activation(now), false);
         // here is current pay period
         let period = period as usize;
@@ -1575,13 +1574,13 @@ impl<T: Trait> Module<T> {
             // term hasn't come yet (if period=0 )
             // or current period has been calculated
             bond.bond_credit = total_yield;
-            return false;
+            return 0;
         }
         let time_step = T::TimeStep::get();
         // @TODO refactor. use `mutate` method instead  of get+insert
         let reports = BondImpactReport::get(id);
         assert!(reports.len() + 1 >= period);
-
+        let mut processed: usize = 0;
         while bond_yields.len() < period {
             // index - accrued period number
             let index = bond_yields.len();
@@ -1626,7 +1625,7 @@ impl<T: Trait> Module<T> {
                 }
                 None => {
                     // @TODO  it's best panic instead of return false
-                    return false;
+                    return 0;
                 }
             };
             let coupon_yield = min(bond.bond_debit, total_yield);
@@ -1637,6 +1636,7 @@ impl<T: Trait> Module<T> {
                 coupon_yield_before: coupon_yield,
                 interest_rate,
             });
+            processed += 1;
             Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
         }
         // save current liability in bond_credit field
@@ -1648,7 +1648,7 @@ impl<T: Trait> Module<T> {
         }
 
         Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
-        true
+        processed
     }
 
     /// Redeem bond units,  get principal value, and coupon yield in the balance
