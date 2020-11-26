@@ -273,7 +273,7 @@ parameter_types! {
     pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MaxMintAmount: pallet_evercity::EverUSDBalance = 60_000_000_000_000_000;
-    pub const DayDuration: pallet_evercity::BondPeriod = DEFAULT_DAY_DURATION;
+    pub const TimeStep: pallet_evercity::BondPeriod = DEFAULT_DAY_DURATION;
 }
 
 impl pallet_evercity::Trait for Runtime {
@@ -281,7 +281,7 @@ impl pallet_evercity::Trait for Runtime {
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
-    type DayDuration = DayDuration;
+    type TimeStep = TimeStep;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

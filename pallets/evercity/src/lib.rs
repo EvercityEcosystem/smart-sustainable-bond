@@ -1348,8 +1348,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Master role
     pub fn account_is_master(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0
     }
 
     /// Method: account_is_custodian(acc: &T::AccountId) -> bool
@@ -1357,8 +1356,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Custodian role
     pub fn account_is_custodian(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0
     }
 
     /// Method: account_is_issuer(acc: &T::AccountId) -> bool
@@ -1366,8 +1364,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Issuer role
     pub fn account_is_issuer(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0
     }
 
     /// Method: account_is_investor(acc: &T::AccountId) -> bool
@@ -1375,8 +1372,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Investor role
     pub fn account_is_investor(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & INVESTOR_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & INVESTOR_ROLE_MASK != 0
     }
 
     /// Method: account_is_auditor(acc: &T::AccountId) -> bool
@@ -1384,8 +1380,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Auditor role
     pub fn account_is_auditor(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & AUDITOR_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & AUDITOR_ROLE_MASK != 0
     }
 
     /// Method: account_is_manager(acc: &T::AccountId) -> bool
@@ -1393,8 +1388,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Manager role
     pub fn account_is_manager(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & MANAGER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & MANAGER_ROLE_MASK != 0
     }
 
     /// Method: account_is_impact_reporter(acc: &T::AccountId) -> bool
@@ -1402,8 +1396,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Impact Reporter role
     pub fn account_is_impact_reporter(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & IMPACT_REPORTER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & IMPACT_REPORTER_ROLE_MASK != 0
     }
 
     /// Method: account_token_mint_burn_allowed(acc: &T::AccountId) -> bool
@@ -1412,8 +1405,7 @@ impl<T: Trait> Module<T> {
     /// Checks if the acc can create burn and mint tokens requests
     pub fn account_token_mint_burn_allowed(acc: &T::AccountId) -> bool {
         const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | ISSUER_ROLE_MASK;
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0
     }
     /// Method: balance_everusd(acc: &T::AccountId) -> EverUSDBalance
     /// Arguments: acc: AccountId - account id

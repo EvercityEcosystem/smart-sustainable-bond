@@ -62,7 +62,7 @@ parameter_types! {
     pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MaxMintAmount: EverUSDBalance = EVERUSD_MAX_MINT_AMOUNT;
-    pub const DayDuration: BondPeriod = DEFAULT_DAY_DURATION;
+    pub const TimeStep: BondPeriod = DEFAULT_DAY_DURATION;
 }
 
 impl Trait for TestRuntime {
@@ -70,7 +70,7 @@ impl Trait for TestRuntime {
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
-    type DayDuration = DayDuration;
+    type TimeStep = TimeStep;
 }
 
 parameter_types! {

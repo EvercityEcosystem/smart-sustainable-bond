@@ -59,6 +59,16 @@ fn it_returns_true_for_correct_role_checks() {
         assert_eq!(Evercity::account_is_issuer(&3), true);
         assert_eq!(Evercity::account_is_investor(&4), true);
         assert_eq!(Evercity::account_is_auditor(&5), true);
+        assert_eq!(Evercity::account_is_manager(&8), true);
+        assert_eq!(Evercity::account_is_issuer(&7), true);
+        assert_eq!(Evercity::account_is_investor(&7), true);
+
+        assert_eq!(Evercity::account_is_master(&100), false);
+        assert_eq!(Evercity::account_is_custodian(&100), false);
+        assert_eq!(Evercity::account_is_issuer(&100), false);
+        assert_eq!(Evercity::account_is_investor(&100), false);
+        assert_eq!(Evercity::account_is_auditor(&100), false);
+        assert_eq!(Evercity::account_token_mint_burn_allowed(&100), false);
     });
 }
 
