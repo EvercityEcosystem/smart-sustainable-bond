@@ -343,7 +343,7 @@ fn it_token_mint_try_confirm_expired() {
                 ACCOUNT,
                 1000
             ),
-            RuntimeError::MintRequestDoesntExist
+            RuntimeError::MintRequestObsolete
         );
     });
 }
@@ -441,7 +441,7 @@ fn it_token_burn_try_confirm_expired() {
                 ACCOUNT,
                 1000
             ),
-            RuntimeError::BurnRequestDoesntExist
+            RuntimeError::BurnRequestObsolete
         );
     });
 }
@@ -610,48 +610,48 @@ fn bond_period_interest_rate() {
         let mut reports = Vec::<BondImpactReportStruct>::new();
         //missing report
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 0,
             signed: false,
         });
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 20000_u64,
             signed: true,
         });
         //missing report
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 0,
             signed: false,
         });
         // worst result and maximal interest rate value
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 14000_u64,
             signed: true,
         });
         //missing report. it cannot make interest rate worse
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 0,
             signed: false,
         });
         // very good result lead to mininal interest rate
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 100000_u64,
             signed: true,
         });
         //first missing report.
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 0,
             signed: false,
         });
         //second missing report.
         reports.push(BondImpactReportStruct {
-            create_date: 0,
+            create_period: 0,
             impact_data: 0,
             signed: false,
         });

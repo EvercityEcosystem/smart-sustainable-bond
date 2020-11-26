@@ -79,7 +79,7 @@
     "coupon_yield": "EverUSDBalance"
   },
   "BondImpactReportStruct": {
-    "create_date": "BondPeriod",
+    "create_period": "BondPeriod",
     "impact_data": "u64",
     "signed": "bool"
   },

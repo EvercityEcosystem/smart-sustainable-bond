@@ -188,8 +188,8 @@ pub type BondInnerStructOf<T> =
     BondInnerStruct<<T as pallet_timestamp::Trait>::Moment, <T as frame_system::Trait>::Hash>;
 
 #[inline]
-fn is_period_multiple_of_day(period: BondPeriod, day_duration: BondPeriod) -> bool {
-    (period % day_duration) == 0
+fn is_period_muliple_of_time_step(period: BondPeriod, time_step: BondPeriod) -> bool {
+    (period % time_step) == 0
 }
 
 impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
@@ -212,16 +212,16 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && self.bond_finishing_period == other.bond_finishing_period
     }
     /// Checks if bond data is valid
-    pub fn is_valid(&self, day_duration: BondPeriod) -> bool {
+    pub fn is_valid(&self, time_step: BondPeriod) -> bool {
         self.bond_units_mincap_amount > 0
             && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
-            && self.payment_period >= MIN_PAYMENT_PERIOD * day_duration
+            && self.payment_period >= MIN_PAYMENT_PERIOD * time_step
             && self.impact_data_send_period <= self.payment_period
-            && is_period_multiple_of_day(self.payment_period, day_duration)
-            && is_period_multiple_of_day(self.start_period, day_duration)
-            && is_period_multiple_of_day(self.impact_data_send_period, day_duration)
-            && is_period_multiple_of_day(self.bond_finishing_period, day_duration)
-            && is_period_multiple_of_day(self.interest_pay_period, day_duration)
+            && is_period_muliple_of_time_step(self.payment_period, time_step)
+            && is_period_muliple_of_time_step(self.start_period, time_step)
+            && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
+            && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
+            && is_period_muliple_of_time_step(self.interest_pay_period, time_step)
             && (self.start_period == 0 || self.start_period >= self.payment_period)
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
@@ -424,7 +424,7 @@ pub struct BondUnitPackage {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondImpactReportStruct {
-    pub create_date: BondPeriod,
+    pub create_period: BondPeriod,
     pub impact_data: u64,
     pub signed: bool,
 }

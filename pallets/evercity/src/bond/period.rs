@@ -5,7 +5,8 @@ use frame_support::{
     sp_runtime::RuntimeDebug,
     sp_std::cmp::Ordering,
 };
-//use sp_core::sp_std::cmp::Ordering;
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 // ... |         period            |   ...
 // --- | ------------------------- | -------------...
@@ -43,6 +44,16 @@ pub struct PeriodYield {
     pub coupon_yield_before: EverUSDBalance,
     /// effective interest rate for current period
     pub interest_rate: BondInterest,
+}
+
+/// Struct, used by BondApi::get_impact_reports
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
+pub struct PeriodDataStruct {
+    pub interest_rate: BondInterest,
+    pub create_period: BondPeriod,
+    pub impact_data: u64,
+    pub signed: bool,
 }
 
 pub struct PeriodIterator<'a, AccountId, Moment, Hash> {
