@@ -1,5 +1,8 @@
 use crate::account::*;
-use crate::{BondInnerStructOf, BondStructOf, EvercityAccountStructT, Trait, DAY_DURATION};
+use crate::{
+    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
+    DEFAULT_DAY_DURATION,
+};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -15,6 +18,7 @@ impl_outer_origin! {
 // Configure a mock runtime to test the pallet.
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestRuntime;
@@ -54,9 +58,19 @@ impl frame_system::Trait for TestRuntime {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
 }
+parameter_types! {
+    pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MaxMintAmount: EverUSDBalance = EVERUSD_MAX_MINT_AMOUNT;
+    pub const TimeStep: BondPeriod = DEFAULT_DAY_DURATION;
+}
 
 impl Trait for TestRuntime {
     type Event = ();
+    type BurnRequestTtl = BurnRequestTtl;
+    type MintRequestTtl = MintRequestTtl;
+    type MaxMintAmount = MaxMintAmount;
+    type TimeStep = TimeStep;
 }
 
 parameter_types! {
@@ -84,6 +98,17 @@ impl pallet_balances::Trait for TestRuntime {
     type WeightInfo = ();
     type MaxLocks = MaxLocks;
 }
+// (AccountId, role)
+static ROLES: [(u64, u8); 8] = [
+    (1_u64, MASTER_ROLE_MASK),
+    (2_u64, CUSTODIAN_ROLE_MASK),
+    (3_u64, ISSUER_ROLE_MASK),
+    (4_u64, INVESTOR_ROLE_MASK),
+    (5_u64, AUDITOR_ROLE_MASK),
+    (6_u64, INVESTOR_ROLE_MASK),
+    (7_u64, ISSUER_ROLE_MASK | INVESTOR_ROLE_MASK),
+    (8_u64, MANAGER_ROLE_MASK),
+];
 
 pub type System = frame_system::Module<TestRuntime>;
 // pub type Evercity = Module<TestRuntime>;
@@ -96,93 +121,26 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .unwrap();
     pallet_balances::GenesisConfig::<TestRuntime> {
         // Provide some initial balances
-        balances: vec![
-            (1, 99000), // MASTER
-            (2, 98000), // CUSTODIAN
-            (3, 97000), // ISSUER
-            (4, 96000), // INVESTOR
-            (5, 95000), // AUDITOR
-            (6, 10000), // INVESTOR
-            (7, 10000), // ISSUER
-            (8, 10000), // MANAGER
-            (9, 10000),
-            (101, 1000), // random guy
-            (102, 1000), // random guy
-            (103, 1000), // random guy
-        ],
+        balances: ROLES.iter().map(|x| (x.0, 100000)).collect(),
     }
     .assimilate_storage(&mut t)
     .unwrap();
 
     super::GenesisConfig::<TestRuntime> {
         // Accounts for tests
-        genesis_account_registry: vec![
-            (
-                1,
-                EvercityAccountStructT::<u64> {
-                    roles: MASTER_ROLE_MASK,
-                    identity: 10u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                2,
-                EvercityAccountStructT::<u64> {
-                    roles: CUSTODIAN_ROLE_MASK,
-                    identity: 20u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                3,
-                EvercityAccountStructT::<u64> {
-                    roles: ISSUER_ROLE_MASK,
-                    identity: 30u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                4,
-                EvercityAccountStructT::<u64> {
-                    roles: INVESTOR_ROLE_MASK,
-                    identity: 40u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                5,
-                EvercityAccountStructT::<u64> {
-                    roles: AUDITOR_ROLE_MASK,
-                    identity: 50u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                6,
-                EvercityAccountStructT::<u64> {
-                    roles: INVESTOR_ROLE_MASK,
-                    identity: 60u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                7,
-                EvercityAccountStructT::<u64> {
-                    roles: ISSUER_ROLE_MASK | INVESTOR_ROLE_MASK,
-                    identity: 70u64,
-                    create_time: 0,
-                },
-            ),
-            (
-                8,
-                EvercityAccountStructT::<u64> {
-                    roles: MANAGER_ROLE_MASK,
-                    identity: 80u64,
-                    create_time: 0,
-                },
-            ),
-        ]
-        .to_vec(),
+        genesis_account_registry: ROLES
+            .iter()
+            .map(|(acc, role)| {
+                (
+                    *acc,
+                    EvercityAccountStructT::<u64> {
+                        roles: *role,
+                        identity: 0,
+                        create_time: 0,
+                    },
+                )
+            })
+            .collect(),
     }
     .assimilate_storage(&mut t)
     .unwrap();
@@ -211,13 +169,13 @@ pub fn get_test_bond() -> BondStruct {
             interest_rate_margin_cap: 4000,   // 4.0%
             interest_rate_margin_floor: 1000, // 1.0%
             interest_rate_start_period_value: 1900,
-            start_period: 120 * DAY_DURATION,
-            payment_period: 30 * DAY_DURATION, // every month (30 days)
-            interest_pay_period: 7 * DAY_DURATION, // up to 7 days after the new period started
-            mincap_deadline: (20 * DAY_DURATION * 1000) as u64,
-            impact_data_send_period: 10 * DAY_DURATION, // 10 days before next period
-            bond_duration: 12,                          //
-            bond_finishing_period: 14 * DAY_DURATION,
+            start_period: 120 * DEFAULT_DAY_DURATION,
+            payment_period: 30 * DEFAULT_DAY_DURATION, // every month (30 days)
+            interest_pay_period: 7 * DEFAULT_DAY_DURATION, // up to 7 days after  new period started
+            mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
+            impact_data_send_period: 10 * DEFAULT_DAY_DURATION, // 10 days before next period
+            bond_duration: 12,                                  // 12 periods for 30 days
+            bond_finishing_period: 14 * DEFAULT_DAY_DURATION,   // 14 days after mature date
 
             bond_units_mincap_amount: 1000,
             bond_units_maxcap_amount: 1800,
@@ -238,5 +196,6 @@ pub fn get_test_bond() -> BondStruct {
         bond_debit: 0,
         bond_credit: 0,
         coupon_yield: 0,
+        nonce: 0,
     }
 }

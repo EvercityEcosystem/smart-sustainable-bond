@@ -24,7 +24,7 @@ pub const ALL_ROLES_MASK: u8 = MASTER_ROLE_MASK
 #[inline]
 pub const fn is_roles_correct(roles: u8) -> bool {
     // max value of any roles combinations
-    roles <= ALL_ROLES_MASK
+    roles <= ALL_ROLES_MASK && roles > 0
 }
 
 /// Structures, specific for each role
@@ -51,7 +51,7 @@ pub struct TokenMintRequestStruct<Moment> {
 
 impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<Moment> {
     fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
+        self.deadline <= now
     }
 }
 
@@ -69,7 +69,7 @@ pub struct TokenBurnRequestStruct<Moment> {
 
 impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<Moment> {
     fn is_expired(&self, now: Moment) -> bool {
-        self.deadline < now
+        self.deadline <= now
     }
 }
 

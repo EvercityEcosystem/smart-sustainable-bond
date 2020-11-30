@@ -1,14 +1,17 @@
 use crate::bond::{BondInterest, BondPeriod, BondPeriodNumber, BondStruct};
-use crate::{EverUSDBalance, DAY_DURATION};
+use crate::EverUSDBalance;
 use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::RuntimeDebug,
+    sp_std::cmp::Ordering,
 };
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 // ... |         period            |   ...
 // --- | ------------------------- | -------------...
 //     |                  |        |          |
-//   start              report   reset    interest pay
+//   start              report   payment    interest pay
 //    >----------------------------< coupon accrual
 // report release period  >--------<
 //              coupon pay period  >----------<
@@ -17,18 +20,17 @@ pub struct PeriodDescr {
     pub start_period: BondPeriod,            // sec from activation
     pub impact_data_send_period: BondPeriod, // sec from activation
     pub payment_period: BondPeriod,          // sec from activation
-    #[allow(dead_code)]
-    pub interest_pay_period: BondPeriod, // sec from activation
+    pub interest_pay_period: BondPeriod,     // sec from activation
 }
 
 impl PeriodDescr {
     pub fn duration(&self, moment: BondPeriod) -> BondPeriod {
         if moment <= self.start_period {
-            (self.payment_period - self.start_period) / DAY_DURATION
+            self.payment_period - self.start_period
         } else if moment >= self.payment_period {
             0
         } else {
-            (self.payment_period - moment) / DAY_DURATION
+            self.payment_period - moment
         }
     }
 }
@@ -42,6 +44,16 @@ pub struct PeriodYield {
     pub coupon_yield_before: EverUSDBalance,
     /// effective interest rate for current period
     pub interest_rate: BondInterest,
+}
+
+/// Struct, used by BondApi::get_impact_reports
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
+pub struct PeriodDataStruct {
+    pub interest_rate: BondInterest,
+    pub create_period: BondPeriod,
+    pub impact_data: u64,
+    pub signed: bool,
 }
 
 pub struct PeriodIterator<'a, AccountId, Moment, Hash> {
@@ -73,31 +85,31 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
         } else {
             self.index + 1
         };
+        self.index += 1;
+        let payment_period = inner.start_period + index * inner.payment_period;
+        match (inner.bond_duration + 1).cmp(&index) {
+            Ordering::Greater => {
+                // last pay period is special and lasts bond_finishing_period seconds
+                let start_period = if index == 0 {
+                    0
+                } else {
+                    payment_period - inner.payment_period
+                };
 
-        if index > inner.bond_duration {
-            None
-        } else {
-            let payment_period = inner.start_period + index * inner.payment_period;
-            self.index += 1;
-
-            // last pay period is special and lasts bond_finishing_period seconds
-            let pay_period = if index == inner.bond_duration {
-                inner.bond_finishing_period
-            } else {
-                inner.interest_pay_period
-            };
-
-            Some(PeriodDescr {
+                Some(PeriodDescr {
+                    payment_period,
+                    start_period,
+                    impact_data_send_period: payment_period - inner.impact_data_send_period,
+                    interest_pay_period: start_period + inner.interest_pay_period,
+                })
+            }
+            Ordering::Less => None,
+            Ordering::Equal => Some(PeriodDescr {
                 payment_period,
-                start_period: payment_period
-                    - if index == 0 {
-                        inner.start_period
-                    } else {
-                        inner.payment_period
-                    },
-                impact_data_send_period: payment_period - inner.impact_data_send_period,
-                interest_pay_period: payment_period + pay_period,
-            })
+                start_period: payment_period - inner.payment_period,
+                impact_data_send_period: payment_period,
+                interest_pay_period: payment_period + inner.bond_finishing_period,
+            }),
         }
     }
 }

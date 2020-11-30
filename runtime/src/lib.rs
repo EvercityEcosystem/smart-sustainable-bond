@@ -46,6 +46,8 @@ pub use frame_support::{
 
 /// Import the pallet-evercity pallet.
 pub use pallet_evercity;
+/// Moment datatype
+pub type Moment = u64;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -107,8 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     transaction_version: 1,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
-
+pub const MILLISECS_PER_BLOCK: u64 = 20000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
@@ -226,7 +227,7 @@ parameter_types! {
 
 impl pallet_timestamp::Trait for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -266,8 +267,21 @@ impl pallet_sudo::Trait for Runtime {
     type Call = Call;
 }
 
+const DEFAULT_DAY_DURATION: u32 = 60; // 86400; seconds in 1 DAY
+
+parameter_types! {
+    pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
+    pub const MaxMintAmount: pallet_evercity::EverUSDBalance = 60_000_000_000_000_000;
+    pub const TimeStep: pallet_evercity::BondPeriod = DEFAULT_DAY_DURATION;
+}
+
 impl pallet_evercity::Trait for Runtime {
     type Event = Event;
+    type BurnRequestTtl = BurnRequestTtl;
+    type MintRequestTtl = MintRequestTtl;
+    type MaxMintAmount = MaxMintAmount;
+    type TimeStep = TimeStep;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -324,6 +338,12 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
+    impl pallet_evercity::BondApi<Block> for Runtime{
+        fn get_impact_reports(bond: pallet_evercity::BondId)->Vec<pallet_evercity::PeriodDataStruct>{
+            Evercity::get_impact_reports(bond)
+        }
+    }
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

@@ -1,21 +1,27 @@
-use crate::{EverUSDBalance, Expired, DAY_DURATION, MIN_BOND_DURATION, MIN_PAYMENT_PERIOD};
+use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 #[cfg(feature = "std")]
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
     codec::{Decode, Encode},
+    dispatch::{DispatchResult, Vec},
     sp_runtime::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
+    sp_std::cmp::min,
 };
 use period::{PeriodDescr, PeriodIterator};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_core::sp_std::cmp::min;
 
 #[cfg(test)]
 pub mod ledger;
 pub mod period;
+
+// seconds in 1 DAY
+pub const DEFAULT_DAY_DURATION: u32 = 86400;
+pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
 pub struct BondId([u8; 8]);
@@ -182,8 +188,8 @@ pub type BondInnerStructOf<T> =
     BondInnerStruct<<T as pallet_timestamp::Trait>::Moment, <T as frame_system::Trait>::Hash>;
 
 #[inline]
-fn is_period_multiple_of_day(period: BondPeriod) -> bool {
-    (period % DAY_DURATION) == 0
+fn is_period_muliple_of_time_step(period: BondPeriod, time_step: BondPeriod) -> bool {
+    (period % time_step) == 0
 }
 
 impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
@@ -206,16 +212,16 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && self.bond_finishing_period == other.bond_finishing_period
     }
     /// Checks if bond data is valid
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(&self, time_step: BondPeriod) -> bool {
         self.bond_units_mincap_amount > 0
             && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
-            && self.payment_period >= MIN_PAYMENT_PERIOD
+            && self.payment_period >= MIN_PAYMENT_PERIOD * time_step
             && self.impact_data_send_period <= self.payment_period
-            && is_period_multiple_of_day(self.payment_period)
-            && is_period_multiple_of_day(self.start_period)
-            && is_period_multiple_of_day(self.impact_data_send_period)
-            && is_period_multiple_of_day(self.bond_finishing_period)
-            && is_period_multiple_of_day(self.interest_pay_period)
+            && is_period_muliple_of_time_step(self.payment_period, time_step)
+            && is_period_muliple_of_time_step(self.start_period, time_step)
+            && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
+            && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
+            && is_period_muliple_of_time_step(self.interest_pay_period, time_step)
             && (self.start_period == 0 || self.start_period >= self.payment_period)
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
@@ -236,7 +242,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
 ///  - issuance-related, inner part (BondInnerStruct): financial and impact data parameters, related to issuance of bond
 ///  - working part: bond state, connected accounts, raised and issued amounts, dates, etc
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
     /// bond issuer account
@@ -248,31 +254,27 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub auditor: AccountId,
     /// bond impact data reporter
     pub impact_reporter: AccountId,
-
     /// total amount of issued bond units
     pub issued_amount: BondUnitAmount,
-
-    // #Timestamps
+    //#Timestamps
     /// Moment, when bond was created first time (moved to BondState::PREPARE)
     pub creation_date: Moment,
     /// Moment, when bond was opened for booking (moved to BondState::BOOKING)
     pub booking_start_date: Moment,
     /// Moment, when bond became active (moved to BondState::ACTIVE)
     pub active_start_date: Moment,
-
     /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
-
-    // #Bond ledger
+    //#Bond ledger
     /// Bond fund, keeping EverUSD sent to bond
     pub bond_debit: EverUSDBalance,
     /// Bond liabilities: amount of EverUSD bond needs to pay to Bond Units bearers
     pub bond_credit: EverUSDBalance,
-
     // free balance is difference between bond_debit and bond_credit
     /// Ever-increasing coupon fund which was distributed among bondholders.
     /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
     pub coupon_yield: EverUSDBalance,
+    pub nonce: u64,
 }
 
 pub type BondStructOf<T> = BondStruct<
@@ -333,11 +335,10 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
         PeriodIterator::starts_with(&self, period).next()
     }
 
-    // @TODO rename this method to calc_effective_interest_rate()
     /// Calculate coupon effective interest rate using impact_data
     /// This method moves interest_rate up and down when good or bad impact_data
     /// is sent to bond
-    pub fn interest_rate(&self, impact_data: u64) -> BondInterest {
+    pub fn calc_effective_interest_rate(&self, impact_data: u64) -> BondInterest {
         let inner = &self.inner;
 
         if impact_data >= inner.impact_data_max_deviation_cap {
@@ -408,32 +409,26 @@ pub struct AccountYield {
 /// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
 /// Bond units that bondholder acquire
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
-pub struct BondUnitPackage<Moment> {
+pub struct BondUnitPackage {
     /// amount of bond units
     pub bond_units: BondUnitAmount,
     /// acquisition moment (seconds after bond start date)
     pub acquisition: BondPeriod,
     /// paid coupon yield
     pub coupon_yield: EverUSDBalance,
-    /// moment of creation
-    pub create_date: Moment,
 }
-
-pub type BondUnitPackageOf<T> = BondUnitPackage<<T as pallet_timestamp::Trait>::Moment>;
 
 /// Struct with impact_data sent to bond. In the future can become
 /// more complicated for other types of impact_data and processing logic.
 /// Field "signed" is set to true by Auditor, when impact_data is verified.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
-pub struct BondImpactReportStruct<Moment> {
-    pub create_date: Moment,
+#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
+pub struct BondImpactReportStruct {
+    pub create_period: BondPeriod,
     pub impact_data: u64,
     pub signed: bool,
 }
 
-pub type BondImpactReportStructOf<T> =
-    BondImpactReportStruct<<T as pallet_timestamp::Trait>::Moment>;
 /// Struct, representing pack of bond units for sale
 /// Can include target bearer (to sell bond units only to given person)
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -462,3 +457,39 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
     <T as frame_system::Trait>::AccountId,
     <T as pallet_timestamp::Trait>::Moment,
 >;
+
+// @TESTME try to compare sort performance with binaryheap
+// @TODO try to find the package with exact match at fist
+pub(crate) fn transfer_bond_units<T: crate::Trait>(
+    from_packages: &mut Vec<BondUnitPackage>,
+    to_packages: &mut Vec<BondUnitPackage>,
+    mut lot_bond_units: BondUnitAmount,
+) -> DispatchResult {
+    from_packages.sort_by_key(|package| core::cmp::Reverse(package.bond_units));
+
+    while lot_bond_units > 0 {
+        // last element has smallest number of bond units
+        let mut last = from_packages
+            .pop()
+            .ok_or(crate::Error::<T>::BondParamIncorrect)?;
+        let (bond_units, acquisition, coupon_yield) = if last.bond_units > lot_bond_units {
+            last.bond_units -= lot_bond_units;
+            let bond_units = lot_bond_units;
+            let acquisition = last.acquisition;
+            lot_bond_units = 0;
+            from_packages.push(last);
+            (bond_units, acquisition, 0)
+        } else {
+            lot_bond_units -= last.bond_units;
+            (last.bond_units, last.acquisition, last.coupon_yield)
+        };
+
+        to_packages.push(BondUnitPackage {
+            bond_units,
+            acquisition,
+            coupon_yield,
+        });
+    }
+    from_packages.shrink_to_fit();
+    Ok(())
+}

@@ -1,50 +1,60 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unnecessary_mut_passed)]
+#![allow(clippy::too_many_arguments)]
 use account::{
     is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, TokenBurnRequestStruct,
     TokenBurnRequestStructOf, TokenMintRequestStruct, TokenMintRequestStructOf, AUDITOR_ROLE_MASK,
     CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK,
     MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
+pub use bond::{
+    period::{PeriodDataStruct, PeriodYield},
+    BondId, BondImpactReportStruct, BondPeriod, BondStruct, BondStructOf, BondUnitPackage,
+    DEFAULT_DAY_DURATION,
+};
 use bond::{
-    period::PeriodYield, AccountYield, BondId, BondImpactReportStruct, BondImpactReportStructOf,
-    BondInnerStructOf, BondPeriod, BondPeriodNumber, BondState, BondStruct, BondStructOf,
-    BondUnitAmount, BondUnitPackageOf, BondUnitSaleLotStructOf,
+    transfer_bond_units, AccountYield, BondInnerStructOf, BondPeriodNumber, BondState,
+    BondUnitAmount, BondUnitSaleLotStructOf,
 };
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
     debug, decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
+    sp_std::cmp::min,
+    sp_std::result::Result,
+    traits::Get,
 };
+
 use frame_system::ensure_signed;
-use sp_core::sp_std::cmp::min;
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type BurnRequestTtl: Get<u32>;
+    type MintRequestTtl: Get<u32>;
+    type MaxMintAmount: Get<EverUSDBalance>;
+    type TimeStep: Get<BondPeriod>;
 }
 
 pub trait Expired<Moment> {
     fn is_expired(&self, now: Moment) -> bool;
 }
 pub type EverUSDBalance = u64;
-pub type Result<T> = core::result::Result<T, DispatchError>;
 
-pub const EVERUSD_DECIMALS: u64 = 9; // EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
-pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
-const DAY_DURATION: u32 = 86400; // seconds in 1 DAY
-pub const MIN_PAYMENT_PERIOD: BondPeriod = DAY_DURATION * 7;
-
-const TOKEN_BURN_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
-const TOKEN_MINT_REQUEST_TTL: u32 = DAY_DURATION as u32 * 7 * 1000;
+/// EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
+pub const EVERUSD_DECIMALS: u64 = 9;
+/// Bank's year in days
 const INTEREST_RATE_YEAR: u64 = 365;
+/// Gas limit settings for purge mint/burn requests
 const MAX_PURGE_REQUESTS: usize = 100;
-const MIN_BOND_DURATION: u32 = 1; // 1  is a minimal bond period
+///  Bond must have as least this amount of periods
+const MIN_BOND_DURATION: u32 = 1;
 
-pub mod account;
 /// Evercity project types
 /// All these types must be put in CUSTOM_TYPES part of config for polkadot.js
 /// to be correctly presented in DApp
+pub mod account;
 pub mod bond;
 #[cfg(test)]
 mod mock;
@@ -60,6 +70,13 @@ macro_rules! ensure_active {
             }
         }
     };
+}
+
+sp_api::decl_runtime_apis! {
+    pub trait BondApi {
+        /// delegate call to the pallet get_impact_reports()
+        fn get_impact_reports(bond: BondId)->Vec<PeriodDataStruct>;
+    }
 }
 
 decl_storage! {
@@ -99,7 +116,7 @@ decl_storage! {
         /// Investor's Bond units (packs of bond_units, received at the same time, belonging to Investor)
         BondUnitPackageRegistry
             get(fn bond_unit_registry):
-                double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitPackageOf<T>>;
+                double_map hasher(blake2_128_concat) BondId, hasher(blake2_128_concat) T::AccountId => Vec<BondUnitPackage>;
 
         /// Bond coupon yield storage
         /// Every element has total bond yield of passed period recorded on accrual basis
@@ -120,7 +137,7 @@ decl_storage! {
         /// Bond impact report storage
         BondImpactReport
             get(fn impact_reports):
-                map hasher(blake2_128_concat) BondId => Vec<BondImpactReportStructOf<T>>;
+                map hasher(blake2_128_concat) BondId => Vec<BondImpactReportStruct>;
     }
 }
 
@@ -128,58 +145,77 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        BondUnitSaleLotStruct = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
+        BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
     {
         /// Event documentation should end with an array that provides descriptive names for event
         /// parameters. [something, who]
         // 1: author, 2: newly added account, 3: role, 4: identity
         AccountAdd(AccountId, AccountId, u8, u64),
-
         // 1: author, 2:  updated account, 3: role, 4: identity
         AccountSet(AccountId, AccountId, u8, u64),
-
         // 1: author, 2: disabled account
         AccountDisable(AccountId, AccountId),
-
         // @TODO document events and add many corresponding
         // data for each Event for syschronization service
+        // 1: author, 2: everusd tokens
         MintRequestCreated(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestRevoked(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestConfirmed(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         MintRequestDeclined(AccountId, EverUSDBalance),
-
+        // 1: author, 2: everusd tokens
         BurnRequestCreated(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestRevoked(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestConfirmed(AccountId, EverUSDBalance),
+        // 1: author, 2: everusd tokens
         BurnRequestDeclined(AccountId, EverUSDBalance),
         // Bond events
+        // 1: author, 2: bond ticker
         BondAdded(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondChanged(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondRevoked(AccountId, BondId),
+        // 1: author, 2: bond ticker
         BondReleased(AccountId, BondId),
-        BondActivated(AccountId, BondId),
+        // 1: author, 2: bond ticker, 3: bond fund
+        BondActivated(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker
         BondWithdrawal(AccountId, BondId),
-        BondImpactReportReceived(AccountId, BondId),
-        BondRedeemed(AccountId, BondId),
-        BondBankrupted(AccountId, BondId),
-
+        // 1: author, 2: bond ticker, 3: ymt, everusd
+        BondRedeemed(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: bond credit, everused 4: bond debit, everusd
+        BondBankrupted(AccountId, BondId, EverUSDBalance, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: withdrawal everused
         BondWithdrawEverUSD(AccountId, BondId, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: deposited everused
         BondDepositEverUSD(AccountId, BondId, EverUSDBalance),
-
-        BondSale(AccountId, BondId, u32),
-        BondGiveBack(AccountId, BondId, u32),
-
-        BondImpactReportIssued(AccountId, BondId),
-        BondImpactReportSigned(AccountId, BondId),
+        // 1: author, 2: bond ticker, 3: bond units, 4: paid everusd
+        BondUnitSold(AccountId, BondId, u32, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: bond units, 4: everusd withdrawal
+        BondUnitReturned(AccountId, BondId, u32, EverUSDBalance),
+        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
+        BondImpactReportSent(AccountId, BondId, BondPeriodNumber, u64),
+        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
+        BondImpactReportApproved(AccountId, BondId, BondPeriodNumber, u64),
+        // 1: bond ticker, 2: accrued bond yield
         BondCouponYield(BondId, EverUSDBalance),
-
-        BondNewSaleLot(AccountId, BondId, BondUnitSaleLotStruct),
+        // 1: seller, 2: bond ticker, 3: lot struct
+        BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStructOf),
+        // 1: buyer, 2: seller, 3: bond ticker, 4: lot struct
+        BondSaleLotSettle(AccountId, AccountId, BondId, BondUnitSaleLotStructOf),
     }
 );
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
         NoneValue,
+
+        InvalidAction,
 
         /// Account tried to use more EverUSD  than was available on the balance
         BalanceOverdraft,
@@ -214,12 +250,17 @@ decl_error! {
         /// Incorrect parameters for mint request(mint amount > MAX_MINT_AMOUNT)
         BurnRequestParamIncorrect,
 
+        // Burn request exists but outdated
+        BurnRequestObsolete,
+
+        // Mint request exists but outdated
+        MintRequestObsolete,
+
         /// Bond with same ticker already exists
         /// Every bond on the platform has unique BondId: 8 bytes, like "MUSKPWR1" or "SOLGEN02"
         BondAlreadyExists,
 
         /// Incorrect bond parameters (many different cases)
-        // @TODO refactor this error to make it more descriptive in different cases
         BondParamIncorrect,
 
         /// Incorrect bond ticker provided or bond has been revoked
@@ -236,6 +277,18 @@ decl_error! {
 
         /// Requested action is not allowed in current period of time
         BondOutOfOrder,
+
+        /// Bond version is outdated
+        BondNonceObsolete,
+
+        /// Bid lot not found
+        LotNotFound,
+
+        /// Bid lot expired
+        LotObsolete,
+
+        /// Incorrect parameter for the bond sale lot
+        LotParamIncorrect,
     }
 }
 
@@ -243,7 +296,11 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
-        const Unknown: T::AccountId = Default::default();
+
+        const BurnRequestTtl:u32  = T::BurnRequestTtl::get();
+        const MintRequestTtl:u32 = T::MintRequestTtl::get();
+        const MaxMintAmount: EverUSDBalance = T::MaxMintAmount::get();
+        const TimeStep: BondPeriod = T::TimeStep::get();
 
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
@@ -262,6 +319,7 @@ decl_module! {
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
+            ensure!(caller != who, Error::<T>::InvalidAction);
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
 
             AccountRegistry::<T>::mutate(&who,|acc|{
@@ -284,19 +342,19 @@ decl_module! {
         /// KYC providers
         #[weight = 10_000]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_master(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             AccountRegistry::<T>::insert(&who,
                 EvercityAccountStructT { roles: role, identity, create_time: now }
             );
             debug::error!("account_add_with_role_and_data: who={:?} when={:?}", who, now);
 
-            Self::deposit_event(RawEvent::AccountAdd(_caller, who, role, identity));
+            Self::deposit_event(RawEvent::AccountAdd(caller, who, role, identity));
             Ok(())
         }
 
@@ -310,8 +368,9 @@ decl_module! {
         /// Modifies existing account, assigning new role(s) or identity to it
         #[weight = 10_000]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_master(&_caller), Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(caller != who, Error::<T>::InvalidAction);
+            ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountNotExist);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
@@ -319,7 +378,7 @@ decl_module! {
                 acc.roles |= role;
             });
 
-            Self::deposit_event(RawEvent::AccountSet(_caller, who, role, identity));
+            Self::deposit_event(RawEvent::AccountSet(caller, who, role, identity));
             Ok(())
         }
 
@@ -336,21 +395,23 @@ decl_module! {
         /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
-            ensure!(amount_to_mint < EVERUSD_MAX_MINT_AMOUNT, Error::<T>::MintRequestParamIncorrect);
-            // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
+            ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
-            let new_mint_request = TokenMintRequestStruct{
-                amount: amount_to_mint,
-                deadline: now + TOKEN_MINT_REQUEST_TTL .into(),
-            };
-            MintRequestEverUSD::<T>::insert(&_caller, new_mint_request);
-
-            Self::deposit_event(RawEvent::MintRequestCreated(_caller, amount_to_mint));
-            Ok(())
+            MintRequestEverUSD::<T>::try_mutate(&caller, |request|->DispatchResult{
+                let now = <pallet_timestamp::Module<T>>::get();
+                if !request.is_expired(now) {
+                    Err( Error::<T>::MintRequestAlreadyExist.into() )
+                }else{
+                    *request = TokenMintRequestStruct{
+                        amount: amount_to_mint,
+                        deadline: now + T::MintRequestTtl::get().into(),
+                    };
+                    Self::deposit_event(RawEvent::MintRequestCreated(caller.clone(), amount_to_mint));
+                    Ok(())
+                }
+            })
         }
 
         /// Method: token_mint_request_revoke_everusd(origin)
@@ -360,11 +421,11 @@ decl_module! {
         /// Revokes and deletes currently existing mint request, created by caller's account
         #[weight = 5_000]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestDoesntExist);
-            let _amount = MintRequestEverUSD::<T>::get(&_caller).amount;
-            MintRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::MintRequestRevoked(_caller, _amount));
+            let caller = ensure_signed(origin)?;
+            ensure!(MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestDoesntExist);
+            let _amount = MintRequestEverUSD::<T>::get(&caller).amount;
+            MintRequestEverUSD::<T>::remove(&caller);
+            Self::deposit_event(RawEvent::MintRequestRevoked(caller, _amount));
             Ok(())
         }
 
@@ -380,12 +441,12 @@ decl_module! {
         /// while Custodian makes a decision
         #[weight = 15_000]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let mint_request = MintRequestEverUSD::<T>::get(&who);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
-            ensure!(mint_request.deadline >= now, Error::<T>::MintRequestDoesntExist);
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(!mint_request.is_expired(now), Error::<T>::MintRequestObsolete);
 
             // add tokens to user's balance and total supply of EverUSD
             let amount_to_add = mint_request.amount;
@@ -412,12 +473,12 @@ decl_module! {
         /// Declines and deletes the mint request of account (Custodian)
         #[weight = 5_000]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
-            let _amount = MintRequestEverUSD::<T>::get(&who).amount;
+            let amount = MintRequestEverUSD::<T>::get(&who).amount;
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestDeclined(_caller, _amount));
+            Self::deposit_event(RawEvent::MintRequestDeclined(caller, amount));
             Ok(())
         }
 
@@ -432,23 +493,25 @@ decl_module! {
         /// and becomes invalidated after it.
         #[weight = 15_000]
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_token_mint_burn_allowed(&_caller), Error::<T>::AccountNotAuthorized);
-            // @TODO remove an existing request if it expired
-            ensure!(!MintRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::MintRequestAlreadyExist);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
 
-            let _current_balance = BalanceEverUSD::<T>::get(&_caller);
-            ensure!(amount_to_burn <= _current_balance, Error::<T>::MintRequestParamIncorrect);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let current_balance = BalanceEverUSD::<T>::get(&caller);
+            ensure!(amount_to_burn <= current_balance, Error::<T>::BalanceOverdraft);
 
-            let new_burn_request = TokenBurnRequestStruct {
-                amount: amount_to_burn,
-                deadline: now + TOKEN_BURN_REQUEST_TTL .into(),
-            };
-            BurnRequestEverUSD::<T>::insert(&_caller, new_burn_request);
-
-            Self::deposit_event(RawEvent::BurnRequestCreated(_caller, amount_to_burn));
-            Ok(())
+            BurnRequestEverUSD::<T>::try_mutate(&caller,|request|->DispatchResult{
+                let now = <pallet_timestamp::Module<T>>::get();
+                if !request.is_expired( now ) {
+                    Err( Error::<T>::BurnRequestAlreadyExist.into() )
+                }else{
+                    *request = TokenBurnRequestStruct {
+                        amount: amount_to_burn,
+                        deadline: now +  T::BurnRequestTtl::get().into(),
+                    };
+                    Self::deposit_event(RawEvent::BurnRequestCreated(caller.clone(), amount_to_burn));
+                    Ok(())
+                }
+            })
         }
 
         /// Method: token_burn_request_revoke_everusd(origin)
@@ -458,11 +521,11 @@ decl_module! {
         /// Revokes and deletes currently existing burn request, created by caller's account
         #[weight = 5_000]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(BurnRequestEverUSD::<T>::contains_key(&_caller), Error::<T>::BurnRequestDoesntExist);
-            let _amount = BurnRequestEverUSD::<T>::get(&_caller).amount;
-            BurnRequestEverUSD::<T>::remove(&_caller);
-            Self::deposit_event(RawEvent::BurnRequestRevoked(_caller, _amount));
+            let caller = ensure_signed(origin)?;
+            ensure!(BurnRequestEverUSD::<T>::contains_key(&caller), Error::<T>::BurnRequestDoesntExist);
+            let amount = BurnRequestEverUSD::<T>::get(&caller).amount;
+            BurnRequestEverUSD::<T>::remove(&caller);
+            Self::deposit_event(RawEvent::BurnRequestRevoked(caller, amount));
             Ok(())
         }
 
@@ -475,12 +538,12 @@ decl_module! {
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
         #[weight = 15_000]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let burn_request = BurnRequestEverUSD::<T>::get(&who);
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
-            ensure!(burn_request.deadline >= now, Error::<T>::BurnRequestDoesntExist);
+            let now = <pallet_timestamp::Module<T>>::get();
+            ensure!(!burn_request.is_expired(now), Error::<T>::BurnRequestObsolete);
             // remove tokens from user's balance and decrease total supply of EverUSD
             let amount_to_sub = burn_request.amount;
             // prevent unacceptable commit
@@ -505,12 +568,12 @@ decl_module! {
         /// Declines and deletes the burn request of account (Custodian)
         #[weight = 5_000]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
-            ensure!(Self::account_is_custodian(&_caller),Error::<T>::AccountNotAuthorized);
+            let caller = ensure_signed(origin)?;
+            ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
-            let _amount = BurnRequestEverUSD::<T>::get(&who).amount;
+            let amount = BurnRequestEverUSD::<T>::get(&who).amount;
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestDeclined(_caller, _amount));
+            Self::deposit_event(RawEvent::BurnRequestDeclined(caller, amount));
             Ok(())
         }
 
@@ -530,15 +593,15 @@ decl_module! {
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
-            ensure!(body.is_valid(), Error::<T>::BondParamIncorrect );
+            ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
-            let now: <T as pallet_timestamp::Trait>::Moment = <pallet_timestamp::Module<T>>::get();
+            let now = <pallet_timestamp::Module<T>>::get();
 
             let item = BondStruct{
                     inner: body,
 
-                    issuer: caller,
+                    issuer: caller.clone(),
                     auditor: Default::default(),
                     manager: Default::default(),
                     impact_reporter: Default::default(),
@@ -550,9 +613,11 @@ decl_module! {
                     state: BondState::PREPARE,
                     bond_debit: 0,
                     bond_credit: 0,
-                    coupon_yield: 0
+                    coupon_yield: 0,
+                    nonce: 0,
             };
             BondRegistry::<T>::insert(&bond, item);
+            Self::deposit_event(RawEvent::BondAdded(caller, bond));
             Ok(())
         }
 
@@ -578,6 +643,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 item.manager = acc;
+                item.nonce += 1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -604,6 +670,7 @@ decl_module! {
                     Error::<T>::BondStateNotPermitAction
                 );
                 item.auditor = acc;
+                item.nonce += 1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -625,6 +692,7 @@ decl_module! {
 
             Self::with_bond(&bond, |item|{
                 item.impact_reporter = acc;
+                item.nonce += 1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
                 Ok(())
             })
@@ -633,16 +701,18 @@ decl_module! {
         /// Method: bond_update(origin, origin, bond: BondId, body: BondInnerStruct)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///            body: BondInnerStruct
         ///
         /// Updates bond data. Being released bond can be changed only in  part of document hashed
         /// Access: bond issuer or bond manager
         #[weight = 10_000]
-        fn bond_update(origin, bond: BondId, body: BondInnerStructOf<T>) -> DispatchResult {
+        fn bond_update(origin, bond: BondId, nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            ensure!(body.is_valid(), Error::<T>::BondParamIncorrect );
+            ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
             // Bond can be update only by Owner or assigned Manager
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
                 // preserving the bond_units_base_price value
                 ensure!(
                     matches!(item.state, BondState::PREPARE | BondState::BOOKING),
@@ -652,11 +722,12 @@ decl_module! {
                     item.issuer == caller || item.manager == caller ,
                     Error::<T>::BondAccessDenied
                 );
-                // Financial data shell not be changed after release
+                // Financial data shall not be changed after release
                 if item.state == BondState::BOOKING {
                     ensure!( item.inner.is_financial_options_eq(&body), Error::<T>::BondStateNotPermitAction );
                 }
                 item.inner = body;
+                item.nonce += 1;
                 Self::deposit_event(RawEvent::BondChanged(caller, bond ));
 
                 Ok(())
@@ -666,26 +737,28 @@ decl_module! {
         /// Method: bond_release(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///
         /// Releases the bond on the market starting presale .
         /// Marks the bond as `BOOKING` allowing investors to stake it.
         /// Access: only accounts with Master role
-        // @TODO add timestamp parameter to prevent race conditions
         #[weight = 5_000]
-        fn bond_release(origin, bond: BondId) -> DispatchResult {
+        fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be released only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
                 ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
-                ensure!(item.inner.is_valid(), Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondStateNotPermitAction );
 
                 item.booking_start_date = now;
                 item.state = BondState::BOOKING;
+                item.nonce += 1;
                 Self::deposit_event(RawEvent::BondReleased(caller, bond ));
                 Ok(())
             })
@@ -694,25 +767,27 @@ decl_module! {
         /// Method: bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///            unit_amount: BondUnitAmount - amount of bond units
         ///
         /// Bye bond units.
         /// Access: only accounts with Investor role
         // Investor loans tokens to the bond issuer by staking bond units
         #[weight = 10_000]
-        fn bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_buy(origin, bond: BondId, nonce: u64, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
                 ensure!(
                     matches!(item.state, BondState::BANKRUPT | BondState::ACTIVE | BondState::BOOKING),
                     Error::<T>::BondStateNotPermitAction
                 );
                 // issuer cannot buy his own bonds
-                ensure!(item.issuer!=caller, Error::<T>::BondParamIncorrect );
+                ensure!(item.issuer != caller, Error::<T>::AccountNotAuthorized );
 
                 let issued_amount = unit_amount.checked_add(item.issued_amount)
-                    .ok_or(Error::<T>::BondParamIncorrect)?;
+                    .ok_or(Error::<T>::BalanceOverdraft)?;
 
                 ensure!(
                     issued_amount <= item.inner.bond_units_maxcap_amount,
@@ -732,11 +807,10 @@ decl_module! {
                 // compare them with a more efficient way to store data
                 BondUnitPackageRegistry::<T>::mutate(&bond, &caller, |packages|{
                     packages.push(
-                        BondUnitPackageOf::<T>{
+                        BondUnitPackage{
                              bond_units: unit_amount,
                              acquisition,
                              coupon_yield: 0,
-                             create_date: now,
                         }
                     );
                 });
@@ -760,7 +834,7 @@ decl_module! {
                     item.increase( package_value );
                 }
 
-                Self::deposit_event(RawEvent::BondSale(caller.clone(), bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount, package_value ));
 
                 // @FIXME
                 // According to the Design document
@@ -791,29 +865,32 @@ decl_module! {
         fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
+            ensure!(unit_amount > 0, Error::<T>::BondParamIncorrect);
             // Active Bond cannot be withdrawn
             Self::with_bond(&bond, |item|{
                 ensure!(item.state == BondState::BOOKING, Error::<T>::BondStateNotPermitAction );
-                ensure!(item.issued_amount>=unit_amount, Error::<T>::BondParamIncorrect);
-                let package_value =  item.par_value( unit_amount ) ;
-                ensure!(item.bond_credit>=package_value, Error::<T>::BondParamIncorrect);
+                ensure!(item.issued_amount >= unit_amount, Error::<T>::BondParamIncorrect);
+                let package_value = item.par_value( unit_amount ) ;
+                ensure!(item.bond_credit >= package_value, Error::<T>::BondParamIncorrect);
 
-                //@TODO add ability to give back part of the package
-                let mut packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
-                ensure!(!packages.is_empty(), Error::<T>::BondParamIncorrect);
-
-                if let Some(index) = packages.iter().position(|item| item.bond_units == unit_amount ){
-                    packages.remove( index );
-                    BondUnitPackageRegistry::<T>::insert(&bond, &caller, packages);
-                }else{
-                    return Err( Error::<T>::BondParamIncorrect.into() );
-                }
+                BondUnitPackageRegistry::<T>::try_mutate(&bond, &caller, |packages|->DispatchResult{
+                    ensure!(!packages.is_empty(), Error::<T>::BondParamIncorrect);
+                    if packages.iter().map(|item| item.bond_units).sum::<BondUnitAmount>() == unit_amount {
+                        packages.clear();
+                        Ok(())
+                    } else if let Some(index) = packages.iter().position(|item| item.bond_units == unit_amount ){
+                        packages.remove( index );
+                        Ok(())
+                    } else {
+                        Err( Error::<T>::BondParamIncorrect.into() )
+                    }
+                })?;
 
                 item.decrease( package_value );
                 item.issued_amount -= unit_amount;
 
                 Self::balance_add(&caller, package_value )?;
-                Self::deposit_event(RawEvent::BondGiveBack(caller, bond, unit_amount ));
+                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount, package_value ));
 
                 Ok(())
             })
@@ -840,14 +917,14 @@ decl_module! {
                 );
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline<=now, Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.mincap_deadline <= now, Error::<T>::BondStateNotPermitAction );
 
                 item.state = BondState::PREPARE;
-
+                item.nonce += 1;
                 assert!(item.bond_credit == item.par_value(item.issued_amount));
                 // @TODO make it lazy. this implementation do much work to restore balances
-                // that is too CPU and memory expensive
-                // for all bondholders
+                // that is too CPU and memory expensive.
+                // For each bondholder
                 for (bondholder, package) in BondUnitPackageRegistry::<T>::iter_prefix(&bond){
                       let bondholder_total_amount: BondUnitAmount = package.iter()
                       .map(|item| item.bond_units )
@@ -861,7 +938,7 @@ decl_module! {
                       Self::balance_add(&bondholder, transfer)?;
                 }
                 assert!(item.bond_credit == 0);
-                assert!(item.issued_amount==0);
+                assert!(item.issued_amount == 0);
 
                 BondUnitPackageRegistry::<T>::remove_prefix(&bond);
 
@@ -873,18 +950,20 @@ decl_module! {
         /// Method: bond_activate(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
+        ///            nonce: u64 - bond nonce
         ///
         /// Activates the bond after it raised minimum capacity of bond units.
         /// It makes bond fund available to the issuer and stop bond  withdrawal until
         /// maturity date.
         /// Access: only accounts with Master role
         #[weight = 5_000]
-        fn bond_activate(origin, bond: BondId) -> DispatchResult {
+        fn bond_activate(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             //Bond can be activated only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             //if it's raised enough bond units during bidding process
             Self::with_bond(&bond, |item|{
+                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
                 ensure!(item.state == BondState::BOOKING, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.inner.bond_units_mincap_amount <= item.issued_amount, Error::<T>::BondParamIncorrect);
                 // auditor should be assigned before
@@ -892,6 +971,7 @@ decl_module! {
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 item.state = BondState::ACTIVE;
+                item.nonce += 1;
                 item.active_start_date = now;
                 // Decrease liabilities by value of fund
                 assert_eq!(item.bond_credit, item.par_value( item.issued_amount ) );
@@ -900,20 +980,21 @@ decl_module! {
 
                 // create impact report struct.
                 // the total number or reports is equal to the number of periods plus 1 (start period)
-                let mut reports: Vec<BondImpactReportStructOf<T>> = Vec::new();
+                let mut reports: Vec<BondImpactReportStruct> = Vec::new();
                 reports.resize( ( item.inner.bond_duration + 1 ) as usize,  BondImpactReportStruct{
-                    create_date: Default::default(),
+                    create_period: 0,
                     impact_data: 0,
                     signed: false,
                 });
 
-                BondImpactReport::<T>::insert(&bond, &reports);
+                BondImpactReport::insert(&bond, &reports);
 
                 // withdraw all available bond fund
+                let amount = item.bond_debit;
                 Self::balance_add(&item.issuer, item.bond_debit)?;
                 item.bond_debit = 0;
 
-                Self::deposit_event(RawEvent::BondActivated(caller, bond ));
+                Self::deposit_event(RawEvent::BondActivated(caller, bond, amount ));
                 Ok(())
             })
         }
@@ -929,21 +1010,22 @@ decl_module! {
         fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
-            {
+            let moment = {
                 let item = BondRegistry::<T>::get(bond);
                 ensure!(item.issuer == caller || item.impact_reporter == caller, Error::<T>::BondAccessDenied );
                 ensure!(Self::is_report_in_time(&item, now, period), Error::<T>::BondOutOfOrder );
-            }
+                item.time_passed_after_activation(now).map(|(moment, _period)| moment ).unwrap()
+            };
 
             let index: usize = period as usize;
-            BondImpactReport::<T>::try_mutate(&bond, |reports|->DispatchResult {
+            BondImpactReport::try_mutate(&bond, |reports|->DispatchResult {
 
                 ensure!(index < reports.len() && !reports[index].signed, Error::<T>::BondParamIncorrect );
 
-                reports[index].create_date = now;
+                reports[index].create_period = moment;
                 reports[index].impact_data = impact_data;
 
-                Self::deposit_event(RawEvent::BondImpactReportIssued( caller, bond ));
+                Self::deposit_event(RawEvent::BondImpactReportSent( caller, bond, period, impact_data ));
                 Ok(())
             })
         }
@@ -969,18 +1051,18 @@ decl_module! {
             }
 
             let index: usize = period as usize;
-            BondImpactReport::<T>::try_mutate(&bond, |reports|->DispatchResult {
+            BondImpactReport::try_mutate(&bond, |reports|->DispatchResult {
 
                 ensure!(index < reports.len(), Error::<T>::BondParamIncorrect );
                 let report = &reports[index];
-                ensure!(report.create_date > 0.into() , Error::<T>::BondParamIncorrect);
+                ensure!(report.create_period > 0 , Error::<T>::BondParamIncorrect);
                 ensure!(!report.signed && report.impact_data == impact_data,
                  Error::<T>::BondParamIncorrect
                 );
 
                 reports[index].signed = true;
 
-                Self::deposit_event(RawEvent::BondImpactReportSigned( caller, bond ));
+                Self::deposit_event(RawEvent::BondImpactReportApproved( caller, bond, period, impact_data ));
                 Ok(())
             })
         }
@@ -1015,12 +1097,13 @@ decl_module! {
                     // pay off debt
                     Self::balance_sub(&item.issuer, transfer)?;
                 }
+                let ytm = item.bond_credit;
                 item.bond_credit = 0;
                 //item.coupon_yield = amount;
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
-
-                Self::deposit_event(RawEvent::BondRedeemed(caller, bond ));
+                item.nonce += 1;
+                Self::deposit_event(RawEvent::BondRedeemed(caller, bond, ytm ));
                 Ok(())
             })
         }
@@ -1036,13 +1119,16 @@ decl_module! {
             let caller = ensure_signed(origin)?;
              ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
 
-            Self::with_bond(&bond, |item|{
+            Self::with_bond(&bond, |mut item|{
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
-                ensure!(item.get_debt()>0, Error::<T>::BondOutOfOrder );
-                // @TODO refine condition
-                item.state = BondState::BANKRUPT;
+                ensure!(item.get_debt() > 0, Error::<T>::BondParamIncorrect );
+                let now = <pallet_timestamp::Module<T>>::get();
+                ensure!( !Self::is_interest_pay_period(&item, now),Error::<T>::BondOutOfOrder );
+                Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
 
-                Self::deposit_event(RawEvent::BondBankrupted(caller, bond ));
+                item.state = BondState::BANKRUPT;
+                item.nonce += 1;
+                Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit ));
                 Ok(())
             })
         }
@@ -1053,14 +1139,14 @@ decl_module! {
         /// Access: any
         ///
         /// Calculates bond coupon yield
-        #[weight = 25_000]
-        fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResult {
-            let _caller = ensure_signed(origin)?;
+        #[weight = 0]
+        fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResultWithPostInfo {
+            let _ = ensure_signed(origin)?;
 
-            Self::with_bond(&bond, |mut item|{
+            Self::with_bond(&bond, |mut item|->DispatchResultWithPostInfo {
                 let now = <pallet_timestamp::Module<T>>::get();
-                Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                Ok(())
+                let processed: u64 = Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now) as u64;
+                Ok(Some(processed * 10000).into())
             })
         }
 
@@ -1120,13 +1206,14 @@ decl_module! {
                     Self::redeem_bond_units(&bond, &mut item, &caller)
                 }else{
                     // investor (bondholder) withdraw coupon yield
+                    // set bankrupt state if bond fund cannot pay off
+                    if item.state == BondState::ACTIVE && item.get_debt()>0 && !Self::is_interest_pay_period(&item, now){
+                        item.state = BondState::BANKRUPT;
+                        Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit ));
+                    }
+
                     Self::request_coupon_yield(&bond, &mut item, &caller)
                 };
-
-                if item.get_debt()>0 {
-                    // @TODO refine condition, take into account payment period
-                    item.state = BondState::BANKRUPT;
-                }
 
                 if amount>0{
                     Self::deposit_event(RawEvent::BondWithdrawEverUSD(caller, bond, amount ));
@@ -1174,7 +1261,7 @@ decl_module! {
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
-            ensure!(!lot.is_expired(now), Error::<T>::BondParamIncorrect);
+            ensure!(!lot.is_expired(now), Error::<T>::LotParamIncorrect);
 
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
             // how many bond units does the caller have
@@ -1182,9 +1269,7 @@ decl_module! {
             .map(|package| package.bond_units)
             .sum();
 
-
             ensure!(total_bond_units>=lot.bond_units && lot.bond_units>0, Error::<T>::BondParamIncorrect );
-
 
             // all lots of the caller.
             let mut lots: Vec<_> = BondUnitPackageLot::<T>::get(&bond, &caller);
@@ -1193,14 +1278,14 @@ decl_module! {
 
             let total_bond_units_inlot: BondUnitAmount = lots.iter().map(|lot| lot.bond_units).sum();
             // prevent new bid if the caller doesn't have enough bond units
-            ensure!(total_bond_units>= total_bond_units_inlot+lot.bond_units, Error::<T>::BondParamIncorrect);
+            ensure!(total_bond_units>= total_bond_units_inlot+lot.bond_units, Error::<T>::BalanceOverdraft);
 
             lots.push(
                 lot.clone()
             );
             // save  lots
             BondUnitPackageLot::<T>::insert(&bond, &caller, lots);
-            Self::deposit_event(RawEvent::BondNewSaleLot(caller, bond, lot ));
+            Self::deposit_event(RawEvent::BondSaleLotBid(caller, bond, lot ));
             Ok(())
         }
 
@@ -1218,12 +1303,12 @@ decl_module! {
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             let now = <pallet_timestamp::Module<T>>::get();
             // prevent expired lots sales
-            ensure!(!lot.is_expired( now ), Error::<T>::BondParamIncorrect);
+            ensure!(!lot.is_expired( now ), Error::<T>::LotObsolete);
 
-            ensure!(lot.new_bondholder == Default::default() || lot.new_bondholder == caller, Error::<T>::BondParamIncorrect);
+            ensure!(lot.new_bondholder == Default::default() || lot.new_bondholder == caller, Error::<T>::LotNotFound);
             let balance = Self::balance_everusd(&caller);
             // ensure caller has enough tokens on its balance
-            ensure!(lot.amount <= balance , Error::<T>::BondParamIncorrect);
+            ensure!(lot.amount <= balance , Error::<T>::BalanceOverdraft);
 
             BondUnitPackageLot::<T>::try_mutate(&bond, &bondholder, |lots|->DispatchResult{
                 if let Some(index) = lots.iter().position(|item| item==&lot ){
@@ -1240,41 +1325,9 @@ decl_module! {
                      });
 
                      let mut from_packages = BondUnitPackageRegistry::<T>::get(&bond, &bondholder);
-                     // @TESTME try to compare sort performance with binaryheap
-                     from_packages.sort_by_key(|package| core::cmp::Reverse(package.bond_units));
                      let mut to_packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
-
                      // transfer lot.bond_units from bondholder to caller
-
-                     // @TODO design as separate function
-                     let mut lot_bond_units = lot.bond_units;
-                     while lot_bond_units > 0 {
-                           // last element has smallest number of bond units
-                           let mut last = from_packages.pop().ok_or( Error::<T>::BondParamIncorrect )?;
-                           let (bond_units, acquisition, coupon_yield) = if last.bond_units > lot_bond_units {
-                                last.bond_units -= lot_bond_units;
-                                let bond_units = lot_bond_units;
-                                let acquisition = last.acquisition;
-                                lot_bond_units = 0;
-                                from_packages.push(
-                                    last
-                                );
-                                (bond_units, acquisition,  0)
-                           }else{
-                                lot_bond_units-=last.bond_units;
-                                (last.bond_units, last.acquisition, last.coupon_yield)
-                           };
-
-                           to_packages.push(
-                                BondUnitPackageOf::<T>{
-                                     bond_units,
-                                     acquisition,
-                                     coupon_yield,
-                                     create_date: now,
-                                }
-                           );
-                     }
-                     from_packages.shrink_to_fit();
+                     transfer_bond_units::<T>(&mut from_packages, &mut to_packages, lot.bond_units)?;
                      // store new packages
                      BondUnitPackageRegistry::<T>::insert(&bond, &bondholder, from_packages);
                      BondUnitPackageRegistry::<T>::insert(&bond, &caller, to_packages);
@@ -1282,7 +1335,7 @@ decl_module! {
                      // pay off deal
                      Self::balance_sub(&caller, lot.amount)?;
                      Self::balance_add(&bondholder, lot.amount)?;
-
+                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bondholder.clone(), bond, lot ));
                      Ok(())
                 }else{
                     Err(Error::<T>::BondParamIncorrect.into())
@@ -1298,8 +1351,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Master role
     pub fn account_is_master(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0
     }
 
     /// Method: account_is_custodian(acc: &T::AccountId) -> bool
@@ -1307,8 +1359,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Custodian role
     pub fn account_is_custodian(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0
     }
 
     /// Method: account_is_issuer(acc: &T::AccountId) -> bool
@@ -1316,8 +1367,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Issuer role
     pub fn account_is_issuer(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0
     }
 
     /// Method: account_is_investor(acc: &T::AccountId) -> bool
@@ -1325,8 +1375,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Investor role
     pub fn account_is_investor(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & INVESTOR_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & INVESTOR_ROLE_MASK != 0
     }
 
     /// Method: account_is_auditor(acc: &T::AccountId) -> bool
@@ -1334,8 +1383,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Auditor role
     pub fn account_is_auditor(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & AUDITOR_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & AUDITOR_ROLE_MASK != 0
     }
 
     /// Method: account_is_manager(acc: &T::AccountId) -> bool
@@ -1343,8 +1391,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Manager role
     pub fn account_is_manager(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & MANAGER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & MANAGER_ROLE_MASK != 0
     }
 
     /// Method: account_is_impact_reporter(acc: &T::AccountId) -> bool
@@ -1352,8 +1399,7 @@ impl<T: Trait> Module<T> {
     ///
     /// Checks if the acc has global Impact Reporter role
     pub fn account_is_impact_reporter(acc: &T::AccountId) -> bool {
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & IMPACT_REPORTER_ROLE_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & IMPACT_REPORTER_ROLE_MASK != 0
     }
 
     /// Method: account_token_mint_burn_allowed(acc: &T::AccountId) -> bool
@@ -1362,8 +1408,7 @@ impl<T: Trait> Module<T> {
     /// Checks if the acc can create burn and mint tokens requests
     pub fn account_token_mint_burn_allowed(acc: &T::AccountId) -> bool {
         const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | ISSUER_ROLE_MASK;
-        AccountRegistry::<T>::contains_key(acc)
-            && (AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0)
+        AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0
     }
     /// Method: balance_everusd(acc: &T::AccountId) -> EverUSDBalance
     /// Arguments: acc: AccountId - account id
@@ -1392,27 +1437,29 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    pub fn bond_holder_packages(
-        bond: &BondId,
-        bondholder: &T::AccountId,
-    ) -> Vec<BondUnitPackageOf<T>> {
+    pub fn bond_check_invariant(bond: &BondId) -> bool {
+        let (bond_units, coupon_yield) = BondUnitPackageRegistry::<T>::iter_prefix_values(bond)
+            .fold((0, 0), |acc, packages| {
+                packages.iter().fold(acc, |acc, package| {
+                    (acc.0 + package.bond_units, acc.1 + package.coupon_yield)
+                })
+            });
+        let bond = BondRegistry::<T>::get(bond);
+
+        bond.issued_amount == bond_units && bond.coupon_yield == coupon_yield
+    }
+
+    #[cfg(test)]
+    pub fn bond_holder_packages(bond: &BondId, bondholder: &T::AccountId) -> Vec<BondUnitPackage> {
         BondUnitPackageRegistry::<T>::get(bond, bondholder)
     }
 
-    #[cfg(test)]
-    pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStructOf<T>> {
-        BondImpactReport::<T>::get(bond)
-    }
-
-    #[allow(dead_code)]
-    fn purge_expired_bondunit_lots(_before: T::Moment) {
-        //@TODO remove or implement
+    pub fn bond_impact_data(bond: &BondId) -> Vec<BondImpactReportStruct> {
+        BondImpactReport::get(bond)
     }
 
     #[cfg(test)]
-    fn bond_packages(
-        id: &BondId,
-    ) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackageOf<T>>>
+    fn bond_packages(id: &BondId) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackage>>
     where
         <T as frame_system::Trait>::AccountId: std::hash::Hash,
     {
@@ -1422,19 +1469,18 @@ impl<T: Trait> Module<T> {
     /// Same as BondRegistry::<T>::mutate(bond, f).
     /// unlike BondRegistry::<T>::mutate(bond, f) `with_bond` doesn't write to storage
     /// if f call returns error or bond key doesn't exist in the registry
-    fn with_bond<F: FnOnce(&mut BondStructOf<T>) -> DispatchResult>(
+    fn with_bond<R, E: From<Error<T>>, F: FnOnce(&mut BondStructOf<T>) -> Result<R, E>>(
         bond: &BondId,
         f: F,
-    ) -> DispatchResult {
+    ) -> Result<R, E> {
         ensure!(
             BondRegistry::<T>::contains_key(bond),
             Error::<T>::BondNotFound
         );
 
-        let mut item = BondRegistry::<T>::get(bond);
-        f(&mut item)?;
-        BondRegistry::<T>::insert(bond, item);
-        Ok(())
+        BondRegistry::<T>::try_mutate(bond, |mut item| f(&mut item))
+        //BondRegistry::<T>::insert(bond, item);
+        //Ok(())
     }
 
     /// Increase account balance by `amount` EverUSD
@@ -1484,19 +1530,36 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    fn get_coupon_yields(id: &BondId) -> Vec<PeriodYield> {
-        BondCouponYield::get(id)
+    pub fn get_coupon_yields(bond: &BondId) -> Vec<PeriodYield> {
+        BondCouponYield::get(bond)
     }
+
+    /// Return combination of impact data and interest_rate
+    pub fn get_impact_reports(bond: BondId) -> Vec<PeriodDataStruct> {
+        let impact_data = BondImpactReport::get(bond);
+        let coupon_yields = BondCouponYield::get(bond);
+        coupon_yields
+            .into_iter()
+            .zip(impact_data.into_iter())
+            .map(|(coupon_yields, impact_data)| PeriodDataStruct {
+                interest_rate: coupon_yields.interest_rate,
+                create_period: impact_data.create_period,
+                impact_data: impact_data.impact_data,
+                signed: impact_data.signed,
+            })
+            .collect()
+    }
+
     /// Calculate bond coupon yield
     /// Store values in BondCouponYield value
     /// Update bond bond_credit value to the current coupon yield
-    /// Returns true if new periods was processed, false otherwise
+    /// Returns the number of processed periods.
     /// common complexity O(N), where N is the number of issued bond unit packages
     fn calc_and_store_bond_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
         now: <T as pallet_timestamp::Trait>::Moment,
-    ) -> bool {
+    ) -> usize {
         let (_, period) = ensure_active!(bond.time_passed_after_activation(now), false);
         // here is current pay period
         let period = period as usize;
@@ -1511,20 +1574,20 @@ impl<T: Trait> Module<T> {
             // term hasn't come yet (if period=0 )
             // or current period has been calculated
             bond.bond_credit = total_yield;
-            return false;
+            return 0;
         }
-
+        let time_step = T::TimeStep::get();
         // @TODO refactor. use `mutate` method instead  of get+insert
-        let reports = BondImpactReport::<T>::get(id);
+        let reports = BondImpactReport::get(id);
         assert!(reports.len() + 1 >= period);
-
+        let mut processed: usize = 0;
         while bond_yields.len() < period {
             // index - accrued period number
             let index = bond_yields.len();
             let interest_rate = if index == 0 {
                 bond.inner.interest_rate_start_period_value
             } else if reports[index - 1].signed {
-                bond.interest_rate(reports[index - 1].impact_data)
+                bond.calc_effective_interest_rate(reports[index - 1].impact_data)
             } else {
                 min(
                     bond_yields[index - 1].interest_rate
@@ -1538,32 +1601,33 @@ impl<T: Trait> Module<T> {
                 / INTEREST_RATE_YEAR;
 
             // calculate yield for period equal to bond_yields.len()
-            let period_coupon_yield: EverUSDBalance =
-                match bond.period_desc(index as BondPeriodNumber) {
-                    Some(period_desc) => {
-                        // for every bond bondholder
-                        BondUnitPackageRegistry::<T>::iter_prefix(id)
-                            .map(|(_bondholder, packages)| {
-                                // for every package
-                                packages
-                                    .iter()
-                                    .map(|package| {
-                                        // @TODO use checked arithmetics
-                                        package_yield
-                                            * package.bond_units as EverUSDBalance
-                                            * period_desc.duration(package.acquisition)
-                                                as EverUSDBalance
-                                            / 100
-                                    })
-                                    .sum::<EverUSDBalance>()
-                            })
-                            .sum()
-                    }
-                    None => {
-                        // @TODO  it's best panic instead of return false
-                        return false;
-                    }
-                };
+            let period_coupon_yield: EverUSDBalance = match bond
+                .period_desc(index as BondPeriodNumber)
+            {
+                Some(period_desc) => {
+                    // for every bond bondholder
+                    BondUnitPackageRegistry::<T>::iter_prefix(id)
+                        .map(|(_bondholder, packages)| {
+                            // for every package
+                            packages
+                                .iter()
+                                .map(|package| {
+                                    // @TODO use checked arithmetics
+                                    package_yield
+                                        * package.bond_units as EverUSDBalance
+                                        * (period_desc.duration(package.acquisition) / time_step)
+                                            as EverUSDBalance
+                                        / 100
+                                })
+                                .sum::<EverUSDBalance>()
+                        })
+                        .sum()
+                }
+                None => {
+                    // @TODO  it's best panic instead of return false
+                    return 0;
+                }
+            };
             let coupon_yield = min(bond.bond_debit, total_yield);
             total_yield += period_coupon_yield;
 
@@ -1572,6 +1636,8 @@ impl<T: Trait> Module<T> {
                 coupon_yield_before: coupon_yield,
                 interest_rate,
             });
+            processed += 1;
+            Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
         }
         // save current liability in bond_credit field
         bond.bond_credit = total_yield;
@@ -1582,7 +1648,7 @@ impl<T: Trait> Module<T> {
         }
 
         Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
-        true
+        processed
     }
 
     /// Redeem bond units,  get principal value, and coupon yield in the balance
@@ -1592,7 +1658,7 @@ impl<T: Trait> Module<T> {
         bondholder: &T::AccountId,
     ) -> EverUSDBalance {
         let packages = BondUnitPackageRegistry::<T>::take(id, &bondholder);
-
+        let time_step = T::TimeStep::get();
         let bond_yields = BondCouponYield::get(id);
         assert!(!bond_yields.is_empty());
         // calc coupon yield
@@ -1609,7 +1675,8 @@ impl<T: Trait> Module<T> {
                     .map(|package| {
                         package_yield
                             * package.bond_units as EverUSDBalance
-                            * period_desc.duration(package.acquisition) as EverUSDBalance
+                            * (period_desc.duration(package.acquisition) / time_step)
+                                as EverUSDBalance
                             / 100
                     })
                     .sum::<EverUSDBalance>()
@@ -1631,7 +1698,7 @@ impl<T: Trait> Module<T> {
         payable
     }
 
-    ///
+    /// Transfer accrued coupon yield into bondholder balance
     pub fn request_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
@@ -1654,6 +1721,7 @@ impl<T: Trait> Module<T> {
             // no more accrued coupon yield
             return 0;
         }
+        let time_step = T::TimeStep::get();
         let mut payable = 0;
 
         for (i, bond_yield) in bond_yields
@@ -1688,7 +1756,8 @@ impl<T: Trait> Module<T> {
                     for package in packages.iter_mut() {
                         let accrued = package_yield
                             * package.bond_units as EverUSDBalance
-                            * period_desc.duration(package.acquisition) as EverUSDBalance
+                            * (period_desc.duration(package.acquisition) / time_step)
+                                as EverUSDBalance
                             / 100;
 
                         let package_coupon_yield = if instalment == accrued_yield {
@@ -1716,7 +1785,7 @@ impl<T: Trait> Module<T> {
     #[cfg(test)]
     pub fn calc_bond_interest_rate(
         bond: &BondStructOf<T>,
-        reports: &[BondImpactReportStructOf<T>],
+        reports: &[BondImpactReportStruct],
         period: usize,
     ) -> bond::BondInterest {
         assert!(reports.len() >= period);
@@ -1725,7 +1794,7 @@ impl<T: Trait> Module<T> {
         let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
         for report in reports[0..period].iter().rev() {
             if report.signed {
-                interest = bond.interest_rate(report.impact_data);
+                interest = bond.calc_effective_interest_rate(report.impact_data);
                 break;
             }
             missed_periods += 1;
@@ -1752,18 +1821,29 @@ impl<T: Trait> Module<T> {
             .unwrap_or(false)
     }
 
+    fn is_interest_pay_period(
+        bond: &BondStructOf<T>,
+        now: <T as pallet_timestamp::Trait>::Moment,
+    ) -> bool {
+        let (moment, period) = ensure_active!(bond.time_passed_after_activation(now), true);
+
+        bond.period_desc(period)
+            .map(|desc| moment < desc.interest_pay_period)
+            .unwrap_or(true)
+    }
+
     #[cfg(test)]
     fn set_impact_data(
         bond: &BondId,
         period: BondPeriodNumber,
         impact_data: u64,
     ) -> DispatchResult {
-        BondImpactReport::<T>::try_mutate(&bond, |reports| -> DispatchResult {
+        BondImpactReport::try_mutate(&bond, |reports| -> DispatchResult {
             let index = period as usize;
 
             reports[index].signed = true;
             reports[index].impact_data = impact_data;
-            reports[index].create_date = <pallet_timestamp::Module<T>>::get();
+            reports[index].create_period = 1; //dirty hack. test require nonzero value
 
             Ok(())
         })

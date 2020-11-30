@@ -1,3 +1,4 @@
+![Compilation and Testing Suite](https://github.com/EvercityEcosystem/evercity-substrate/workflows/Compilation%20and%20Testing%20Suite/badge.svg?branch=master)
 # 1. Evercity Substrate Node
 
 This repositary contains source code of blockchain node, which is a main part of Evercity's Smart Sustainable Bond project.
@@ -118,8 +119,42 @@ rm -rf $HOME/.local/share/evercity-node/chains/*
 ```bash
 ./target/release/evercity-node --dev
 ```
+### 6.4 Build docker image
+```bash
+cargo build --release
+mv ./target/release/evercity-node ./docker
+docker build --tag evercity-node:1.0 ./docker/
+```
 
-### 6.4 Running tests
+### 6.5 Configure Node as a service
+ Build
+```bash
+cargo build --release
+```
+ Copy ./target/release/evercity-node into /usr/bin/evercity/.
+ Create /var/run/evercity directory.
+
+ Put evercity.service in /etc/systemd/system/
+```
+ [Unit]
+ Description=Evercity substrate test service
+ After=network.target
+ StartLimitIntervalSec=0
+ [Service]
+ Type=simple
+ Restart=always
+ RestartSec=1
+ User=evercity
+ ExecStart=/usr/bin/evercity/evercity-node  --dev --rpc-external --ws-external  --ws-port 9940  --rpc-port 9930 --port 30300 --base-path /var/run/evercity
+```
+```bash
+systemctl enable evercity
+```
+start service
+```bash
+systemctl start evercity
+```
+### 6.6 Running tests
 
 ```bash
 cargo test
@@ -128,7 +163,7 @@ cargo test
 ./target/release/evercity-node --dev
 ```
 
-### 6.5 Generate documentation
+### 6.7 Generate documentation
 
 ```bash
 cargo doc
