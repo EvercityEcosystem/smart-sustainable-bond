@@ -1119,7 +1119,7 @@ fn bond_try_update_after_release() {
             bondid,
             1,
             update
-        ),);
+        ));
 
         // the others cannot. TODO add other fields to check
         let mut update = get_test_bond().inner;

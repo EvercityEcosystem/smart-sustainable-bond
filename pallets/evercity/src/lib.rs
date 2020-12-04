@@ -315,7 +315,7 @@ decl_module! {
         /// Disables all roles of account, setting roles bitmask to 0.
         /// Accounts are not allowed to perform any actions without role,
         /// but still have its data in blockchain (to not loose related entities)
-        #[weight = 10_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(4,1)]
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -340,7 +340,7 @@ decl_module! {
         /// Adds new account with given role(s). Roles are set as bitmask. Contains parameter
         /// "identity", planned to use in the future to connect accounts with external services like
         /// KYC providers
-        #[weight = 10_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2,1)]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -366,7 +366,7 @@ decl_module! {
         /// Access: Master role
         ///
         /// Modifies existing account, assigning new role(s) or identity to it
-        #[weight = 10_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(caller != who, Error::<T>::InvalidAction);
@@ -393,7 +393,7 @@ decl_module! {
         /// Custodian account confirms request after receiving payment in USD from target account's owner
         /// It's possible to create only one request per account. Mint request has a time-to-live
         /// and becomes invalidated after it.
-        #[weight = 15_000]
+        #[weight = 20_000 + T::DbWeight::get().reads_writes(3,1)]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
@@ -419,7 +419,7 @@ decl_module! {
         /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing mint request, created by caller's account
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2,1)]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestDoesntExist);
@@ -439,7 +439,7 @@ decl_module! {
         /// (note) Amount of tokens is sent as parameter to avoid data race problem, when
         /// Custodian can confirm unwanted amount of tokens, because attacker is modified mint request
         /// while Custodian makes a decision
-        #[weight = 15_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(5,2)]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -471,7 +471,7 @@ decl_module! {
         /// Access: Custodian role
         ///
         /// Declines and deletes the mint request of account (Custodian)
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2,1)]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -491,7 +491,7 @@ decl_module! {
         /// Custodian account confirms request after sending payment in USD to target account's owner
         /// It's possible to create only one request per account. Burn request has a time-to-live
         /// and becomes invalidated after it.
-        #[weight = 15_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(4,1)]
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
@@ -519,7 +519,7 @@ decl_module! {
         /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing burn request, created by caller's account
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2,1)]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(BurnRequestEverUSD::<T>::contains_key(&caller), Error::<T>::BurnRequestDoesntExist);
@@ -536,7 +536,7 @@ decl_module! {
         /// Access: Custodian role
         ///
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
-        #[weight = 15_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(5,2)]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -566,7 +566,7 @@ decl_module! {
         /// Access: Custodian role
         ///
         /// Declines and deletes the burn request of account (Custodian)
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -589,7 +589,7 @@ decl_module! {
         /// Bond is created in BondState::PREPARE, and can be modified many times until it becomes ready
         /// for next BondState::BOOKING, when most of BondInnerStruct parameters cannot be changed, and
         /// Investors can buy bond units
-        #[weight = 20_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
@@ -600,21 +600,10 @@ decl_module! {
 
             let item = BondStruct{
                     inner: body,
-
-                    issuer: caller.clone(),
-                    auditor: Default::default(),
-                    manager: Default::default(),
-                    impact_reporter: Default::default(),
-
-                    issued_amount: 0,
-                    booking_start_date: Default::default(),
-                    active_start_date: Default::default(),
                     creation_date: now,
-                    state: BondState::PREPARE,
-                    bond_debit: 0,
-                    bond_credit: 0,
-                    coupon_yield: 0,
+                    issuer: caller.clone(),
                     nonce: 0,
+                    .. Default::default()
             };
             BondRegistry::<T>::insert(&bond, item);
             Self::deposit_event(RawEvent::BondAdded(caller, bond));
@@ -630,7 +619,7 @@ decl_module! {
         /// Assigns target account to be the manager of the bond. Manager can make
         /// almost the same actions with bond as Issuer, instead of most important,
         /// helping Issuer to manage bond parameters, work with documents, etc...
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_set_manager(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond Auxiliary roles can be set only by Master
@@ -639,12 +628,12 @@ decl_module! {
 
             Self::with_bond(&bond, |item|{
                 ensure!(
-                    matches!(item.state, BondState::PREPARE ),
+                    matches!(item.state, BondState::PREPARE),
                     Error::<T>::BondStateNotPermitAction
                 );
                 item.manager = acc;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondChanged(caller, bond ));
+                Self::deposit_event(RawEvent::BondChanged(caller, bond));
                 Ok(())
             })
         }
@@ -657,7 +646,7 @@ decl_module! {
         ///
         /// Assigns target account to be the auditor of the bond. Auditor confirms
         /// impact data coming in bond, and performs other verification-related actions
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_set_auditor(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond auxiliary roles can be set only by Master
@@ -671,7 +660,7 @@ decl_module! {
                 );
                 item.auditor = acc;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondChanged(caller, bond ));
+                Self::deposit_event(RawEvent::BondChanged(caller, bond));
                 Ok(())
             })
         }
@@ -683,7 +672,7 @@ decl_module! {
         ///
         /// Assigns impact reporter to the bond
         /// Access: only accounts with Master role
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_set_impact_reporter(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond auxiliary roles can be set only by Master
@@ -693,7 +682,7 @@ decl_module! {
             Self::with_bond(&bond, |item|{
                 item.impact_reporter = acc;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondChanged(caller, bond ));
+                Self::deposit_event(RawEvent::BondChanged(caller, bond));
                 Ok(())
             })
         }
@@ -706,7 +695,7 @@ decl_module! {
         ///
         /// Updates bond data. Being released bond can be changed only in  part of document hashed
         /// Access: bond issuer or bond manager
-        #[weight = 10_000]
+         #[weight = 50_000 + T::DbWeight::get().reads_writes(1,1)]
         fn bond_update(origin, bond: BondId, nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
@@ -728,7 +717,7 @@ decl_module! {
                 }
                 item.inner = body;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondChanged(caller, bond ));
+                Self::deposit_event(RawEvent::BondChanged(caller, bond));
 
                 Ok(())
             })
@@ -742,7 +731,7 @@ decl_module! {
         /// Releases the bond on the market starting presale .
         /// Marks the bond as `BOOKING` allowing investors to stake it.
         /// Access: only accounts with Master role
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be released only by Master
@@ -750,16 +739,16 @@ decl_module! {
             Self::with_bond(&bond, |item|{
                 ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
                 ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
-                ensure!(item.inner.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
+                ensure!(item.inner.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect);
 
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondStateNotPermitAction );
+                ensure!(item.inner.mincap_deadline>now, Error::<T>::BondStateNotPermitAction);
 
                 item.booking_start_date = now;
                 item.state = BondState::BOOKING;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondReleased(caller, bond ));
+                Self::deposit_event(RawEvent::BondReleased(caller, bond));
                 Ok(())
             })
         }
@@ -773,18 +762,18 @@ decl_module! {
         /// Bye bond units.
         /// Access: only accounts with Investor role
         // Investor loans tokens to the bond issuer by staking bond units
-        #[weight = 10_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(4,3)]
         fn bond_unit_package_buy(origin, bond: BondId, nonce: u64, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
-                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete );
+                ensure!(item.nonce == nonce, Error::<T>::BondNonceObsolete);
                 ensure!(
                     matches!(item.state, BondState::BANKRUPT | BondState::ACTIVE | BondState::BOOKING),
                     Error::<T>::BondStateNotPermitAction
                 );
                 // issuer cannot buy his own bonds
-                ensure!(item.issuer != caller, Error::<T>::AccountNotAuthorized );
+                ensure!(item.issuer != caller, Error::<T>::AccountNotAuthorized);
 
                 let issued_amount = unit_amount.checked_add(item.issued_amount)
                     .ok_or(Error::<T>::BalanceOverdraft)?;
@@ -822,6 +811,7 @@ decl_module! {
                     item.bond_debit += package_value;
                     // in BondState::ACTIVE or BondState::BANKRUPT received everusd
                     // can be forwarded to pay off the debt
+                    // @TODO add postdispatch weight
                     Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
                     // surplus to the issuer balance
                     let free_balance = item.get_free_balance();
@@ -834,7 +824,7 @@ decl_module! {
                     item.increase( package_value );
                 }
 
-                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount, package_value ));
+                Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount, package_value));
 
                 // @FIXME
                 // According to the Design document
@@ -861,7 +851,7 @@ decl_module! {
         /// Gives back staked on presale bond units.
         /// Access: only accounts with Investor role who hold bond units
         // Investor gives back bond units and withdraw tokens
-        #[weight = 10_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(4,3)]
         fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
@@ -889,8 +879,8 @@ decl_module! {
                 item.decrease( package_value );
                 item.issued_amount -= unit_amount;
 
-                Self::balance_add(&caller, package_value )?;
-                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount, package_value ));
+                Self::balance_add(&caller, package_value)?;
+                Self::deposit_event(RawEvent::BondUnitReturned(caller, bond, unit_amount, package_value));
 
                 Ok(())
             })
@@ -903,7 +893,7 @@ decl_module! {
         /// Called after the bond was released but not raised enough capacity until deadline.
         /// Access: accounts with Master role, bond issuer, or bond manager
         // Called after the Bond was released but not raised enough tokens until the deadline
-        #[weight = 10_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(4,10)]
         fn bond_withdraw(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond issuer, bond Manager, or Master can do it
@@ -917,7 +907,7 @@ decl_module! {
                 );
                 let now = <pallet_timestamp::Module<T>>::get();
                 // Ensure booking deadline is in the future
-                ensure!(item.inner.mincap_deadline <= now, Error::<T>::BondStateNotPermitAction );
+                ensure!(item.inner.mincap_deadline <= now, Error::<T>::BondStateNotPermitAction);
 
                 item.state = BondState::PREPARE;
                 item.nonce += 1;
@@ -942,7 +932,7 @@ decl_module! {
 
                 BondUnitPackageRegistry::<T>::remove_prefix(&bond);
 
-                Self::deposit_event(RawEvent::BondWithdrawal(caller, bond ));
+                Self::deposit_event(RawEvent::BondWithdrawal(caller, bond));
                 Ok(())
             })
         }
@@ -956,7 +946,7 @@ decl_module! {
         /// It makes bond fund available to the issuer and stop bond  withdrawal until
         /// maturity date.
         /// Access: only accounts with Master role
-        #[weight = 5_000]
+        #[weight = 50_000 + T::DbWeight::get().reads_writes(3,3)]
         fn bond_activate(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             //Bond can be activated only by Master
@@ -994,7 +984,7 @@ decl_module! {
                 Self::balance_add(&item.issuer, item.bond_debit)?;
                 item.bond_debit = 0;
 
-                Self::deposit_event(RawEvent::BondActivated(caller, bond, amount ));
+                Self::deposit_event(RawEvent::BondActivated(caller, bond, amount));
                 Ok(())
             })
         }
@@ -1006,7 +996,7 @@ decl_module! {
         ///
         /// Releases periodic impact report
         /// Access: bond issuer or reporter assigned to the bond
-        #[weight = 15_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1020,12 +1010,12 @@ decl_module! {
             let index: usize = period as usize;
             BondImpactReport::try_mutate(&bond, |reports|->DispatchResult {
 
-                ensure!(index < reports.len() && !reports[index].signed, Error::<T>::BondParamIncorrect );
+                ensure!(index < reports.len() && !reports[index].signed, Error::<T>::BondParamIncorrect);
 
                 reports[index].create_period = moment;
                 reports[index].impact_data = impact_data;
 
-                Self::deposit_event(RawEvent::BondImpactReportSent( caller, bond, period, impact_data ));
+                Self::deposit_event(RawEvent::BondImpactReportSent( caller, bond, period, impact_data));
                 Ok(())
             })
         }
@@ -1039,7 +1029,7 @@ decl_module! {
         /// Verify report impact data by signing the report released by the bond issuer
         /// Access: only auditor assigned to the bond
         // Auditor signs impact report
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_impact_report_approve(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_auditor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1062,7 +1052,7 @@ decl_module! {
 
                 reports[index].signed = true;
 
-                Self::deposit_event(RawEvent::BondImpactReportApproved( caller, bond, period, impact_data ));
+                Self::deposit_event(RawEvent::BondImpactReportApproved( caller, bond, period, impact_data));
                 Ok(())
             })
         }
@@ -1074,7 +1064,7 @@ decl_module! {
         /// Makes the bond reached maturity date. It requires the issuer to pay back
         /// redemption yield
         // Switch the Bond state to Finished
-        #[weight = 15_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(3,2)]
         fn bond_redeem(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1103,7 +1093,7 @@ decl_module! {
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondRedeemed(caller, bond, ytm ));
+                Self::deposit_event(RawEvent::BondRedeemed(caller, bond, ytm));
                 Ok(())
             })
         }
@@ -1114,7 +1104,7 @@ decl_module! {
         /// Access: Master role
         ///
         /// Marks the bond as bankrupt
-        #[weight = 10_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_declare_bankrupt(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
              ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -1128,7 +1118,7 @@ decl_module! {
 
                 item.state = BondState::BANKRUPT;
                 item.nonce += 1;
-                Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit ));
+                Self::deposit_event(RawEvent::BondBankrupted(caller.clone(), bond, item.bond_credit, item.bond_debit));
                 Ok(())
             })
         }
@@ -1139,14 +1129,14 @@ decl_module! {
         /// Access: any
         ///
         /// Calculates bond coupon yield
-        #[weight = 0]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(14,13)]
         fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
             Self::with_bond(&bond, |mut item|->DispatchResultWithPostInfo {
                 let now = <pallet_timestamp::Module<T>>::get();
                 let processed: u64 = Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now) as u64;
-                Ok(Some(processed * 10000).into())
+                Ok(Some( T::DbWeight::get().reads_writes(processed+2, processed+1) ).into())
             })
         }
 
@@ -1157,12 +1147,11 @@ decl_module! {
         ///
         /// Cancel bond before it was issued
         /// Access: only accounts with Master role
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(3,1)]
         fn bond_revoke(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be revoked only by Owner or by Manager assigned to the Bond
             // Bond should be in Prepare state, so no bids can exist at this time
-
             ensure!( BondRegistry::<T>::contains_key(&bond), Error::<T>::BondNotFound );
             let item = BondRegistry::<T>::get(bond);
             ensure!(item.issuer == caller || item.manager == caller, Error::<T>::BondAccessDenied);
@@ -1170,7 +1159,7 @@ decl_module! {
             assert!( BondRegistry::<T>::contains_key(bond) );
             BondRegistry::<T>::remove( &bond );
 
-            Self::deposit_event(RawEvent::BondRevoked(caller, bond ));
+            Self::deposit_event(RawEvent::BondRevoked(caller, bond));
             Ok(())
         }
 
@@ -1183,7 +1172,7 @@ decl_module! {
         /// Transfer `coupon yield` for investors or `free bond balance` of the bond fund for issuer
         /// to the caller account balance
         //  @TODO add parameter beneficiary:AccountId  who will receive coupon yield
-        #[weight = 5_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(3,2)]
         fn bond_withdraw_everusd(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Self::with_bond(&bond, |mut item|{
@@ -1216,7 +1205,7 @@ decl_module! {
                 };
 
                 if amount>0{
-                    Self::deposit_event(RawEvent::BondWithdrawEverUSD(caller, bond, amount ));
+                    Self::deposit_event(RawEvent::BondWithdrawEverUSD(caller, bond, amount));
                 }
                 Ok(())
             })
@@ -1229,7 +1218,7 @@ decl_module! {
         /// Access: Bond issuer
         ///
         /// Transfer `amount` of EverUSD tokens from issuer(caller) balance to the bond fund
-        #[weight = 5_000]
+        #[weight = 1_000_000 + T::DbWeight::get().reads_writes(3,2)]
         fn bond_deposit_everusd(origin, bond: BondId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Self::with_bond(&bond, |mut item|{
@@ -1241,11 +1230,11 @@ decl_module! {
 
                 Self::balance_sub(&caller, amount)?;
 
-                item.bond_debit = item.bond_debit.checked_add( amount )
+                item.bond_debit = item.bond_debit.checked_add(amount)
                     .ok_or( Error::<T>::BondParamIncorrect )?;
                 let now = <pallet_timestamp::Module<T>>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                Self::deposit_event(RawEvent::BondDepositEverUSD(caller, bond, amount ));
+                Self::deposit_event(RawEvent::BondDepositEverUSD(caller, bond, amount));
                 Ok(())
             })
         }
@@ -1257,7 +1246,7 @@ decl_module! {
         /// Access: Bond bondholder
         ///
         /// Create sale lot
-        #[weight = 5_000]
+        #[weight = 20_000 + T::DbWeight::get().reads_writes(4,1)]
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let now = <pallet_timestamp::Module<T>>::get();
@@ -1285,7 +1274,7 @@ decl_module! {
             );
             // save  lots
             BondUnitPackageLot::<T>::insert(&bond, &caller, lots);
-            Self::deposit_event(RawEvent::BondSaleLotBid(caller, bond, lot ));
+            Self::deposit_event(RawEvent::BondSaleLotBid(caller, bond, lot));
             Ok(())
         }
 
@@ -1297,7 +1286,7 @@ decl_module! {
         /// Access: Bond bondholder
         ///
         /// Buy the lot created by bond_unit_lot_bid call
-        #[weight = 5_000]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(9,5)]
         fn bond_unit_lot_settle(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1335,7 +1324,7 @@ decl_module! {
                      // pay off deal
                      Self::balance_sub(&caller, lot.amount)?;
                      Self::balance_add(&bondholder, lot.amount)?;
-                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bondholder.clone(), bond, lot ));
+                     Self::deposit_event(RawEvent::BondSaleLotSettle(caller, bondholder.clone(), bond, lot));
                      Ok(())
                 }else{
                     Err(Error::<T>::BondParamIncorrect.into())
