@@ -60,6 +60,7 @@ pub mod bond;
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod runtime_api;
 
 macro_rules! ensure_active {
     ($f:expr, $err:expr) => {
@@ -70,13 +71,6 @@ macro_rules! ensure_active {
             }
         }
     };
-}
-
-sp_api::decl_runtime_apis! {
-    pub trait BondApi {
-        /// delegate call to the pallet get_impact_reports()
-        fn get_impact_reports(bond: BondId)->Vec<PeriodDataStruct>;
-    }
 }
 
 decl_storage! {
@@ -147,74 +141,70 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
     {
-        /// Event documentation should end with an array that provides descriptive names for event
-        /// parameters. [something, who]
-        // 1: author, 2: newly added account, 3: role, 4: identity
+        /// \[master, account, role, data\]
         AccountAdd(AccountId, AccountId, u8, u64),
-        // 1: author, 2:  updated account, 3: role, 4: identity
+        /// \[master, account, role, data\]
         AccountSet(AccountId, AccountId, u8, u64),
-        // 1: author, 2: disabled account
+        /// \[master, account\]
         AccountDisable(AccountId, AccountId),
-        // @TODO document events and add many corresponding
-        // data for each Event for syschronization service
-        // 1: author, 2: everusd tokens
+        /// \[account, everusd\]
         MintRequestCreated(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
+        /// \[account, everusd\]
         MintRequestRevoked(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
-        MintRequestConfirmed(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
-        MintRequestDeclined(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
+        /// \[custodian, account, everusd\]
+        MintRequestConfirmed(AccountId, AccountId, EverUSDBalance),
+        /// \[custodian, account, everusd\]
+        MintRequestDeclined(AccountId, AccountId, EverUSDBalance),
+        /// \[account, everusd\]
         BurnRequestCreated(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
+        /// \[account, everusd\]
         BurnRequestRevoked(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
-        BurnRequestConfirmed(AccountId, EverUSDBalance),
-        // 1: author, 2: everusd tokens
-        BurnRequestDeclined(AccountId, EverUSDBalance),
+        /// \[custodian, account, everusd\]
+        BurnRequestConfirmed(AccountId, AccountId, EverUSDBalance),
+        /// \[custodian,account, everusd\]
+        BurnRequestDeclined(AccountId, AccountId, EverUSDBalance),
         // Bond events
-        // 1: author, 2: bond ticker
+
+        /// \[issuer,bond\]
         BondAdded(AccountId, BondId),
-        // 1: author, 2: bond ticker
+        /// \[sender,bond\]
         BondChanged(AccountId, BondId),
-        // 1: author, 2: bond ticker
+        /// \[issuer,bond\]
         BondRevoked(AccountId, BondId),
-        // 1: author, 2: bond ticker
+        /// \[sender,bond\]
         BondReleased(AccountId, BondId),
-        // 1: author, 2: bond ticker, 3: bond fund
+        /// \[sender,bond,bondfund\]
         BondActivated(AccountId, BondId, EverUSDBalance),
-        // 1: author, 2: bond ticker
+        /// \[issuer,bond\]
         BondWithdrawal(AccountId, BondId),
-        // 1: author, 2: bond ticker, 3: ymt, everusd
+        /// \[issuer,bond,bondfund\]
         BondRedeemed(AccountId, BondId, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: bond credit, everused 4: bond debit, everusd
+        /// \[sender,bond,credit,debit\]
         BondBankrupted(AccountId, BondId, EverUSDBalance, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: withdrawal everused
+        /// \[sender,bond,everusd\]
         BondWithdrawEverUSD(AccountId, BondId, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: deposited everused
+        /// \[issuer,bond,everusd\]
         BondDepositEverUSD(AccountId, BondId, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: bond units, 4: paid everusd
+        /// \[bondholder,bond,units,everusd\]
         BondUnitSold(AccountId, BondId, u32, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: bond units, 4: everusd withdrawal
+        /// \[bondholder,bond,units,everusd\]
         BondUnitReturned(AccountId, BondId, u32, EverUSDBalance),
-        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
+        /// \[issuer,bond,period,impact_data\]
         BondImpactReportSent(AccountId, BondId, BondPeriodNumber, u64),
-        // 1: author, 2: bond ticker, 3: bond reset period, 4: impact data
+        /// \[auditor,bond,period,impact_data\]
         BondImpactReportApproved(AccountId, BondId, BondPeriodNumber, u64),
-        // 1: bond ticker, 2: accrued bond yield
+        /// \[bond,everusd\]
         BondCouponYield(BondId, EverUSDBalance),
-        // 1: seller, 2: bond ticker, 3: lot struct
+        /// \[bondholder, bond, lot\]
         BondSaleLotBid(AccountId, BondId, BondUnitSaleLotStructOf),
-        // 1: buyer, 2: seller, 3: bond ticker, 4: lot struct
+        /// \[from, to, bond, lot\]
         BondSaleLotSettle(AccountId, AccountId, BondId, BondUnitSaleLotStructOf),
     }
 );
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        NoneValue,
-
+        /// Potentially dangerous action
         InvalidAction,
 
         /// Account tried to use more EverUSD  than was available on the balance
@@ -460,7 +450,7 @@ decl_module! {
             })?;
 
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestConfirmed(who, amount_to_add));
+            Self::deposit_event(RawEvent::MintRequestConfirmed(caller, who, amount_to_add));
             Self::purge_expired_mint_requests(now);
             Ok(())
         }
@@ -478,7 +468,7 @@ decl_module! {
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let amount = MintRequestEverUSD::<T>::get(&who).amount;
             MintRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::MintRequestDeclined(caller, amount));
+            Self::deposit_event(RawEvent::MintRequestDeclined(caller, who, amount));
             Ok(())
         }
 
@@ -555,7 +545,7 @@ decl_module! {
             });
 
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestConfirmed(who, amount_to_sub));
+            Self::deposit_event(RawEvent::BurnRequestConfirmed(caller, who, amount_to_sub));
             Self::purge_expired_burn_requests(now);
             Ok(())
         }
@@ -573,7 +563,7 @@ decl_module! {
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let amount = BurnRequestEverUSD::<T>::get(&who).amount;
             BurnRequestEverUSD::<T>::remove(&who);
-            Self::deposit_event(RawEvent::BurnRequestDeclined(caller, amount));
+            Self::deposit_event(RawEvent::BurnRequestDeclined(caller, who, amount));
             Ok(())
         }
 
