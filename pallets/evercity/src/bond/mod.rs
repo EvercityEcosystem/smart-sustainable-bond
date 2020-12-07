@@ -493,3 +493,8 @@ pub(crate) fn transfer_bond_units<T: crate::Trait>(
     from_packages.shrink_to_fit();
     Ok(())
 }
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+pub trait OnAddBond<AccountId, Moment, Hash> {
+    fn on_add_bond(bondid: &BondId, bond: &mut BondStruct<AccountId, Moment, Hash>);
+}

@@ -282,6 +282,9 @@ impl pallet_evercity::Trait for Runtime {
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
     type TimeStep = TimeStep;
+    type WeightInfo = ();
+    type OnAddAccount = ();
+    type OnAddBond = ();
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

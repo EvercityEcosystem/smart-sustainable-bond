@@ -71,6 +71,9 @@ impl Trait for TestRuntime {
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
     type TimeStep = TimeStep;
+    type WeightInfo = ();
+    type OnAddAccount = ();
+    type OnAddBond = ();
 }
 
 parameter_types! {

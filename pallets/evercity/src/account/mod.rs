@@ -75,3 +75,8 @@ impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<M
 
 pub type TokenBurnRequestStructOf<T> =
     TokenBurnRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+pub trait OnAddAccount<AccountId, Moment> {
+    fn on_add_account(account: &AccountId, data: &EvercityAccountStructT<Moment>);
+}
