@@ -3504,6 +3504,7 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
+ "impl-trait-for-tuples",
  "pallet-aura",
  "pallet-balances",
  "pallet-timestamp",
