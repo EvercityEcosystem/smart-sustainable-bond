@@ -338,7 +338,7 @@ pub type Executive = frame_executive::Executive<
 >;
 
 impl_runtime_apis! {
-    impl pallet_evercity::BondApi<Block> for Runtime{
+    impl pallet_evercity::runtime_api::BondApi<Block> for Runtime{
         fn get_impact_reports(bond: pallet_evercity::BondId)->Vec<pallet_evercity::PeriodDataStruct>{
             Evercity::get_impact_reports(bond)
         }
