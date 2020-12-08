@@ -8,7 +8,7 @@ use frame_support::{
     dispatch::Vec,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    sp_std::cmp::{min,Eq, PartialEq},
+    sp_std::cmp::{min, Eq, PartialEq},
     sp_std::result::Result,
     traits::Get,
 };

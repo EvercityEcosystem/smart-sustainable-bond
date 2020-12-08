@@ -7,7 +7,7 @@ use frame_support::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
-    sp_std::cmp::{min,Eq, PartialEq},
+    sp_std::cmp::{min, Eq, PartialEq},
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
