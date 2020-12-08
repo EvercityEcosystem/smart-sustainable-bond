@@ -482,6 +482,51 @@ fn it_token_burn_hasty() {
         ));
     })
 }
+// fuse
+
+#[test]
+fn fuse_is_blone() {
+    new_test_ext().execute_with(|| {
+        let fuse = Evercity::fuse();
+        assert_eq!(fuse, true);
+
+        assert_noop!(
+            Evercity::set_master(Origin::signed(2),),
+            RuntimeError::InvalidAction
+        );
+    })
+}
+
+#[test]
+fn fuse_is_intact_on_bare_storage() {
+    let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
+        .build_storage::<TestRuntime>()
+        .unwrap()
+        .into();
+
+    ext.execute_with(|| {
+        assert_eq!(Evercity::fuse(), false);
+
+        assert_noop!(
+            Evercity::account_add_with_role_and_data(Origin::signed(1), 101, MASTER_ROLE_MASK, 0),
+            RuntimeError::AccountNotAuthorized
+        );
+        assert_ok!(Evercity::set_master(Origin::signed(1),));
+        // make amend
+        assert_ok!(Evercity::account_add_with_role_and_data(
+            Origin::signed(1),
+            101,
+            MASTER_ROLE_MASK,
+            0
+        ));
+
+        assert_eq!(Evercity::fuse(), true);
+        assert_noop!(
+            Evercity::set_master(Origin::signed(2),),
+            RuntimeError::InvalidAction
+        );
+    });
+}
 // bonds
 
 fn create_bond_unit_package(amount: Vec<BondUnitAmount>) -> Vec<BondUnitPackage> {

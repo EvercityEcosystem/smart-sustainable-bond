@@ -21,14 +21,13 @@ pub use default_weight::WeightInfo;
 
 use core::cmp::{Eq, PartialEq};
 use frame_support::{
-    debug, decl_error, decl_event, decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
     sp_std::cmp::min,
     sp_std::result::Result,
     traits::Get,
-    weights::Weight,
 };
 
 use frame_system::ensure_signed;
@@ -83,11 +82,14 @@ macro_rules! ensure_active {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Evercity {
+        Fuse get(fn fuse)
+            build(|config| !config.genesis_account_registry.is_empty()):
+            bool;
         /// Storage map for accounts, their roles and corresponding info
         AccountRegistry
             get(fn account_registry)
             config(genesis_account_registry):
-            map hasher(blake2_128_concat) T::AccountId => EvercityAccountStructOf<T>; //roles, identities, balances
+            map hasher(blake2_128_concat) T::AccountId => EvercityAccountStructOf<T>;
 
         /// Total supply of EverUSD token. Sum of all token balances in system
         TotalSupplyEverUSD
@@ -302,12 +304,25 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        fn on_initialize() -> Weight {
-            let now = <pallet_timestamp::Module<T>>::get();
-            debug::info!("on_initialize: when={:?}", now);
-            <T as Trait>::WeightInfo::on_finalize()
-        }
+        // fn on_initialize() -> Weight {
+        //     <T as Trait>::WeightInfo::on_finalize()
+        // }
+
         // Account management functions
+
+        #[weight = 0]
+        fn set_master(origin) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            Fuse::try_mutate(|fuse|->DispatchResult{
+                if *fuse {
+                    Err( Error::<T>::InvalidAction.into() )
+                }else{
+                    Self::account_add(&caller, EvercityAccountStructT { roles: MASTER_ROLE_MASK, identity:0, create_time: 0.into() });
+                    *fuse = true;
+                    Ok(())
+                }
+            })
+        }
 
         /// Method: account_disable(who: AccountId)
         /// Arguments: origin: AccountId - transaction caller
@@ -349,12 +364,7 @@ decl_module! {
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            let now = <pallet_timestamp::Module<T>>::get();
-            let account = EvercityAccountStructT { roles: role, identity, create_time: now };
-            AccountRegistry::<T>::insert(&who,
-                &account
-            );
-            T::OnAddAccount::on_add_account(&who, &account );
+            Self::account_add( &who, EvercityAccountStructT { roles: role, identity, create_time: 0.into() } );
 
             Self::deposit_event(RawEvent::AccountAdd(caller, who, role, identity));
             Ok(())
@@ -1339,6 +1349,12 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    fn account_add(account: &T::AccountId, mut data: EvercityAccountStructOf<T>) {
+        data.create_time = <pallet_timestamp::Module<T>>::get();
+        AccountRegistry::<T>::insert(account, &data);
+        T::OnAddAccount::on_add_account(account, &data);
+    }
+
     /// Method: account_is_master(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
