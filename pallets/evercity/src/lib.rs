@@ -3,14 +3,12 @@
 #![allow(clippy::too_many_arguments)]
 #![recursion_limit = "256"]
 
-use core::cmp::{Eq, PartialEq};
-
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    sp_std::cmp::min,
+    sp_std::cmp::{min,Eq, PartialEq},
     sp_std::result::Result,
     traits::Get,
 };
@@ -22,16 +20,16 @@ use account::{
     TokenMintRequestStructOf, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK,
     INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK, MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
-pub use bond::{
-    period::{PeriodDataStruct, PeriodYield},
-    BondId, BondImpactReportStruct, BondPeriod, BondStruct, BondStructOf, BondUnitPackage,
-    DEFAULT_DAY_DURATION,
-};
 use bond::{
     transfer_bond_units, AccountYield, BondInnerStructOf, BondPeriodNumber, BondState,
     BondUnitAmount, BondUnitSaleLotStructOf, OnAddBond,
 };
+pub use bond::{
+    BondId, BondImpactReportStruct, BondPeriod, BondStruct, BondStructOf, BondUnitPackage,
+    DEFAULT_DAY_DURATION,
+};
 pub use default_weight::WeightInfo;
+pub use period::{PeriodDataStruct, PeriodYield};
 
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -66,7 +64,10 @@ pub mod account;
 pub mod bond;
 mod default_weight;
 #[cfg(test)]
+pub mod ledger;
+#[cfg(test)]
 mod mock;
+pub mod period;
 pub mod runtime_api;
 #[cfg(test)]
 mod tests;
@@ -1861,13 +1862,13 @@ impl<T: Trait> Module<T> {
     }
 
     #[cfg(test)]
-    fn evercity_balance() -> bond::ledger::EvercityBalance {
+    fn evercity_balance() -> ledger::EvercityBalance {
         let account: EverUSDBalance = BalanceEverUSD::<T>::iter_values().sum();
         let bond_fund: EverUSDBalance = BondRegistry::<T>::iter_values()
             .map(|bond| bond.bond_debit - bond.coupon_yield)
             .sum();
 
-        bond::ledger::EvercityBalance {
+        ledger::EvercityBalance {
             supply: TotalSupplyEverUSD::get(),
             account,
             bond_fund,

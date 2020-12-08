@@ -1,6 +1,5 @@
-#[cfg(feature = "std")]
-use core::cmp::{Eq, PartialEq};
-
+use crate::period::{PeriodDescr, PeriodIterator};
+use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 use frame_support::{
     codec::{Decode, Encode},
     dispatch::{DispatchResult, Vec},
@@ -8,18 +7,10 @@ use frame_support::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
-    sp_std::cmp::min,
+    sp_std::cmp::{min,Eq, PartialEq},
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-
-use period::{PeriodDescr, PeriodIterator};
-
-use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
-
-#[cfg(test)]
-pub mod ledger;
-pub mod period;
 
 // seconds in 1 DAY
 pub const DEFAULT_DAY_DURATION: u32 = 86400;
