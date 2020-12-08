@@ -2,6 +2,20 @@
 #![allow(clippy::unnecessary_mut_passed)]
 #![allow(clippy::too_many_arguments)]
 #![recursion_limit = "256"]
+
+use core::cmp::{Eq, PartialEq};
+
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::Vec,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    ensure,
+    sp_std::cmp::min,
+    sp_std::result::Result,
+    traits::Get,
+};
+use frame_system::ensure_signed;
+
 use account::{
     is_roles_correct, EvercityAccountStructOf, EvercityAccountStructT, OnAddAccount,
     TokenBurnRequestStruct, TokenBurnRequestStructOf, TokenMintRequestStruct,
@@ -19,19 +33,6 @@ use bond::{
 };
 pub use default_weight::WeightInfo;
 
-use core::cmp::{Eq, PartialEq};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::Vec,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
-    ensure,
-    sp_std::cmp::min,
-    sp_std::result::Result,
-    traits::Get,
-};
-
-use frame_system::ensure_signed;
-
 pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
     type BurnRequestTtl: Get<u32>;
@@ -47,6 +48,7 @@ pub trait Expired<Moment> {
     fn is_expired(&self, now: Moment) -> bool;
 }
 pub type EverUSDBalance = u64;
+type Timestamp<T> = pallet_timestamp::Module<T>;
 
 /// EverUSD = USD * ( 10 ^ EVERUSD_DECIMALS )
 pub const EVERUSD_DECIMALS: u64 = 9;
@@ -149,7 +151,7 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
-        BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>, // Moment = <T as pallet_timestamp::Trait>::Moment,
+        BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>,
     {
         /// \[master, account, role, data\]
         AccountAdd(AccountId, AccountId, u8, u64),
@@ -412,7 +414,7 @@ decl_module! {
             ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
 
             MintRequestEverUSD::<T>::try_mutate(&caller, |request|->DispatchResult{
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 if !request.is_expired(now) {
                     Err( Error::<T>::MintRequestAlreadyExist.into() )
                 }else{
@@ -457,7 +459,7 @@ decl_module! {
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
             let mint_request = MintRequestEverUSD::<T>::get(&who);
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             ensure!(!mint_request.is_expired(now), Error::<T>::MintRequestObsolete);
 
             // add tokens to user's balance and total supply of EverUSD
@@ -512,7 +514,7 @@ decl_module! {
             ensure!(amount_to_burn <= current_balance, Error::<T>::BalanceOverdraft);
 
             BurnRequestEverUSD::<T>::try_mutate(&caller,|request|->DispatchResult{
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 if !request.is_expired( now ) {
                     Err( Error::<T>::BurnRequestAlreadyExist.into() )
                 }else{
@@ -554,7 +556,7 @@ decl_module! {
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
             let burn_request = BurnRequestEverUSD::<T>::get(&who);
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             ensure!(!burn_request.is_expired(now), Error::<T>::BurnRequestObsolete);
             // remove tokens from user's balance and decrease total supply of EverUSD
             let amount_to_sub = burn_request.amount;
@@ -608,7 +610,7 @@ decl_module! {
             ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
 
             let mut item = BondStruct{
                     inner: body,
@@ -755,7 +757,7 @@ decl_module! {
                 ensure!(item.state == BondState::PREPARE, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.inner.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect);
 
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 // Ensure booking deadline is in the future
                 ensure!(item.inner.mincap_deadline>now, Error::<T>::BondStateNotPermitAction);
 
@@ -801,7 +803,7 @@ decl_module! {
 
                 Self::balance_sub(&caller, package_value)?;
 
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
 
                 // get the number of seconds after bond activation.
                 // zero value if the bond has not activated yet
@@ -847,7 +849,7 @@ decl_module! {
 
                 // Activate the Bond if it raised more than minimum
                 // if item.state == BondState::BOOKING && item.issued_amount >= item.inner.bond_units_mincap_amount {
-                //     let now = <pallet_timestamp::Module<T>>::get();
+                //     let now = Timestamp::<T>::get();
                 //     item.active_start_date = now;
                 //     item.state = BondState::ACTIVE;
                 //     item.timestamp = now;
@@ -919,7 +921,7 @@ decl_module! {
                     item.issuer == caller || item.manager == caller || Self::account_is_master(&caller) ,
                     Error::<T>::BondAccessDenied
                 );
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 // Ensure booking deadline is in the future
                 ensure!(item.inner.mincap_deadline <= now, Error::<T>::BondStateNotPermitAction);
 
@@ -973,7 +975,7 @@ decl_module! {
                 // auditor should be assigned before
                 ensure!(item.auditor != Default::default(), Error::<T>::BondIsNotConfigured);
 
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 item.state = BondState::ACTIVE;
                 item.nonce += 1;
                 item.active_start_date = now;
@@ -1013,7 +1015,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::bond_impact_report_send()]
         fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             let moment = {
                 let item = BondRegistry::<T>::get(bond);
                 ensure!(item.issuer == caller || item.impact_reporter == caller, Error::<T>::BondAccessDenied );
@@ -1047,7 +1049,7 @@ decl_module! {
         fn bond_impact_report_approve(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_auditor(&caller), Error::<T>::AccountNotAuthorized);
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             {
                 let item = BondRegistry::<T>::get(bond);
                 ensure!(item.auditor == caller, Error::<T>::BondAccessDenied );
@@ -1081,7 +1083,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::bond_redeem()]
         fn bond_redeem(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             Self::with_bond(&bond, |mut item|{
                 ensure!( matches!(item.state, BondState::ACTIVE|BondState::BANKRUPT), Error::<T>::BondStateNotPermitAction );
 
@@ -1126,7 +1128,7 @@ decl_module! {
             Self::with_bond(&bond, |mut item|{
                 ensure!(item.state == BondState::ACTIVE, Error::<T>::BondStateNotPermitAction);
                 ensure!(item.get_debt() > 0, Error::<T>::BondParamIncorrect );
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 ensure!( !Self::is_interest_pay_period(&item, now),Error::<T>::BondOutOfOrder );
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
 
@@ -1148,7 +1150,7 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             Self::with_bond(&bond, |mut item|->DispatchResultWithPostInfo {
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 let processed: u64 = Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now) as u64;
                 Ok(Some( T::DbWeight::get().reads_writes(processed+2, processed+1) ).into())
             })
@@ -1192,7 +1194,7 @@ decl_module! {
             Self::with_bond(&bond, |mut item|{
                 ensure!( matches!(item.state , BondState::ACTIVE | BondState::BANKRUPT | BondState::FINISHED), Error::<T>::BondStateNotPermitAction);
 
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
 
                 let amount: EverUSDBalance = if item.issuer == caller {
@@ -1246,7 +1248,7 @@ decl_module! {
 
                 item.bond_debit = item.bond_debit.checked_add(amount)
                     .ok_or( Error::<T>::BondParamIncorrect )?;
-                let now = <pallet_timestamp::Module<T>>::get();
+                let now = Timestamp::<T>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
                 Self::deposit_event(RawEvent::BondDepositEverUSD(caller, bond, amount));
                 Ok(())
@@ -1263,7 +1265,7 @@ decl_module! {
         #[weight = <T as Trait>::WeightInfo::bond_unit_lot_bid()]
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             ensure!(!lot.is_expired(now), Error::<T>::LotParamIncorrect);
 
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
@@ -1304,7 +1306,7 @@ decl_module! {
         fn bond_unit_lot_settle(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
-            let now = <pallet_timestamp::Module<T>>::get();
+            let now = Timestamp::<T>::get();
             // prevent expired lots sales
             ensure!(!lot.is_expired( now ), Error::<T>::LotObsolete);
 
@@ -1350,7 +1352,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn account_add(account: &T::AccountId, mut data: EvercityAccountStructOf<T>) {
-        data.create_time = <pallet_timestamp::Module<T>>::get();
+        data.create_time = Timestamp::<T>::get();
         AccountRegistry::<T>::insert(account, &data);
         T::OnAddAccount::on_add_account(account, &data);
     }

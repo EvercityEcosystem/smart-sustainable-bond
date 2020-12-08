@@ -1,13 +1,14 @@
+use frame_support::{
+    assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
+    StorageHasher,
+};
+
 use crate::bond::transfer_bond_units;
 use crate::mock::*;
 use crate::{
     BondId, BondImpactReportStruct, BondInnerStructOf, BondPeriodNumber, BondState, BondStructOf,
     BondUnitAmount, BondUnitPackage, BondUnitSaleLotStructOf, Error, EverUSDBalance, Module,
     AUDITOR_ROLE_MASK, DEFAULT_DAY_DURATION, ISSUER_ROLE_MASK, MASTER_ROLE_MASK,
-};
-use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
-    StorageHasher,
 };
 
 type Evercity = Module<TestRuntime>;
@@ -113,7 +114,7 @@ fn it_adds_new_account_with_correct_roles() {
 #[test]
 fn it_correctly_sets_new_role_to_existing_account() {
     new_test_ext().execute_with(|| {
-        // add new role to existing account (alowed only for master)
+        // add new role to existing account (allowed only for master)
         assert_eq!(Evercity::account_is_issuer(&3), true);
         assert_ok!(Evercity::account_set_with_role_and_data(
             Origin::signed(1),

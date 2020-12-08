@@ -1,14 +1,15 @@
-use crate::account::*;
-use crate::{
-    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
-    DEFAULT_DAY_DURATION,
-};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
+};
+
+use crate::account::*;
+use crate::{
+    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
+    DEFAULT_DAY_DURATION,
 };
 
 impl_outer_origin! {
