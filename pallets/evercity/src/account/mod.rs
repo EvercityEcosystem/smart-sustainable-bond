@@ -1,10 +1,12 @@
-use crate::{EverUSDBalance, Expired};
 use frame_support::{
     codec::{Decode, Encode},
     sp_runtime::RuntimeDebug,
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+
+use crate::{EverUSDBalance, Expired};
+
 pub const MASTER_ROLE_MASK: u8 = 1u8;
 pub const CUSTODIAN_ROLE_MASK: u8 = 2u8;
 pub const ISSUER_ROLE_MASK: u8 = 4u8;

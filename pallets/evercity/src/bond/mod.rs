@@ -1,6 +1,6 @@
-use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 #[cfg(feature = "std")]
 use core::cmp::{Eq, PartialEq};
+
 use frame_support::{
     codec::{Decode, Encode},
     dispatch::{DispatchResult, Vec},
@@ -10,9 +10,12 @@ use frame_support::{
     },
     sp_std::cmp::min,
 };
-use period::{PeriodDescr, PeriodIterator};
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
+
+use period::{PeriodDescr, PeriodIterator};
+
+use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 
 #[cfg(test)]
 pub mod ledger;
