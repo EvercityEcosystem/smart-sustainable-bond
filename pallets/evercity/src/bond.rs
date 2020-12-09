@@ -114,7 +114,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub impact_data_type: BondImpactType,
     /// Base value Now, all types has same interest_rate calculation logic
     /// greater the value -> lower the interest_rate and vice-versa
-    pub impact_data_baseline: u64,
+    pub impact_data_baseline: Vec<u64>,
 
     // Coupon interest regulatory options
     /// Cap of impact_data value (absolute value). Values more then cap
@@ -216,18 +216,19 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
             && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
             && is_period_muliple_of_time_step(self.interest_pay_period, time_step)
-            && (self.start_period == 0 || self.start_period >= self.payment_period)
+            && self.start_period >= self.payment_period
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
             && self
                 .bond_units_base_price
                 .saturating_mul(self.bond_units_maxcap_amount as EverUSDBalance)
                 < EverUSDBalance::MAX
-            && self.interest_rate_base_value >= self.interest_rate_margin_floor
-            && self.interest_rate_base_value <= self.interest_rate_margin_cap
-            && self.impact_data_baseline <= self.impact_data_max_deviation_cap
-            && self.impact_data_baseline >= self.impact_data_max_deviation_floor
             && self.bond_duration >= MIN_BOND_DURATION
+            && self.impact_data_baseline.len() == self.bond_duration as usize
+            && self.impact_data_baseline.iter().all(|&bl| {
+                bl <= self.impact_data_max_deviation_cap
+                    && bl >= self.impact_data_max_deviation_floor
+            })
     }
 }
 
@@ -331,27 +332,32 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
 
     /// Calculate coupon effective interest rate using impact_data
     /// This method moves interest_rate up and down when good or bad impact_data
-    /// is sent to bond
-    pub fn calc_effective_interest_rate(&self, impact_data: u64) -> BondInterest {
+    /// is sent to bond.
+    /// impact_data_baseline - impact base value for the current period
+    pub fn calc_effective_interest_rate(
+        &self,
+        impact_data_baseline: u64,
+        impact_data: u64,
+    ) -> BondInterest {
         let inner = &self.inner;
 
         if impact_data >= inner.impact_data_max_deviation_cap {
             inner.interest_rate_margin_floor
         } else if impact_data <= inner.impact_data_max_deviation_floor {
             inner.interest_rate_margin_cap
-        } else if impact_data == inner.impact_data_baseline {
+        } else if impact_data == impact_data_baseline {
             inner.interest_rate_base_value
-        } else if impact_data > inner.impact_data_baseline {
+        } else if impact_data > impact_data_baseline {
             inner.interest_rate_base_value
-                - ((impact_data - inner.impact_data_baseline) as u128
+                - ((impact_data - impact_data_baseline) as u128
                     * (inner.interest_rate_base_value - inner.interest_rate_margin_floor) as u128
-                    / (inner.impact_data_max_deviation_cap - inner.impact_data_baseline) as u128)
+                    / (inner.impact_data_max_deviation_cap - impact_data_baseline) as u128)
                     as BondInterest
         } else {
             inner.interest_rate_base_value
-                + ((inner.impact_data_baseline - impact_data) as u128
+                + ((impact_data_baseline - impact_data) as u128
                     * (inner.interest_rate_margin_cap - inner.interest_rate_base_value) as u128
-                    / (inner.impact_data_baseline - inner.impact_data_max_deviation_floor) as u128)
+                    / (impact_data_baseline - inner.impact_data_max_deviation_floor) as u128)
                     as BondInterest
         }
     }
@@ -378,15 +384,12 @@ impl<AccountId, Moment: UniqueSaturatedInto<u64> + AtLeast32Bit + Copy, Hash>
             if moment < self.inner.start_period {
                 Some((moment, 0))
             } else {
-                let has_start_period: BondPeriodNumber =
-                    if self.inner.start_period > 0 { 1 } else { 0 };
                 let period = min(
                     ((moment - self.inner.start_period) / self.inner.payment_period)
                         as BondPeriodNumber,
                     self.inner.bond_duration,
                 );
-
-                Some((moment, period + has_start_period))
+                Some((moment, period + 1))
             }
         }
     }
@@ -416,11 +419,21 @@ pub struct BondUnitPackage {
 /// more complicated for other types of impact_data and processing logic.
 /// Field "signed" is set to true by Auditor, when impact_data is verified.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug)]
 pub struct BondImpactReportStruct {
     pub create_period: BondPeriod,
     pub impact_data: u64,
     pub signed: bool,
+}
+
+impl Default for BondImpactReportStruct {
+    fn default() -> Self {
+        BondImpactReportStruct {
+            create_period: 0,
+            impact_data: 0,
+            signed: false,
+        }
+    }
 }
 
 /// Struct, representing pack of bond units for sale

@@ -55,7 +55,7 @@ const INTEREST_RATE_YEAR: u64 = 365;
 /// Gas limit settings for purge mint/burn requests
 const MAX_PURGE_REQUESTS: usize = 100;
 ///  Bond must have as least this amount of periods
-const MIN_BOND_DURATION: u32 = 1;
+const MIN_BOND_DURATION: BondPeriodNumber = 1;
 
 /// Evercity project types
 /// All these types must be put in CUSTOM_TYPES part of config for polkadot.js
@@ -986,13 +986,10 @@ decl_module! {
                 item.bond_credit = 0 ;
 
                 // create impact report struct.
-                // the total number or reports is equal to the number of periods plus 1 (start period)
+                // the total number or reports is equal to the number of periods.
+                // start period coupon interest isn't calculated using impact data
                 let mut reports: Vec<BondImpactReportStruct> = Vec::new();
-                reports.resize( ( item.inner.bond_duration + 1 ) as usize,  BondImpactReportStruct{
-                    create_period: 0,
-                    impact_data: 0,
-                    signed: false,
-                });
+                reports.resize( item.inner.bond_duration  as usize, Default::default() );
 
                 BondImpactReport::insert(&bond, &reports);
 
@@ -1491,8 +1488,6 @@ impl<T: Trait> Module<T> {
         );
 
         BondRegistry::<T>::try_mutate(bond, |mut item| f(&mut item))
-        //BondRegistry::<T>::insert(bond, item);
-        //Ok(())
     }
 
     /// Increase account balance by `amount` EverUSD
@@ -1575,6 +1570,7 @@ impl<T: Trait> Module<T> {
         let (_, period) = ensure_active!(bond.time_passed_after_activation(now), false);
         // here is current pay period
         let period = period as usize;
+        // @TODO refactor. use `mutate` method instead  of get+insert
         let mut bond_yields = BondCouponYield::get(id);
         // get last accrued coupon yield
         let mut total_yield = bond_yields
@@ -1589,18 +1585,25 @@ impl<T: Trait> Module<T> {
             return 0;
         }
         let time_step = T::TimeStep::get();
-        // @TODO refactor. use `mutate` method instead  of get+insert
+
         let reports = BondImpactReport::get(id);
         assert!(reports.len() + 1 >= period);
+
         let mut processed: usize = 0;
         while bond_yields.len() < period {
             // index - accrued period number
             let index = bond_yields.len();
             let interest_rate = if index == 0 {
+                // start period interest rate value
                 bond.inner.interest_rate_start_period_value
             } else if reports[index - 1].signed {
-                bond.calc_effective_interest_rate(reports[index - 1].impact_data)
+                // calc interested rate using impact data
+                bond.calc_effective_interest_rate(
+                    bond.inner.impact_data_baseline[index - 1],
+                    reports[index - 1].impact_data,
+                )
             } else {
+                //
                 min(
                     bond_yields[index - 1].interest_rate
                         + bond.inner.interest_rate_penalty_for_missed_report,
@@ -1793,7 +1796,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Returns effective coupon interest rate for `period`
-    /// common complexity O(1), O(N) in worst case then no reports was released
+    /// common complexity O(1), O(N) in worst case then no reports were sent
     #[cfg(test)]
     pub fn calc_bond_interest_rate(
         bond: &BondStructOf<T>,
@@ -1804,9 +1807,14 @@ impl<T: Trait> Module<T> {
 
         let mut missed_periods = 0;
         let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
-        for report in reports[0..period].iter().rev() {
+
+        for (report, baseline) in reports[0..period]
+            .iter()
+            .zip(bond.inner.impact_data_baseline[0..period].iter())
+            .rev()
+        {
             if report.signed {
-                interest = bond.calc_effective_interest_rate(report.impact_data);
+                interest = bond.calc_effective_interest_rate(*baseline, report.impact_data);
                 break;
             }
             missed_periods += 1;

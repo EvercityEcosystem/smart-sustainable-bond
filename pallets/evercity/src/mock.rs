@@ -7,6 +7,7 @@ use sp_runtime::{
 };
 
 use crate::account::*;
+use crate::bond::BondPeriodNumber;
 use crate::{
     BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
     DEFAULT_DAY_DURATION,
@@ -156,6 +157,7 @@ type BondInnerStruct = BondInnerStructOf<TestRuntime>;
 type BondStruct = BondStructOf<TestRuntime>;
 
 pub fn get_test_bond() -> BondStruct {
+    const PERIODS: usize = 12;
     BondStruct {
         inner: BondInnerStruct {
             docs_pack_root_hash_main: Default::default(),
@@ -164,7 +166,7 @@ pub fn get_test_bond() -> BondStruct {
             docs_pack_root_hash_tech: Default::default(),
 
             impact_data_type: Default::default(),
-            impact_data_baseline: 20000_u64,
+            impact_data_baseline: vec![20000_u64; PERIODS],
             impact_data_max_deviation_cap: 30000_u64,
             impact_data_max_deviation_floor: 14000_u64,
             interest_rate_penalty_for_missed_report: 400, // +0.4%
@@ -178,7 +180,7 @@ pub fn get_test_bond() -> BondStruct {
             interest_pay_period: 7 * DEFAULT_DAY_DURATION, // up to 7 days after  new period started
             mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
             impact_data_send_period: 10 * DEFAULT_DAY_DURATION, // 10 days before next period
-            bond_duration: 12,                                  // 12 periods for 30 days
+            bond_duration: PERIODS as BondPeriodNumber,         // PERIODS periods for 30 days
             bond_finishing_period: 14 * DEFAULT_DAY_DURATION,   // 14 days after mature date
 
             bond_units_mincap_amount: 1000,

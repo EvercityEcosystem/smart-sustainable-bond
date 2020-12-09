@@ -48,7 +48,7 @@ sp-session = { default-features = false, version = '2.0.0' }
 sp-std = { default-features = false, version = '2.0.0' }
 sp-transaction-pool = { default-features = false, version = '2.0.0' }
 sp-version = { default-features = false, version = '2.0.0' }
-pallet-evercity = { default-features = false, version = '0.0.1', path = '../pallets/evercity' }
+pallet-evercity = { default-features = false, version = '0.0.2', path = '../pallets/evercity' }
 
 [features]
 default = ['std']
