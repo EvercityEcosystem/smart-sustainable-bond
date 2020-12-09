@@ -24,6 +24,8 @@ pub struct PeriodDescr {
 }
 
 impl PeriodDescr {
+    /// Returns bond usage time for the period.
+    /// moment is a time when bond was bought.
     pub fn duration(&self, moment: BondPeriod) -> BondPeriod {
         if moment <= self.start_period {
             self.payment_period - self.start_period
@@ -80,16 +82,12 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
 
     fn next(&mut self) -> Option<Self::Item> {
         let inner = &self.bond.inner;
-        let index = if inner.start_period > 0 {
-            self.index
-        } else {
-            self.index + 1
-        };
+        let index = self.index as BondPeriodNumber;
         self.index += 1;
-        let payment_period = inner.start_period + index * inner.payment_period;
+        let payment_period: BondPeriod =
+            inner.start_period + inner.payment_period.saturating_mul(index);
         match (inner.bond_duration + 1).cmp(&index) {
             Ordering::Greater => {
-                // last pay period is special and lasts bond_finishing_period seconds
                 let start_period = if index == 0 {
                     0
                 } else {
@@ -108,6 +106,7 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
                 payment_period,
                 start_period: payment_period - inner.payment_period,
                 impact_data_send_period: payment_period,
+                // last pay period is special and lasts bond_finishing_period seconds
                 interest_pay_period: payment_period + inner.bond_finishing_period,
             }),
         }

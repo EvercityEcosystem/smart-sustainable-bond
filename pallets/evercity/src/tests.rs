@@ -625,34 +625,59 @@ fn bond_check_equation() {
 fn bond_interest_min_max() {
     new_test_ext().execute_with(|| {
         let bond = get_test_bond();
+        let impact_base_value = bond.inner.impact_data_baseline[0];
         // full amplitude
         assert_eq!(
-            bond.calc_effective_interest_rate(bond.inner.impact_data_baseline),
+            bond.calc_effective_interest_rate(impact_base_value, impact_base_value),
             bond.inner.interest_rate_base_value
         );
         assert_eq!(
-            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_cap),
+            bond.calc_effective_interest_rate(
+                impact_base_value,
+                bond.inner.impact_data_max_deviation_cap
+            ),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
-            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_cap + 1),
+            bond.calc_effective_interest_rate(
+                impact_base_value,
+                bond.inner.impact_data_max_deviation_cap + 1
+            ),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
-            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_floor),
+            bond.calc_effective_interest_rate(
+                impact_base_value,
+                bond.inner.impact_data_max_deviation_floor
+            ),
             bond.inner.interest_rate_margin_cap
         );
         assert_eq!(
-            bond.calc_effective_interest_rate(bond.inner.impact_data_max_deviation_floor - 1),
+            bond.calc_effective_interest_rate(
+                impact_base_value,
+                bond.inner.impact_data_max_deviation_floor - 1
+            ),
             bond.inner.interest_rate_margin_cap
         );
 
         // partial amplitude
-        assert_eq!(bond.calc_effective_interest_rate(25000_u64), 1500);
-        assert_eq!(bond.calc_effective_interest_rate(29000_u64), 1100);
+        assert_eq!(
+            bond.calc_effective_interest_rate(impact_base_value, 25000_u64),
+            1500
+        );
+        assert_eq!(
+            bond.calc_effective_interest_rate(impact_base_value, 29000_u64),
+            1100
+        );
 
-        assert_eq!(bond.calc_effective_interest_rate(17000_u64), 3000);
-        assert_eq!(bond.calc_effective_interest_rate(15000_u64), 3666);
+        assert_eq!(
+            bond.calc_effective_interest_rate(impact_base_value, 17000_u64),
+            3000
+        );
+        assert_eq!(
+            bond.calc_effective_interest_rate(impact_base_value, 15000_u64),
+            3666
+        );
     });
 }
 
@@ -661,7 +686,11 @@ fn bond_period_interest_rate() {
     new_test_ext().execute_with(|| {
         let bond = get_test_bond();
 
-        assert_eq!(bond.inner.impact_data_baseline, 20000_u64);
+        assert!(bond
+            .inner
+            .impact_data_baseline
+            .iter()
+            .all(|&v| v == 20000_u64));
 
         let mut reports = Vec::<BondImpactReportStruct>::new();
         //missing report
@@ -1181,7 +1210,7 @@ fn bond_try_update_after_release() {
             RuntimeError::BondStateNotPermitAction
         );
         let mut update = get_test_bond().inner;
-        update.impact_data_baseline += 1;
+        update.impact_data_baseline[0] += 1;
         assert_noop!(
             Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
             RuntimeError::BondStateNotPermitAction
@@ -1495,13 +1524,13 @@ fn bond_calc_coupon_yield_advanced() {
         assert_ok!(Evercity::set_impact_data(
             &bondid1,
             0,
-            chain_bond_item1.inner.impact_data_baseline
+            chain_bond_item1.inner.impact_data_baseline[0]
         ));
         //Evercity::set_impact_data(&bondid1, 1, chain_bond_item1.inner.impact_data_baseline );
         assert_ok!(Evercity::set_impact_data(
             &bondid2,
             0,
-            chain_bond_item2.inner.impact_data_baseline
+            chain_bond_item2.inner.impact_data_baseline[0]
         ));
 
         // request coupon yield
@@ -1603,16 +1632,20 @@ fn bond_calc_redeemed_yield() {
         let chain_bond_item = Evercity::get_bond(&bondid);
         assert_eq!(chain_bond_item.active_start_date, 30000);
         assert_eq!(chain_bond_item.issued_amount, 1200);
-        assert_eq!(chain_bond_item.inner.impact_data_baseline, 20000_u64);
+        assert!(chain_bond_item
+            .inner
+            .impact_data_baseline
+            .iter()
+            .all(|&v| v == 20000_u64));
 
         let num_periods = chain_bond_item.get_periods();
         // all period except start period will have interest rate = interest_rate_base_value
         // for start period interest rate will be  interest_rate_start_period_value
-        for period in 0..num_periods {
+        for period in 0..num_periods - 1 {
             assert_ok!(Evercity::set_impact_data(
                 &bondid,
                 period,
-                chain_bond_item.inner.impact_data_baseline
+                chain_bond_item.inner.impact_data_baseline[period as usize]
             ));
         }
         // go to the last period
@@ -2367,11 +2400,11 @@ fn bond_impact_report_missing_data() {
         bond_activate(bondid1, ACCOUNT1, bond.clone());
         bond_activate(bondid2, ACCOUNT2, bond.clone());
 
-        for period in &[0, 1, 3, 5, 7, 9] {
+        for &period in &[0, 1, 3, 5, 7, 9] {
             assert_ok!(Evercity::set_impact_data(
                 &bondid1,
-                *period,
-                bond.impact_data_baseline
+                period,
+                bond.impact_data_baseline[period as usize]
             ));
         }
         let chain_bond_item = Evercity::get_bond(&bondid1);
@@ -2412,6 +2445,84 @@ fn bond_impact_report_missing_data() {
 }
 
 #[test]
+fn bond_interest_rate_rnd() {
+    use rand::{
+        self,
+        distributions::{Distribution, Uniform},
+    };
+
+    const ACCOUNT: u64 = 3;
+    let bondid: BondId = "BOND1".into();
+
+    new_test_ext().execute_with(|| {
+        let mut rng = rand::thread_rng();
+
+        let mut bond = get_test_bond().inner;
+        let impact_data_range = Uniform::new_inclusive(
+            bond.impact_data_max_deviation_floor,
+            bond.impact_data_max_deviation_cap,
+        );
+        for period in 0..bond.bond_duration as usize {
+            bond.impact_data_baseline[period] = impact_data_range.sample(&mut rng);
+        }
+        let periods: usize = bond.bond_duration as usize;
+        //create bond
+        bond_grand_everusd();
+        bond_activate(bondid, ACCOUNT, bond);
+
+        for period in 0..periods {
+            assert_ok!(Evercity::set_impact_data(
+                &bondid,
+                period as BondPeriodNumber,
+                20000_u64
+            ));
+        }
+        // force impact interesting rate calculation
+        let chain_bond_item = Evercity::get_bond(&bondid);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
+            chain_bond_item.active_start_date
+                + 1000_u64
+                    * (chain_bond_item.inner.start_period
+                        + chain_bond_item.inner.bond_duration
+                            * chain_bond_item.inner.payment_period
+                        + 1) as u64,
+        );
+
+        assert_ok!(add_token(ACCOUNT, 500_000_000_000_000));
+        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT), bondid));
+
+        //
+        let bond_coupon_yields = Evercity::bond_coupon_yield(&bondid);
+        let impact_reports = Evercity::impact_reports(&bondid);
+
+        assert_eq!(bond_coupon_yields.len(), periods + 1);
+        assert_eq!(
+            bond_coupon_yields[0].interest_rate,
+            chain_bond_item.inner.interest_rate_start_period_value
+        );
+        for period in 0..periods {
+            let interest_rate = bond_coupon_yields[period + 1].interest_rate;
+            let impact_data = impact_reports[period].impact_data;
+            assert_eq!(impact_data, 20000_u64);
+            // if impact data is less than baseline value then  interest rate is more than base value
+            assert_eq!(
+                impact_data < chain_bond_item.inner.impact_data_baseline[period],
+                interest_rate > chain_bond_item.inner.interest_rate_base_value
+            );
+
+            println!(
+                "{}: impact_data={} <> baseline={}, base interest rate={} <> interest rate={}",
+                period,
+                impact_data,
+                chain_bond_item.inner.impact_data_baseline[period],
+                chain_bond_item.inner.interest_rate_base_value,
+                interest_rate
+            )
+        }
+    });
+}
+
+#[test]
 fn bond_impact_report_interest_rate() {
     const ACCOUNT1: u64 = 3;
     let bondid: BondId = "BOND1".into();
@@ -2422,7 +2533,7 @@ fn bond_impact_report_interest_rate() {
         bond_activate(bondid, ACCOUNT1, bond.clone());
 
         for (period, impact_data) in [
-            bond.impact_data_baseline,
+            bond.impact_data_baseline[0],
             0,
             60000,
             bond.impact_data_max_deviation_floor,
@@ -2494,13 +2605,13 @@ fn bond_impact_report_send_approve() {
                 Origin::signed(ACCOUNT1),
                 bondid,
                 period,
-                bond.impact_data_baseline
+                bond.impact_data_baseline[period as usize]
             ));
             assert_ok!(Evercity::bond_impact_report_approve(
                 Origin::signed(AUDITOR),
                 bondid,
                 period,
-                bond.impact_data_baseline
+                bond.impact_data_baseline[period as usize]
             ));
         }
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
@@ -2643,7 +2754,7 @@ fn bond_impact_report_outof_order() {
                     Origin::signed(ACCOUNT1),
                     bondid,
                     period,
-                    bond.impact_data_baseline
+                    bond.impact_data_baseline[period as usize]
                 ),
                 RuntimeError::BondOutOfOrder
             );
@@ -2659,7 +2770,7 @@ fn bond_impact_report_outof_order() {
                     Origin::signed(ACCOUNT1),
                     bondid,
                     period,
-                    bond.impact_data_baseline
+                    bond.impact_data_baseline[period as usize]
                 ),
                 RuntimeError::BondOutOfOrder
             );
@@ -2674,14 +2785,14 @@ fn bond_impact_report_outof_order() {
                 Origin::signed(ACCOUNT1),
                 bondid,
                 period,
-                bond.impact_data_baseline
+                bond.impact_data_baseline[period as usize]
             ));
 
             assert_ok!(Evercity::bond_impact_report_approve(
                 Origin::signed(AUDITOR),
                 bondid,
                 period,
-                bond.impact_data_baseline
+                bond.impact_data_baseline[period as usize]
             ));
         }
     });

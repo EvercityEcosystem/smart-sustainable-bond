@@ -3500,7 +3500,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3509,6 +3509,7 @@ dependencies = [
  "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
+ "rand 0.6.5",
  "serde",
  "sp-api",
  "sp-core",

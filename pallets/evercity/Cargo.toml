@@ -7,7 +7,7 @@ license = 'Apache-2.0'
 name = 'pallet-evercity'
 readme = '../README.md'
 repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
-version = '0.0.1'
+version = '0.0.2'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -39,6 +39,7 @@ sp-runtime = { default-features = false, version = '2.0.0' }
 pallet-aura = { default-features = false, version = '2.0.0' }
 pallet-balances = { default-features = false, version = '2.0.0' }
 pallet-timestamp = { default-features = false, version = '2.0.0' }
+rand = { version = '0.6' }
 
 [features]
 default = ['std']
