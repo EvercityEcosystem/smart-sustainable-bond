@@ -34,7 +34,7 @@
     "docs_pack_root_hash_finance": "Hash",
     "docs_pack_root_hash_tech": "Hash",
     "impact_data_type": "BondImpactType",
-    "impact_data_baseline": "u64",
+    "impact_data_baseline": "Vec<u64>",
     "impact_data_max_deviation_cap": "u64",
     "impact_data_max_deviation_floor": "u64",
     "impact_data_send_period": "BondPeriod",
