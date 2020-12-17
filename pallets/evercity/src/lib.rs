@@ -987,8 +987,10 @@ decl_module! {
 
                 // create impact report struct.
                 // the total number or reports is equal to the number of periods.
-                // start period coupon interest isn't calculated using impact data
+                // start period coupon interest isn't calculated using impact data.
                 let mut reports: Vec<BondImpactReportStruct> = Vec::new();
+                // reports length cannot be larger than item.inner.impact_data_baseline
+                // because bond_duration is limited in "is_valid()" function.
                 reports.resize( item.inner.bond_duration  as usize, Default::default() );
 
                 BondImpactReport::insert(&bond, &reports);
