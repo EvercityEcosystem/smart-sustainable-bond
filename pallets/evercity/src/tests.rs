@@ -2389,16 +2389,13 @@ fn bond_cancel_after_release() {
 #[test]
 fn bond_impact_report_missing_data() {
     const ACCOUNT1: u64 = 3;
-    const ACCOUNT2: u64 = 7;
 
     let bondid1: BondId = "BOND1".into();
-    let bondid2: BondId = "BOND2".into();
 
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
         let bond = get_test_bond().inner;
         bond_activate(bondid1, ACCOUNT1, bond.clone());
-        bond_activate(bondid2, ACCOUNT2, bond.clone());
 
         for &period in &[0, 1, 3, 5, 7, 9] {
             assert_ok!(Evercity::set_impact_data(
@@ -2414,10 +2411,8 @@ fn bond_impact_report_missing_data() {
                     * (bond.start_period + bond.bond_duration * bond.payment_period + 1) as u64,
         );
         assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
-        assert_ok!(add_token(ACCOUNT2, 500_000_000_000_000));
-        //force interest rate calculation
+        // force interest rate calculation
         assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT1), bondid1));
-        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT2), bondid2));
 
         let ref_interest_rate1 = vec![
             1900, 2000, 2000, 2400, 2000, 2400, 2000, 2400, 2000, 2400, 2000, 2400, 2800,
@@ -2429,15 +2424,38 @@ fn bond_impact_report_missing_data() {
         {
             assert_eq!(calc_interest_rate, ref_interest_rate);
         }
+    });
+}
 
-        let ref_interest_rate2 = vec![
+#[test]
+fn bond_impact_report_no_data() {
+    const ACCOUNT1: u64 = 3;
+
+    let bondid1: BondId = "BOND1".into();
+
+    new_test_ext().execute_with(|| {
+        bond_grand_everusd();
+        let bond = get_test_bond().inner;
+        bond_activate(bondid1, ACCOUNT1, bond.clone());
+
+        let chain_bond_item = Evercity::get_bond(&bondid1);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
+            chain_bond_item.active_start_date
+                + 1000_u64
+                    * (bond.start_period + bond.bond_duration * bond.payment_period + 1) as u64,
+        );
+        assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
+        // force interest rate calculation
+        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT1), bondid1));
+
+        let ref_interest_rate = vec![
             1900, 2300, 2700, 3100, 3500, 3900, 4000, 4000, 4000, 4000, 4000, 4000, 4000,
         ];
 
-        for (calc_interest_rate, ref_interest_rate) in Evercity::get_coupon_yields(&bondid2)
+        for (calc_interest_rate, ref_interest_rate) in Evercity::get_coupon_yields(&bondid1)
             .iter()
             .map(|coupon| coupon.interest_rate)
-            .zip(ref_interest_rate2)
+            .zip(ref_interest_rate)
         {
             assert_eq!(calc_interest_rate, ref_interest_rate);
         }
