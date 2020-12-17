@@ -38,7 +38,6 @@ sp-io = { default-features = false, version = '2.0.0' }
 sp-runtime = { default-features = false, version = '2.0.0' }
 pallet-aura = { default-features = false, version = '2.0.0' }
 pallet-balances = { default-features = false, version = '2.0.0' }
-pallet-timestamp = { default-features = false, version = '2.0.0' }
 rand = { version = '0.6' }
 
 [features]
@@ -48,6 +47,4 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'pallet-timestamp/std',
-    'pallet-balances/std',
-    'pallet-aura/std',
 ]
