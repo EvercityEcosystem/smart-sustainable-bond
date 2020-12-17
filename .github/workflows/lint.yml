@@ -1,38 +1,57 @@
-name:                   Check style
+name:                   Check substrate@master
 
 on:
-  pull_request:
-  push:
-    branches:
-      - master
-    tags:
-      - v*
-    paths-ignore:
-      - 'README.md'
-      - diagrams
   schedule:             # Weekly build
-    - cron:             '0 0 * * 0'
+    - cron:             '0 0 * * SAT'
 jobs:
-## Check stage
-  check-fmt:
-    name:                          Check RustFmt
-    runs-on:                       ubuntu-latest
+  check-and-test:
+    name:                          Check and test
+    runs-on:                       self-hosted
+    container:
+      image:                       paritytech/ci-linux:production
+      volumes:
+        - /cache:/cache
     env:
-      RUST_BACKTRACE:   full
+      RUST_BACKTRACE:              full
+      CARGO_TARGET_DIR:            /cache/master
+      SCCACHE_REDIS:               redis://172.17.0.1/0
+      SCCACHE_IDLE_TIMEOUT:        0
+      CMAKE_C_COMPILER_LAUNCHER:   sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
     steps:
-      - name:           Cancel Previous Runs
-        uses:           styfle/cancel-workflow-action@0.4.1
+      - name:                      Cancel Previous Runs
+        uses:                      styfle/cancel-workflow-action@0.4.1
         with:
-          access_token: ${{ github.token }}
-      - name:           Checkout sources & submodules
-        uses:           actions/checkout@master
+          access_token:            ${{ github.token }}
+      - name:                      Checkout sources & submodules
+        uses:                      actions/checkout@v2
         with:
-          fetch-depth:  5
-          submodules:   recursive
-      - name:           Add rustfmt
-        run:            rustup component add rustfmt
-      - name:           rust-fmt check
-        uses:           actions-rs/cargo@master
+          ref:                     feature_master_substrate
+          fetch-depth:             1
+          submodules:              false
+      - name:                      Install nightly
+        uses:                      actions-rs/toolchain@v1
         with:
-          command:      fmt
-          args:         --all -- --check
+            target:                wasm32-unknown-unknown
+            components:            rustfmt, clippy
+## Check
+      - name:                      Checking evercity
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --all  --verbose
+      - name:                      Update  substrate
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 update
+      - name:                      Checking substrate
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --all  --verbose
+## Test
+      - name:                      Testing rust
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 test
+          args:                    --all  --verbose
