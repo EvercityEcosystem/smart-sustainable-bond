@@ -9,7 +9,7 @@ use sp_runtime::{
 use crate::account::*;
 use crate::bond::BondPeriodNumber;
 use crate::{
-    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
+    BondInnerStructOf, BondPeriod, BondStructOf, Config, EverUSDBalance, EvercityAccountStructT,
     DEFAULT_DAY_DURATION,
 };
 
@@ -33,8 +33,11 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 0;
 }
 
-impl frame_system::Trait for TestRuntime {
+impl frame_system::Config for TestRuntime {
     type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
     type Origin = Origin;
     type Call = ();
     type Index = u64;
@@ -46,13 +49,6 @@ impl frame_system::Trait for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type PalletInfo = ();
     type AccountData = pallet_balances::AccountData<u64>;
@@ -67,7 +63,7 @@ parameter_types! {
     pub const TimeStep: BondPeriod = DEFAULT_DAY_DURATION;
 }
 
-impl Trait for TestRuntime {
+impl Config for TestRuntime {
     type Event = ();
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
@@ -82,7 +78,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for TestRuntime {
+impl pallet_timestamp::Config for TestRuntime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = ();
@@ -94,7 +90,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for TestRuntime {
+impl pallet_balances::Config for TestRuntime {
     type Balance = u64;
     type Event = ();
     type DustRemoval = ();

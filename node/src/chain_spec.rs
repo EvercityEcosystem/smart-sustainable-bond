@@ -1,17 +1,14 @@
-use evercity_runtime::pallet_evercity::account::{
-    EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK,
-    INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK, MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
-};
 use evercity_runtime::{
-    AccountId, AuraConfig, BalancesConfig, EvercityConfig, GenesisConfig, GrandpaConfig, Signature,
-    SudoConfig, SystemConfig, WASM_BINARY,
+    account::{
+        AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
+        ISSUER_ROLE_MASK, MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
+    },
+    AccountId, AuraConfig, BalancesConfig, GenesisConfig,
+    GrandpaConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
-
-type EvercityAccountStruct = EvercityAccountStructT<u64>;
-
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -58,6 +55,9 @@ pub fn development_config() -> Result<ChainSpec, String> {
                 wasm_binary,
                 // Initial PoA authorities
                 vec![authority_keys_from_seed("Alice")],
+                // Sudo account
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                // Pre-funded accounts
                 vec![
                     (
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -88,8 +88,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
                         IMPACT_REPORTER_ROLE_MASK,
                     ),
                 ],
-                // Sudo account
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                true,
             )
         },
         // Bootnodes
@@ -116,17 +115,21 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
         "local_testnet",
         ChainType::Local,
         move || {
-            let master_account_id: AccountId =
-                Ss58Codec::from_ss58check("5DJBx8EcrJqWqDQDe3xPd7Bw2zL3obvHigdLZKVGDHx7GRwW")
-                    .unwrap();
-
             testnet_genesis(
                 wasm_binary,
-                // @FIXME! setup Master and Custodian
-                vec![authority_keys_from_seed("Evercity//Master")],
-                vec![(master_account_id.clone(), MASTER_ROLE_MASK)],
+                // Initial PoA authorities
+                vec![
+                    authority_keys_from_seed("Alice"),
+                    authority_keys_from_seed("Bob"),
+                ],
                 // Sudo account
-                master_account_id,
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                // Pre-funded accounts
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    MASTER_ROLE_MASK,
+                )],
+                true,
             )
         },
         // Bootnodes
@@ -143,12 +146,12 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 }
 
 /// Configure initial storage state for FRAME modules.
-#[allow(clippy::redundant_clone)]
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
+    root_key: AccountId,
     endowed_accounts: Vec<(AccountId, u8)>,
-    _root_key: AccountId,
+    _enable_println: bool,
 ) -> GenesisConfig {
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -157,9 +160,10 @@ fn testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         pallet_balances: Some(BalancesConfig {
+            // Configure endowed accounts with initial balance of 1 << 60.
             balances: endowed_accounts
                 .iter()
-                .map(|x| (x.0.clone(), 1 << 60))
+                .map(|k| (k.0.clone(), 1 << 60))
                 .collect(),
         }),
         pallet_aura: Some(AuraConfig {
@@ -171,22 +175,24 @@ fn testnet_genesis(
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
         }),
-        pallet_sudo: Some(SudoConfig { key: _root_key }),
-        pallet_evercity: Some(EvercityConfig {
-            // set roles for each pre-set accounts (set role)
-            genesis_account_registry: endowed_accounts
-                .iter()
-                .map(|(acc, role)| {
-                    (
-                        acc.clone(),
-                        EvercityAccountStruct {
-                            roles: *role,
-                            identity: 0,
-                            create_time: 0,
-                        },
-                    )
-                })
-                .collect(),
+        pallet_sudo: Some(SudoConfig {
+            // Assign network admin rights.
+            key: root_key,
         }),
+        // pallet_evercity: Some(EvercityConfig {
+        //     genesis_account_registry: endowed_accounts
+        //         .iter()
+        //         .map(|(acc, role)| {
+        //             (
+        //                 acc.clone(),
+        //                 EvercityAccountStruct {
+        //                     roles: *role,
+        //                     identity: 0,
+        //                     create_time: 0,
+        //                 },
+        //             )
+        //         })
+        //         .collect(),
+        // }),
     }
 }

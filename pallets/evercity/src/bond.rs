@@ -179,7 +179,7 @@ pub struct BondInnerStruct<Moment, Hash> {
 }
 
 pub type BondInnerStructOf<T> =
-    BondInnerStruct<<T as pallet_timestamp::Trait>::Moment, <T as frame_system::Trait>::Hash>;
+    BondInnerStruct<<T as pallet_timestamp::Config>::Moment, <T as frame_system::Config>::Hash>;
 
 #[inline]
 fn is_period_muliple_of_time_step(period: BondPeriod, time_step: BondPeriod) -> bool {
@@ -273,9 +273,9 @@ pub struct BondStruct<AccountId, Moment, Hash> {
 }
 
 pub type BondStructOf<T> = BondStruct<
-    <T as frame_system::Trait>::AccountId,
-    <T as pallet_timestamp::Trait>::Moment,
-    <T as frame_system::Trait>::Hash,
+    <T as frame_system::Config>::AccountId,
+    <T as pallet_timestamp::Config>::Moment,
+    <T as frame_system::Config>::Hash,
 >;
 
 impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
@@ -461,13 +461,13 @@ impl<AccountId, Moment: core::cmp::PartialOrd> Expired<Moment>
 }
 
 pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
-    <T as frame_system::Trait>::AccountId,
-    <T as pallet_timestamp::Trait>::Moment,
+    <T as frame_system::Config>::AccountId,
+    <T as pallet_timestamp::Config>::Moment,
 >;
 
 // @TESTME try to compare sort performance with binaryheap
 // @TODO try to find the package with exact match at fist
-pub(crate) fn transfer_bond_units<T: crate::Trait>(
+pub(crate) fn transfer_bond_units<T: crate::Config>(
     from_packages: &mut Vec<BondUnitPackage>,
     to_packages: &mut Vec<BondUnitPackage>,
     mut lot_bond_units: BondUnitAmount,

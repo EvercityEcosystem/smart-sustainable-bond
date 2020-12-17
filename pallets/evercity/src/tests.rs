@@ -13,11 +13,11 @@ use crate::{
 
 type Evercity = Module<TestRuntime>;
 type Timestamp = pallet_timestamp::Module<TestRuntime>;
-type Moment = <TestRuntime as pallet_timestamp::Trait>::Moment;
+type Moment = <TestRuntime as pallet_timestamp::Config>::Moment;
 type BondInnerStruct = BondInnerStructOf<TestRuntime>;
 type BondStruct = BondStructOf<TestRuntime>;
 type RuntimeError = Error<TestRuntime>;
-type AccountId = <TestRuntime as frame_system::Trait>::AccountId;
+type AccountId = <TestRuntime as frame_system::Config>::AccountId;
 type BondUnitSaleLotStruct = BondUnitSaleLotStructOf<TestRuntime>;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -283,7 +283,7 @@ fn it_token_mint_create_hasty() {
         );
 
         // make amend
-        let ttl: u32 = <TestRuntime as crate::Trait>::MintRequestTtl::get();
+        let ttl: u32 = <TestRuntime as crate::Config>::MintRequestTtl::get();
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(ttl.into());
 
         assert_ok!(Evercity::token_mint_request_create_everusd(
@@ -474,7 +474,7 @@ fn it_token_burn_hasty() {
         );
 
         // make amend
-        let ttl: u32 = <TestRuntime as crate::Trait>::BurnRequestTtl::get();
+        let ttl: u32 = <TestRuntime as crate::Config>::BurnRequestTtl::get();
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(ttl.into());
 
         assert_ok!(Evercity::token_burn_request_create_everusd(
