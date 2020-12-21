@@ -30,6 +30,7 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "mast
 frame-system-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false, optional = true }
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
+pallet-indices = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "master", default-features = false }
@@ -60,6 +61,7 @@ std = [
     'frame-system/std',
     'frame-system-rpc-runtime-api/std',
     'pallet-aura/std',
+    'pallet-indices/std',
     'pallet-balances/std',
     'pallet-grandpa/std',
     'pallet-timestamp/std',

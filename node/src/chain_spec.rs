@@ -3,8 +3,8 @@ use evercity_runtime::{
         AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK, INVESTOR_ROLE_MASK,
         ISSUER_ROLE_MASK, MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
     },
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig,
-    GrandpaConfig, Signature, SudoConfig, SystemConfig, WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, IndicesConfig, Signature,
+    SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -159,6 +159,7 @@ fn testnet_genesis(
             code: wasm_binary.to_vec(),
             changes_trie_config: Default::default(),
         }),
+        pallet_indices: Some(IndicesConfig { indices: vec![] }),
         pallet_balances: Some(BalancesConfig {
             // Configure endowed accounts with initial balance of 1 << 60.
             balances: endowed_accounts
