@@ -548,6 +548,16 @@ fn bond_unit_package_amount(package: Vec<BondUnitPackage>) -> Vec<BondUnitAmount
 #[test]
 fn bond_transfer_units() {
     new_test_ext().execute_with(|| {
+        let mut from_package = create_bond_unit_package(vec![80]);
+        let mut to_package = create_bond_unit_package(vec![]);
+        assert_ok!(transfer_bond_units::<TestRuntime>(
+            &mut from_package,
+            &mut to_package,
+            30
+        ));
+        assert_eq!(bond_unit_package_amount(from_package), vec![50]);
+        assert_eq!(bond_unit_package_amount(to_package), vec![30]);
+
         let mut from_package = create_bond_unit_package(vec![5, 2, 10, 1]);
         let mut to_package = create_bond_unit_package(vec![]);
         assert_ok!(transfer_bond_units::<TestRuntime>(

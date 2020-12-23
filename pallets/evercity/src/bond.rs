@@ -7,7 +7,10 @@ use frame_support::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
-    sp_std::cmp::{min, Eq, PartialEq},
+    sp_std::cmp::{min, Eq, PartialEq },
+    sp_std::str::from_utf8_unchecked,
+    sp_std::ops::Deref,
+    sp_std::fmt::{self, Display},
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -20,12 +23,19 @@ pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
 pub struct BondId([u8; 8]);
 
+impl BondId{
+    fn is_zero(&self)->bool {
+        self.0[0]==0
+    }
+}
+
 impl PartialEq for BondId {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
+#[cfg(feature = "std")]
 impl From<&str> for BondId {
     fn from(name: &str) -> BondId {
         let mut b = [0u8; 8];
@@ -40,6 +50,12 @@ impl From<&str> for BondId {
     }
 }
 
+impl Display for BondId{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "'{}'", unsafe{ from_utf8_unchecked( &self.0[..] ) }  )
+    }
+}
+
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
 #[allow(non_camel_case_types)]
@@ -51,15 +67,6 @@ pub enum BondImpactType {
 impl Default for BondImpactType {
     fn default() -> Self {
         BondImpactType::POWER_GENERATED
-    }
-}
-
-impl Eq for BondId {}
-
-impl core::ops::Deref for BondId {
-    type Target = [u8; 8];
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -466,7 +473,7 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
 >;
 
 // @TESTME try to compare sort performance with binaryheap
-// @TODO try to find the package with exact match at fist
+// @TODO try to find the package with exact match
 pub(crate) fn transfer_bond_units<T: crate::Config>(
     from_packages: &mut Vec<BondUnitPackage>,
     to_packages: &mut Vec<BondUnitPackage>,

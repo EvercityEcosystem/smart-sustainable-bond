@@ -7,7 +7,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
-    ensure,
+    ensure, debug,
     sp_std::cmp::{min, Eq, PartialEq},
     sp_std::result::Result,
     traits::Get,
@@ -307,10 +307,6 @@ decl_module! {
         // Events must be initialized if they are used by the pallet.
         fn deposit_event() = default;
 
-        // fn on_initialize() -> Weight {
-        //     <T as Config>::WeightInfo::on_finalize()
-        // }
-
         // Account management functions
 
         #[weight = 0]
@@ -608,6 +604,7 @@ decl_module! {
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
+            ensure!(!bond.is_zero(), Error::<T>::BondParamIncorrect);
             ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
             ensure!(!BondRegistry::<T>::contains_key(&bond), Error::<T>::BondAlreadyExists);
 
@@ -842,20 +839,6 @@ decl_module! {
                 }
 
                 Self::deposit_event(RawEvent::BondUnitSold(caller.clone(), bond, unit_amount, package_value));
-
-                // @FIXME
-                // According to the Design document
-                // the Bond can be activated only by Master.
-                // Disable instant activation.
-
-                // Activate the Bond if it raised more than minimum
-                // if item.state == BondState::BOOKING && item.issued_amount >= item.inner.bond_units_mincap_amount {
-                //     let now = Timestamp::<T>::get();
-                //     item.active_start_date = now;
-                //     item.state = BondState::ACTIVE;
-                //     item.timestamp = now;
-                //     Self::deposit_event(RawEvent::BondActivated(caller, bond ));
-                // }
                 Ok(())
             })
         }
@@ -1643,8 +1626,9 @@ impl<T: Config> Module<T> {
                     return 0;
                 }
             };
-            let coupon_yield = min(bond.bond_debit, total_yield);
             total_yield += period_coupon_yield;
+            let coupon_yield = min(bond.bond_debit, total_yield);
+
 
             bond_yields.push(PeriodYield {
                 total_yield,
@@ -1652,6 +1636,9 @@ impl<T: Config> Module<T> {
                 interest_rate,
             });
             processed += 1;
+
+            debug::info!("calc coupon yield. bond={}, total_yield={}, coupon_before={}",
+                         id, total_yield, coupon_yield);
             Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
         }
         // save current liability in bond_credit field
@@ -1736,8 +1723,12 @@ impl<T: Config> Module<T> {
             // no more accrued coupon yield
             return 0;
         }
+        // Usually time_step  is equal to 1 day.
+        // For debug it can be set to smaller value.
         let time_step = T::TimeStep::get();
         let mut payable = 0;
+
+        debug::info!("bond='{}', current coupon yield={}", id, current_coupon_yield);
 
         for (i, bond_yield) in bond_yields
             .iter()
@@ -1756,6 +1747,8 @@ impl<T: Config> Module<T> {
                 * bond_yield.interest_rate as EverUSDBalance
                 / INTEREST_RATE_YEAR;
 
+            debug::info!("bond='{}' period={} instalment={}",id, i, instalment);
+
             if instalment > 0 {
                 let period_desc = bond.period_desc(i as BondPeriodNumber).unwrap();
                 let accrued_yield = bond_yield.total_yield
@@ -1765,6 +1758,7 @@ impl<T: Config> Module<T> {
                         bond_yields[i - 1].total_yield
                     };
 
+                debug::info!("accrued yield={}", accrued_yield);
                 assert!(instalment <= accrued_yield);
 
                 BondUnitPackageRegistry::<T>::mutate(id, &bondholder, |packages| {
@@ -1787,6 +1781,7 @@ impl<T: Config> Module<T> {
                 });
             }
         }
+
         bond.coupon_yield += payable;
         last_bondholder_coupon_yield.period_num = (bond_yields.len() - 1) as BondPeriodNumber;
 
