@@ -1462,13 +1462,14 @@ fn bond_calc_coupon_yield_advanced() {
     let bondid1: BondId = "BOND1".into();
     let bondid2: BondId = "BOND2".into();
 
-    //         |-  investor1 600 presale + 400 after 100 days ( during start period ),
-    // bond1---|
-    //         |-  investor2 600 presale
-
-    //         |-  investor1 600 presale
-    // bond2---|
-    //         |-  investor2 600 presale + 400 after 140 days (second period )
+    fn deposit(account: u64, bond: BondId, amount: EverUSDBalance) -> BondStructOf<TestRuntime> {
+        assert_ok!(Evercity::bond_deposit_everusd(
+            Origin::signed(account),
+            bond,
+            amount
+        ));
+        Evercity::get_bond(&bond)
+    }
 
     new_test_ext().execute_with(|| {
         bond_grand_everusd();
@@ -1478,72 +1479,146 @@ fn bond_calc_coupon_yield_advanced() {
         let chain_bond_item1 = Evercity::get_bond(&bondid1);
         let chain_bond_item2 = Evercity::get_bond(&bondid2);
 
-        let start_moment = chain_bond_item1.active_start_date;
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (100 * DEFAULT_DAY_DURATION) as u64 * 1000,
+        assert_eq!(
+            chain_bond_item1.active_start_date,
+            chain_bond_item2.active_start_date
         );
 
-        assert_ok!(Evercity::bond_unit_package_buy(
+        let start_moment = chain_bond_item1.active_start_date;
+
+        // set impact data
+        for period in 0..12_usize {
+            assert_ok!(Evercity::set_impact_data(
+                &bondid1,
+                period as BondPeriodNumber,
+                chain_bond_item1.inner.impact_data_baseline[period]
+            ));
+
+            assert_ok!(Evercity::set_impact_data(
+                &bondid2,
+                period as BondPeriodNumber,
+                chain_bond_item2.inner.impact_data_baseline[period]
+            ));
+        }
+        Evercity::set_balance(&INVESTOR1, 0);
+        Evercity::set_balance(&INVESTOR2, 0);
+
+        Evercity::set_balance(&ACCOUNT1, 124668493149600 + 4000 * 600 * 2 * UNIT);
+        Evercity::set_balance(&ACCOUNT2, 124668493149600 + 4000 * 600 * 2 * UNIT);
+
+        let mut chain_bond_item1 = deposit(ACCOUNT1, bondid1, 20000 * UNIT);
+        let mut chain_bond_item2 = deposit(ACCOUNT2, bondid2, 20000 * UNIT);
+
+        let now = start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000;
+
+        Evercity::calc_and_store_bond_coupon_yield(&bondid1, &mut chain_bond_item1, now);
+        Evercity::calc_and_store_bond_coupon_yield(&bondid2, &mut chain_bond_item2, now);
+
+        let bond_yield = Evercity::get_coupon_yields(&bondid1);
+        println!("bond 1 = {:?}", bond_yield);
+        let bond_yield = Evercity::get_coupon_yields(&bondid2);
+        println!("bond 2 = {:?}", bond_yield);
+
+        chain_bond_item1 = deposit(ACCOUNT1, bondid1, 8000 * UNIT);
+        chain_bond_item2 = deposit(ACCOUNT2, bondid2, 20000 * UNIT);
+
+        let now = start_moment + (220 * DEFAULT_DAY_DURATION) as u64 * 1000;
+
+        Evercity::calc_and_store_bond_coupon_yield(&bondid1, &mut chain_bond_item1, now);
+        Evercity::calc_and_store_bond_coupon_yield(&bondid2, &mut chain_bond_item2, now);
+
+        let bond_yield = Evercity::get_coupon_yields(&bondid1);
+        println!("bond 1 = {:?}", bond_yield);
+        assert_eq!(
+            bond_yield
+                .into_iter()
+                .map(|x| x.total_yield)
+                .collect::<Vec<_>>(),
+            [
+                29983561643520,
+                37873972602360,
+                45764383561200,
+                53654794520040
+            ]
+        );
+
+        let bond_yield = Evercity::get_coupon_yields(&bondid2);
+        println!("bond 2 = {:?}", bond_yield);
+
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+
+        assert_ok!(Evercity::bond_withdraw_everusd(
             Origin::signed(INVESTOR1),
             bondid1,
-            3,
-            400
         ));
-
-        assert_eq!(
-            bond_current_period(
-                &chain_bond_item1,
-                start_moment + (100 * DEFAULT_DAY_DURATION) as u64 * 1000
-            ),
-            0
-        );
-
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (140 * DEFAULT_DAY_DURATION) as u64 * 1000,
-        );
-        assert_ok!(Evercity::bond_unit_package_buy(
+        assert_ok!(Evercity::bond_withdraw_everusd(
             Origin::signed(INVESTOR2),
-            bondid2,
-            3,
-            400
+            bondid1,
         ));
 
-        assert_eq!(
-            bond_current_period(
-                &chain_bond_item2,
-                start_moment + (140 * DEFAULT_DAY_DURATION) as u64 * 1000
-            ),
-            1
-        );
+        let balance1 = Evercity::balances_everusd(INVESTOR1);
+        let balance2 = Evercity::balances_everusd(INVESTOR2);
+        assert_eq!(balance1, balance2);
+        assert_eq!(balance1, 14000 * UNIT);
+        println!("balance investor1 {}, investor2 {}", balance1, balance2);
 
-        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
-            start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000,
-        );
+        deposit(ACCOUNT1, bondid1, 30000 * UNIT);
 
-        assert_eq!(
-            bond_current_period(
-                &chain_bond_item2,
-                start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000
-            ),
-            2
-        );
-
-        let _investor1_balance = Evercity::balance_everusd(&INVESTOR1);
-        let _investor2_balance = Evercity::balance_everusd(&INVESTOR2);
-        // set impact data
-        assert_ok!(Evercity::set_impact_data(
-            &bondid1,
-            0,
-            chain_bond_item1.inner.impact_data_baseline[0]
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR1),
+            bondid1,
         ));
-        //Evercity::set_impact_data(&bondid1, 1, chain_bond_item1.inner.impact_data_baseline );
-        assert_ok!(Evercity::set_impact_data(
-            &bondid2,
-            0,
-            chain_bond_item2.inner.impact_data_baseline[0]
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR2),
+            bondid1,
         ));
 
-        // request coupon yield
+        let balance1 = Evercity::balances_everusd(INVESTOR1);
+        let balance2 = Evercity::balances_everusd(INVESTOR2);
+        assert_eq!(balance1, balance2);
+        assert_eq!(balance1, 26827397260020); // 2 * 26827397260020 = 53654794520040
+        println!("balance investor1 {}, investor2 {}", balance1, balance2);
+
+        chain_bond_item1 = deposit(ACCOUNT1, bondid1, 20000 * UNIT);
+
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR1),
+            bondid1,
+        ));
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR2),
+            bondid1,
+        ));
+
+        let balance1 = Evercity::balances_everusd(INVESTOR1);
+        let balance2 = Evercity::balances_everusd(INVESTOR2);
+        assert_eq!(balance1, balance2);
+        assert_eq!(balance1, 26827397260020);
+        println!("balance investor1 {}, investor2 {}", balance1, balance2);
+        println!("{:?}", chain_bond_item1);
+
+        let now = start_moment + ((12 * 30 + 120) * DEFAULT_DAY_DURATION) as u64 * 1000 + 100;
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT1), bondid1));
+        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT2), bondid2));
+
+        assert_eq!(Evercity::balances_everusd(ACCOUNT1), 0);
+        assert_eq!(Evercity::balances_everusd(ACCOUNT2), 0);
+
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR1),
+            bondid1,
+        ));
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR2),
+            bondid1,
+        ));
+
+        let balance1 = Evercity::balances_everusd(INVESTOR1);
+        let balance2 = Evercity::balances_everusd(INVESTOR2);
+
+        assert_eq!(balance1, balance2);
+        assert_eq!(balance1, 124668493149600 / 2 + 4000 * 600 * UNIT);
     });
 }
 

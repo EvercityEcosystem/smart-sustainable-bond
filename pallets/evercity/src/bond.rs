@@ -7,10 +7,9 @@ use frame_support::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
         RuntimeDebug,
     },
-    sp_std::cmp::{min, Eq, PartialEq },
-    sp_std::str::from_utf8_unchecked,
-    sp_std::ops::Deref,
+    sp_std::cmp::{min, Eq, PartialEq},
     sp_std::fmt::{self, Display},
+    sp_std::str::from_utf8_unchecked,
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -20,12 +19,12 @@ pub const DEFAULT_DAY_DURATION: u32 = 86400;
 pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
+#[derive(Clone, Copy, Default, Encode, Eq, Decode, RuntimeDebug)]
 pub struct BondId([u8; 8]);
 
-impl BondId{
-    fn is_zero(&self)->bool {
-        self.0[0]==0
+impl BondId {
+    pub fn is_zero(&self) -> bool {
+        self.0[0] == 0
     }
 }
 
@@ -50,9 +49,9 @@ impl From<&str> for BondId {
     }
 }
 
-impl Display for BondId{
+impl Display for BondId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "'{}'", unsafe{ from_utf8_unchecked( &self.0[..] ) }  )
+        write!(f, "'{}'", unsafe { from_utf8_unchecked(&self.0[..]) })
     }
 }
 

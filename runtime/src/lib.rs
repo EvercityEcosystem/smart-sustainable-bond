@@ -12,7 +12,7 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-    AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify,
+    BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, Verify,
 };
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,

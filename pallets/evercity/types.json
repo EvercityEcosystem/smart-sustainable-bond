@@ -91,7 +91,6 @@
     },
     "PeriodYield": {
         "total_yield": "EverUSDBalance",
-        "coupon_yield_before": "EverUSDBalance",
         "interest_rate": "BondInterest"
     }
 }
