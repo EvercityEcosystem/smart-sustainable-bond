@@ -21,6 +21,7 @@ impl_outer_origin! {
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
+pub const UNIT: EverUSDBalance = 1_000_000_000;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct TestRuntime;

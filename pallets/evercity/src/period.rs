@@ -42,7 +42,7 @@ impl PeriodDescr {
 pub struct PeriodYield {
     /// bond cumulative accrued yield for this period
     pub total_yield: EverUSDBalance,
-    /// bond fund to pay off coupon yield for this period
+    /// obsolete
     pub coupon_yield_before: EverUSDBalance,
     /// effective interest rate for current period
     pub interest_rate: BondInterest,
