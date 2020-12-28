@@ -8,6 +8,9 @@ use frame_support::{
         RuntimeDebug,
     },
     sp_std::cmp::{min, Eq, PartialEq},
+    sp_std::fmt,
+    sp_std::ops::Deref,
+    sp_std::str::from_utf8_unchecked,
 };
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -19,6 +22,12 @@ pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
 pub struct BondId([u8; 8]);
+
+impl fmt::Display for BondId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "'{}'", unsafe { from_utf8_unchecked(&self.0[..]) })
+    }
+}
 
 impl PartialEq for BondId {
     fn eq(&self, other: &Self) -> bool {
@@ -56,7 +65,7 @@ impl Default for BondImpactType {
 
 impl Eq for BondId {}
 
-impl core::ops::Deref for BondId {
+impl Deref for BondId {
     type Target = [u8; 8];
     fn deref(&self) -> &Self::Target {
         &self.0
