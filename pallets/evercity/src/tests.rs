@@ -793,6 +793,23 @@ fn bond_period_interest_rate() {
 }
 
 #[test]
+fn bond_create_with_small_start_period(){
+    let bondid1: BondId = "B1".into();
+    const ACCOUNT: u64 = 3;
+    new_test_ext().execute_with(|| {
+        let mut bond = get_test_bond().inner;
+        bond.start_period = bond.impact_data_send_period;
+        assert!(bond.start_period < bond.payment_period);
+        assert!(bond.start_period >= bond.impact_data_send_period);
+        assert_ok!(Evercity::bond_add_new(
+            Origin::signed(ACCOUNT),
+            bondid1,
+            bond
+        ));
+    })
+}
+
+#[test]
 fn bond_create_with_min_period() {
     let bondid1: BondId = "B1".into();
     const ACCOUNT: u64 = 3;

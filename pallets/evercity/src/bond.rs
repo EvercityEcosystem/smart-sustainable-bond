@@ -231,7 +231,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
             && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
             && is_period_muliple_of_time_step(self.interest_pay_period, time_step)
-            && self.start_period >= self.payment_period
+            && self.start_period >= self.impact_data_send_period
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
             && self
