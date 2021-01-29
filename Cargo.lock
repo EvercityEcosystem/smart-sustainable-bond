@@ -1159,6 +1159,7 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-evercity",
+ "pallet-evercity-transfer",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
  "pallet-sudo",
@@ -1173,9 +1174,7 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-offchain",
- "sp-runtime",
  "sp-session",
- "sp-std",
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder-runner",
@@ -3512,8 +3511,17 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-core",
- "sp-io",
- "sp-runtime",
+]
+
+[[package]]
+name = "pallet-evercity-transfer"
+version = "0.0.2"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "sp-core",
 ]
 
 [[package]]

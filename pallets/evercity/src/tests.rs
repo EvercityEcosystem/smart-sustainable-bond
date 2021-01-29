@@ -1,6 +1,6 @@
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
-    StorageHasher,
+    assert_noop, assert_ok, dispatch::DispatchResult, sp_io, sp_std::ops::RangeInclusive,
+    Blake2_256, StorageHasher,
 };
 
 use crate::bond::transfer_bond_units;
@@ -793,7 +793,7 @@ fn bond_period_interest_rate() {
 }
 
 #[test]
-fn bond_create_with_small_start_period(){
+fn bond_create_with_small_start_period() {
     let bondid1: BondId = "B1".into();
     const ACCOUNT: u64 = 3;
     new_test_ext().execute_with(|| {
