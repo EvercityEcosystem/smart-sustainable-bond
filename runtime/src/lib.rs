@@ -7,16 +7,16 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{
+use frame_support::sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
-use sp_runtime::{
+use frame_support::sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-use sp_std::prelude::*;
+use frame_support::sp_std::prelude::*;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -31,8 +31,8 @@ use sp_version::NativeVersion;
 pub use pallet_balances::Call as BalancesCall;
 
 #[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
+pub use frame_support::sp_runtime::BuildStorage;
+pub use frame_support::sp_runtime::{Perbill, Permill};
 
 pub use frame_support::{
     construct_runtime, parameter_types,
@@ -82,7 +82,7 @@ pub type DigestItem = generic::DigestItem<Hash>;
 pub mod opaque {
     use super::*;
 
-    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+    pub use frame_support::sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
     /// Opaque block header type.
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -287,6 +287,17 @@ impl pallet_evercity::Trait for Runtime {
     type OnAddBond = ();
 }
 
+parameter_types! {
+    pub const MaximumTransferValue: Balance = 10_000_000_000_000;
+}
+
+impl pallet_evercity_transfer::Trait for Runtime {
+    type Event = Event;
+    type MaximumTransferValue = MaximumTransferValue;
+    type Currency = Balances;
+    type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub enum Runtime where
@@ -304,6 +315,7 @@ construct_runtime!(
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
         // Include the custom logic from the template pallet in the runtime.
         Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
+        EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
     }
 );
 
