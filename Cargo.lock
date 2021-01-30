@@ -3764,7 +3764,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3780,7 +3780,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity-transfer"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "frame-support",
  "frame-system",
