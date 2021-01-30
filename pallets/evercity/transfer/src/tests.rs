@@ -94,7 +94,7 @@ fn new_test_ext() -> frame_support::sp_io::TestExternalities {
 
     pallet_balances::GenesisConfig::<Test> {
         // Provide some initial balances
-        balances: vec![(1, 1 * UNIT)],
+        balances: vec![(1,  UNIT)],
     }
     .assimilate_storage(&mut storage)
     .unwrap();

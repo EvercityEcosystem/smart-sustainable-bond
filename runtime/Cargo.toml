@@ -46,8 +46,8 @@ sp-offchain = { default-features = false, version = '2.0.1' }
 sp-session = { default-features = false, version = '2.0.1' }
 sp-transaction-pool = { default-features = false, version = '2.0.1' }
 sp-version = { default-features = false, version = '2.0.1' }
-pallet-evercity = { default-features = false, version = '0.0.2', path = '../pallets/evercity' }
-pallet-evercity-transfer = { default-features = false, version = '0.0.2', path = '../pallets/evercity/transfer' }
+pallet-evercity = { default-features = false, version = '0.0.3', path = '../pallets/evercity' }
+pallet-evercity-transfer = { default-features = false, version = '0.0.3', path = '../pallets/evercity/transfer' }
 
 [features]
 default = ['std']
