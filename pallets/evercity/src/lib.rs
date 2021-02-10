@@ -298,6 +298,7 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: account_disable(who: AccountId)
         /// Arguments: origin: AccountId - transaction caller
         ///            who: AccountId - account to disable
@@ -306,6 +307,7 @@ decl_module! {
         /// Disables all roles of account, setting roles bitmask to 0.
         /// Accounts are not allowed to perform any actions without role,
         /// but still have its data in blockchain (to not loose related entities)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::account_disable()]
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -321,6 +323,7 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - id of account to add to accounts registry of platform
@@ -331,6 +334,7 @@ decl_module! {
         /// Adds new account with given role(s). Roles are set as bitmask. Contains parameter
         /// "identity", planned to use in the future to connect accounts with external services like
         /// KYC providers
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::account_add_with_role_and_data()]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -344,6 +348,7 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - account to modify
@@ -352,6 +357,7 @@ decl_module! {
         /// Access: Master role
         ///
         /// Modifies existing account, assigning new role(s) or identity to it
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::account_set_with_role_and_data()]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -370,6 +376,7 @@ decl_module! {
 
         // Token balances manipulation functions
 
+        /// <pre>
         /// Method: token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             amount_to_mint: EverUSDBalance - amount of tokens to mint
@@ -379,6 +386,7 @@ decl_module! {
         /// Custodian account confirms request after receiving payment in USD from target account's owner
         /// It's possible to create only one request per account. Mint request has a time-to-live
         /// and becomes invalidated after it.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_create_everusd()]
         fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -400,11 +408,13 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: token_mint_request_revoke_everusd(origin)
         /// Arguments: origin: AccountId - transaction caller
         /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing mint request, created by caller's account
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_revoke_everusd()]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -415,6 +425,7 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
@@ -425,6 +436,7 @@ decl_module! {
         /// (note) Amount of tokens is sent as parameter to avoid data race problem, when
         /// Custodian can confirm unwanted amount of tokens, because attacker is modified mint request
         /// while Custodian makes a decision
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_confirm_everusd()]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -451,12 +463,14 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: token_mint_request_decline_everusd(origin, who: T::AccountId)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
         /// Access: Custodian role
         ///
         /// Declines and deletes the mint request of account (Custodian)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_decline_everusd()]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -468,6 +482,7 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             amount_to_burn: EverUSDBalance - amount of tokens to burn
@@ -477,6 +492,7 @@ decl_module! {
         /// Custodian account confirms request after sending payment in USD to target account's owner
         /// It's possible to create only one request per account. Burn request has a time-to-live
         /// and becomes invalidated after it.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_create_everusd()]
         fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -500,11 +516,13 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: token_burn_request_revoke_everusd(origin)
         /// Arguments: origin: AccountId - transaction caller
         /// Access: Investor or Issuer role
         ///
         /// Revokes and deletes currently existing burn request, created by caller's account
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_revoke_everusd()]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -515,6 +533,7 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
@@ -522,6 +541,7 @@ decl_module! {
         /// Access: Custodian role
         ///
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_confirm_everusd()]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -546,12 +566,14 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: token_burn_request_decline_everusd(origin, who: T::AccountId)
         /// Arguments:  origin: AccountId - transaction caller
         ///             who: AccountId - target account
         /// Access: Custodian role
         ///
         /// Declines and deletes the burn request of account (Custodian)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_decline_everusd()]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -565,6 +587,7 @@ decl_module! {
 
         // Bonds handling functions
 
+        /// <pre>
         /// Method: bond_add_new(origin, origin, bond: BondId, body: BondInnerStruct)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
@@ -573,8 +596,15 @@ decl_module! {
         ///
         /// Creates new bond with given BondId (8 bytes) and pack of parameters, set by BondInnerStruct.
         /// Bond is created in BondState::PREPARE, and can be modified many times until it becomes ready
-        /// for next BondState::BOOKING, when most of BondInnerStruct parameters cannot be changed, and
-        /// Investors can buy bond units
+        /// for next BondState::BOOKING (when most of BondInnerStruct parameters cannot be changed, and
+        /// Investors can buy bond units). There are many checks inside (see function bond.is_valid()).
+        /// All time periods must be a multiple of "time_step"(which is equal to DEFAULT_DAY_DURATION),
+        /// none of periods cannot be "out of bounds", amount of "impact_baselines" must be equal the
+        /// amount of "payment_periods", all min-max deviations must be correct
+        /// (max_deviation > baseline, min_deviation < baseline), etc...
+        /// If all checks were passed, bond object is created in BondRegistry, receives state "PREPARE"
+        /// and awaits when account with Master role allows it to be moved to state BOOKING
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_add_new()]
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -598,7 +628,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Method: bond_set_auditor(origin, bond: BondId, acc: T::AccountId)
+        /// <pre>
+        /// Method: bond_set_manager(origin, bond: BondId, acc: T::AccountId)
         /// Arguments: origin: AccountId - transaction caller, assigner
         ///            bond: BondId - bond identifier
         ///            acc: AccountId - assignee account
@@ -606,7 +637,11 @@ decl_module! {
         ///
         /// Assigns target account to be the manager of the bond. Manager can make
         /// almost the same actions with bond as Issuer, instead of most important,
-        /// helping Issuer to manage bond parameters, work with documents, etc...
+        /// like issuing the bond to market (moving it to states: BOOKING, ACTIVE, etc...).
+        /// Manager helps Issuer to manage bond parameters, work with documents. Also, Manager
+        /// can return bond back from BOOKING to PREPARE state (f.e. if mincap of sold Bond Units
+        /// is not reached)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_set()]
         fn bond_set_manager(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -626,6 +661,7 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_set_auditor(origin, bond: BondId, acc: T::AccountId)
         /// Arguments: origin: AccountId - transaction caller, assigner
         ///            bond: BondId - bond identifier
@@ -633,7 +669,10 @@ decl_module! {
         /// Access: Master role
         ///
         /// Assigns target account to be the auditor of the bond. Auditor confirms
-        /// impact data coming in bond, and performs other verification-related actions
+        /// impact data coming in bond, and performs other verification-related actions.
+        /// Assigned account must have a role AUDITOR. impact_data for given bond can be
+        /// confirmed only by assigned Auditor.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_set()]
         fn bond_set_auditor(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -653,13 +692,16 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_set_impact_reporter(origin, bond: BondId, acc: T::AccountId)
         /// Arguments: origin: AccountId - transaction caller, assigner
         ///            bond: BondId - bond identifier
         ///            acc: AccountId - assignee
-        ///
-        /// Assigns impact reporter to the bond
         /// Access: only accounts with Master role
+        /// 
+        /// Assigns an account to be a publisher of impact_data for this bond. Only assigned
+        /// by Master, target account must have IMPACT_REPORTER role.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_set()]
         fn bond_set_impact_reporter(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -675,14 +717,21 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_update(origin, origin, bond: BondId, body: BondInnerStruct)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            nonce: u64 - bond nonce
         ///            body: BondInnerStruct
+        /// Access: bond Issuer or bond Manager
         ///
-        /// Updates bond data. Being released bond can be changed only in  part of document hashed
-        /// Access: bond issuer or bond manager
+        /// Updates bond data. Being released bond can be changed only in part, not related to financial
+        /// options(issuer cannot change rates, caps, prices after bon release on market). Only document hashes
+        /// can be changed to update information about bond, allowing to re-verify documentary history of bond
+        /// during its lifetime.
+        /// Function accepts same information as bond_add(), but requires, that only allowed options was
+        /// changed (calling "is_financial_options_eq()" with previous version of bond)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_update()]
         fn bond_update(origin, bond: BondId, nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -711,14 +760,23 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_release(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            nonce: u64 - bond nonce
-        ///
-        /// Releases the bond on the market starting presale .
-        /// Marks the bond as `BOOKING` allowing investors to stake it.
         /// Access: only accounts with Master role
+        ///
+        /// Releases the bond on the market starting presale.
+        /// Moves bond form PREPARE to BOOKING state, allowing investors to buy
+        /// packs of bond units(BU), denying any changes of financial parameters,
+        /// and waiting until "mincap" of bond units will be booked. If it happens, 
+        /// bond can further be move to ACTIVE state, allowing Investors to trade
+        /// their Bond Units on free market with other Investors/
+        /// Function requires PREPARE state, not expired "mincap_deadline" to be successful.
+        /// Other checks are: nonce and "is_valid()", to avoid release of incorrect bond
+        /// </pre>
+
         #[weight = <T as Trait>::WeightInfo::bond_release()]
         fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -741,15 +799,27 @@ decl_module! {
             })
         }
 
+        
+        /// <pre>
         /// Method: bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            nonce: u64 - bond nonce
         ///            unit_amount: BondUnitAmount - amount of bond units
-        ///
-        /// Bye bond units.
         /// Access: only accounts with Investor role
-        // Investor loans tokens to the bond issuer by staking bond units
+        ///
+        /// Buy bond units from bond in BOOKING, ACTIVE or BANKRUPT state.
+        /// Investor passes amount of BUs he wants to buy. Function calculates price of BUs
+        /// and adds new BondUnitsPackage, with amount of BUs that was bought. BondUnitsPackage
+        /// contains:
+        ///  - amount of BUs bought
+        ///  - aquisition time(number of period when this BUs package was bought)
+        ///  - accrued coupon yield(EverUSD): internal field, calculated and saved only when any
+        ///    financial operations with this package are performed
+        /// 
+        /// Bond must be in BOOKING, ACTIVE, BANKRUPT state, amount of Bond Units
+        /// should not except "bond_units_maxcap_amount"
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_unit_package_buy()]
         fn bond_unit_package_buy(origin, bond: BondId, nonce: u64, unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -818,13 +888,17 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            unit_amount: BondUnitAmount - amount of bond units
         ///
-        /// Gives back staked on presale bond units.
-        /// Access: only accounts with Investor role who hold bond units
+        /// Access: only accounts with Investor role, holding bond units
+        /// In BOOKING state Investor can return "unit_amount" of BUs, and return EverUSD paid.
+        /// Removes BondUnitsPackages, owned by Investor, matching amount on BUs, he wants to return.
+        /// BUs are returned to common pool, decreasing "issued_amount" of bond.
+        /// </pre>
         // Investor gives back bond units and withdraw tokens
         #[weight = <T as Trait>::WeightInfo::bond_unit_package_return()]
         fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
@@ -861,12 +935,19 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_withdraw(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///
-        /// Called after the bond was released but not raised enough capacity until deadline.
-        /// Access: accounts with Master role, bond issuer, or bond manager
+        /// Access: accounts with Master role, bond Issuer, or bond Manager
+        /// Can be called after the bond was released but not raised enough capacity after deadline.
+        /// In BOOKING state only. If bond haven't reached "bond_units_mincap_amount" (Investors
+        /// haven't bought enough of BUs), bond managers(Issuer, Manager) or Master can return
+        /// bond in PREPARE state, denying acquisiton of new bond units, and allowing
+        /// team to change parameters of bond and then try to release it with more suitable
+        /// for Investors parameters. Cannot be called until "mincap_deadline"
+        /// </pre>
         // Called after the Bond was released but not raised enough tokens until the deadline
         #[weight = <T as Trait>::WeightInfo::bond_withdraw()]
         fn bond_withdraw(origin, bond: BondId) -> DispatchResult {
@@ -912,15 +993,22 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_activate(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            nonce: u64 - bond nonce
-        ///
-        /// Activates the bond after it raised minimum capacity of bond units.
-        /// It makes bond fund available to the issuer and stop bond  withdrawal until
-        /// maturity date.
         /// Access: only accounts with Master role
+        ///
+        /// Activates the bond after it raised minimum capacity of bond units, opening
+        /// BondUnitsPackages, owned by Investors, to be traded of free market. Function
+        /// moves bond from BOOKING to ACTIVE state, and transfers all the sum(EverUSD),
+        /// paid by Investors to bond Issuer. Also, function creates the fixed size array of 
+        /// BondImpactReportStruct-s with amount of elements, equal to amount of payment periods.
+        /// This array will be used to store future impact_report_data and effective
+        /// coupon_yield_rate (depending on impact_report_data for each period). Requires that 
+        /// "bond_units_mincap_amount" was reached.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_activate()]
         fn bond_activate(origin, bond: BondId, nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -963,13 +1051,17 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_impact_report_send(origin, bond: BondId, impact_data: u64 )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            impact_data: u64 - report value
+        /// Access: bond Issuer or ImpactReporter, assigned to the bond
         ///
-        /// Releases periodic impact report
-        /// Access: bond issuer or reporter assigned to the bond
+        /// Saves inital impact_report_data for current period, for later confirmation by Auditor.
+        /// Data must be send during correct period (depending on "impact_data_send_period" and "payment_period"
+        /// properties of bond). Also, impact_data for this period must be not confirmed by Auditor yet.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_impact_report_send()]
         fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -994,14 +1086,19 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_impact_report_approve(origin, bond: BondId, period: u64, impact_data: u64 )
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            period: u32 - report period starting from 0
         ///            impact_data: u64 - report value
         ///
-        /// Verify report impact data by signing the report released by the bond issuer
-        /// Access: only auditor assigned to the bond
+        /// Access: only Auditor assigned to the bond
+        /// Confirms "impact_report_data", that already being sent by the bond Issuer or ImpactReporter.
+        /// Auditor sends period number and exact value of impact_data, he confirms. Confirmation must be
+        /// send during the correct period (depending on "impact_data_send_period" and "payment_period"
+        /// properties of bond)
+        /// </pre>
         // Auditor signs impact report
         #[weight = <T as Trait>::WeightInfo::bond_impact_report_approve()]
         fn bond_impact_report_approve(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
@@ -1031,13 +1128,19 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_redeem(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///
-        /// Makes the bond reached maturity date. It requires the issuer to pay back
-        /// redemption yield
-        // Switch the Bond state to Finished
+        /// Makes the bond reached maturity date. Requires the bond Issuer to pay back
+        /// redemption yield. Function moves bond form ACTIVE or BANKRUPT state to FINISHED.
+        /// Function checks correct time (all payment_periods must be passed),
+        /// calculates total bond credit and debit, summarizing all debts and yields,
+        /// and transfers needed sum from/to Issuer's EverUSD balance. If all operations
+        /// were successful, Issuer don't have any obligations, Investors now can 
+        /// withdraw all bond maturity debt and bond becomes FINISHED.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_redeem()]
         fn bond_redeem(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1051,7 +1154,7 @@ decl_module! {
                 };
 
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
-                // now bond_credit has  YTM ( yield to mature )
+                // now bond_credit has YTM ( yield to mature )
                 let amount = item.bond_credit + item.par_value( item.issued_amount ) ;
                 if amount <= item.bond_debit {
                     // withdraw free balance
@@ -1072,12 +1175,17 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_declare_bankrupt(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         /// Access: Master role
         ///
-        /// Marks the bond as bankrupt
+        /// Marks the bond as bankrupt, moving it from ACTIVE to BANKRUPT state.
+        /// Function checks, that "get_debt()" of bond is > 0 (bond_credit > bond_debit),
+        /// and that "interest_pay_period" is not active(Issuer still have a chance to pay debt).
+        /// Then fucntion calcualtes and stores all accumulated coupon_yield and marks bond as BANKRUPT
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_declare_bankrupt()]
         fn bond_declare_bankrupt(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1097,12 +1205,18 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_accrue_coupon_yield(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
-        /// Access: any
+        /// Access: any account
         ///
-        /// Calculates bond coupon yield
+        /// Calculates total bond coupon yield(EverUSD) and stores it in "bond_credit"
+        /// by calculating effective interest rates for each passed payment_period.
+        /// This function is a call to "lazy" function "calc_and_store_bond_coupon_yield()"
+        /// that is called in many operations, changing Investors BondUnitsPackage-s (like buy/sell BUs).
+        /// Have the complexity O(N), where N - amount of BondUnitsPackage-s
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_accrue_coupon_yield()]
         fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
@@ -1114,13 +1228,14 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_revoke(origin, bond: BondId)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
-        /// Access: Bond issuer or manager assigned to the bond
+        /// Access: Bond Issuer or Manager, assigned to the bond
         ///
-        /// Cancel bond before it was issued
-        /// Access: only accounts with Master role
+        /// Totally removes bond from BondsRegistry before it was issued(in PREPARE state)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_revoke()]
         fn bond_revoke(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1137,15 +1252,24 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: bond_withdraw_everusd(origin, bond: BondId, amount: EverUSDBalance)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///
-        /// Access: Bond issuer or any investor
+        /// Access: Bond Issuer or any Investor
         ///
-        /// Transfer `coupon yield` for investors or `free bond balance` of the bond fund for issuer
-        /// to the caller account balance
+        /// This function is mainly used by Investors to recieve accrued coupon yield in any moment.
+        /// Also, this function is used by bond Issuer to withdraw EverUSD from `free bond balance`.
+        /// Available only in ACTIVE, BANKRUPT of FINISHED states.
+        /// If caller is Issuer of this bond, "get_free_balance()" amount of EverUSD tokens are transfered
+        /// to bond.issuer address. If caller is the Investor of bond, then, in FINISHED state he 
+        /// receives all bond debt (principal value + coupon yield), or coupon yield only 
+        /// (by calling "request_coupon_yield()") if bond still ACTIVE or BANKRUPT. If amount
+        /// of EverUSD ob bond's balance is not enough to pay to Investor, bond moves to BANKRUPT state.
+        /// </pre>
         //  @TODO add parameter beneficiary:AccountId  who will receive coupon yield
+        //  @TODO consider separate functions for Issuer and Investor
         #[weight = <T as Trait>::WeightInfo::bond_withdraw_everusd()]
         fn bond_withdraw_everusd(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1185,13 +1309,20 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_deposit_everusd(origin, bond: BondId, amount: EverUSDBalance)
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///            amount: EverUSDBalance - the number of EverUSD  deposited to bond fund
         /// Access: Bond issuer
         ///
-        /// Transfer `amount` of EverUSD tokens from issuer(caller) balance to the bond fund
+        /// Transfers `amount` of EverUSD tokens from bond Issuer's balance to the bond fund
+        /// to pay coupon yield and principal debt to Investors. Bond must be in ACTIVE or BANKRUPT
+        /// state. Transfered EverUSD amount is added to bond_debit, and will be distributed between
+        /// Investors, according to their ownership of Bond Units.
+        /// "Lazy" call for function "calc_and_store_bond_coupon_yield()", that calculates and stores
+        /// coupon yield amounts for each payment_period, where it's possible
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_deposit_everusd()]
         fn bond_deposit_everusd(origin, bond: BondId, amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
@@ -1213,17 +1344,29 @@ decl_module! {
             })
         }
 
+        /// <pre>
         /// Method: bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStruct)
         /// Arguments: origin: AccountId - bond unit bondholder
         ///            bond: BondId - bond identifier
         ///            lot: BondUnitSaleLotStruct - lot data
-        /// Access: Bond bondholder
+        /// Access: any account, holding Bond Units (having BondUnitsPackage-s)
         ///
-        /// Create sale lot
+        /// Creates sale lot: pack of Bond Units to sale for given price. Accepts BondUnitSaleLotStruct,
+        /// containing:
+        ///   - "bond_units": amount of selling Bond Units
+        ///   - "amount": price of whole lot in EverUSD
+        ///   - "deadline": moment, after that lot cannot be sold
+        ///   - "new_bondholder": (optional) target buyer(to restrict sale of this lot to given buyer)
+        /// Function checks, that seller have BondUnitsPackage-s, containing enough BUs for lot creation,
+        /// expiration date. Then, creates new lot in BondUnitPackageLot registry. Later, buyers can 
+        /// choose this lot and buy it.
+        /// Also, function purges expired lots for this bond and seller from BondUnitPackageLot storage.
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_unit_lot_bid()]
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let now = Timestamp::<T>::get();
+            // @TODO - maybe restrict this operation only to Investors?
             ensure!(!lot.is_expired(now), Error::<T>::LotParamIncorrect);
 
             let packages = BondUnitPackageRegistry::<T>::get(&bond, &caller);
@@ -1252,14 +1395,23 @@ decl_module! {
             Ok(())
         }
 
+        /// <pre>
         /// Method: bond_unit_lot_settle(origin, bond: BondId,bondholder: AccountId, lot: BondUnitSaleLotStruct)
         /// Arguments: origin: AccountId - bond unit bondholder
         ///            bond: BondId - bond identifier
         ///            bondholder: Current bondholder of of bond
         ///            lot: BondUnitSaleLotStruct - lot data
-        /// Access: Bond bondholder
+        /// Access: any account with Investor role
         ///
-        /// Buy the lot created by bond_unit_lot_bid call
+        /// Buy the lot created by bond_unit_lot_bid() call. Lot should not be expired.
+        /// If "new_bondholder" field of lot is set, only given account can buy this lot.
+        /// Buyer should have enough EverUSD to buy the lot. When lot is sold,
+        /// expired lots (fixed amount) are purged from BondUnitPackageLot registry.
+        /// 
+        /// Before transfer of EverUSD, function caluclates and stores bond coupon yield for bondholder(seller)
+        /// and caller(buyer), because this deal changes BondUnitsPackages of buyer and seller
+        /// (buyer receives "newer" BondUnitsPackage, that buyer owned)
+        /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_unit_lot_settle()]
         fn bond_unit_lot_settle(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
             let caller = ensure_signed(origin)?;
@@ -1315,91 +1467,118 @@ impl<T: Trait> Module<T> {
         T::OnAddAccount::on_add_account(account, &data);
     }
 
+    /// <pre>
     /// Method: account_is_master(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Master role
+    /// </pre>
     pub fn account_is_master(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_custodian(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Custodian role
+    /// </pre>
     pub fn account_is_custodian(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & CUSTODIAN_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_issuer(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Issuer role
+    /// </pre>
     pub fn account_is_issuer(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & ISSUER_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_investor(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Investor role
+    /// </pre>
     pub fn account_is_investor(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & INVESTOR_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_auditor(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Auditor role
+    /// </pre>
     pub fn account_is_auditor(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & AUDITOR_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_manager(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Manager role
+    /// </pre>
     pub fn account_is_manager(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & MANAGER_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_is_impact_reporter(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
     /// Checks if the acc has global Impact Reporter role
+    /// </pre>
     pub fn account_is_impact_reporter(acc: &T::AccountId) -> bool {
         AccountRegistry::<T>::get(acc).roles & IMPACT_REPORTER_ROLE_MASK != 0
     }
 
+    /// <pre>
     /// Method: account_token_mint_burn_allowed(acc: &T::AccountId) -> bool
     /// Arguments: acc: AccountId - checked account id
     ///
-    /// Checks if the acc can create burn and mint tokens requests
+    /// Checks if the acc can create burn and mint tokens requests(INVESTOR or ISSUER)
+    /// </pre>
     pub fn account_token_mint_burn_allowed(acc: &T::AccountId) -> bool {
         const ALLOWED_ROLES_MASK: u8 = INVESTOR_ROLE_MASK | ISSUER_ROLE_MASK;
         AccountRegistry::<T>::get(acc).roles & ALLOWED_ROLES_MASK != 0
     }
+
+    /// <pre>
     /// Method: balance_everusd(acc: &T::AccountId) -> EverUSDBalance
     /// Arguments: acc: AccountId - account id
     ///
-    /// Returns account's balance as the number of EverUSD tokens
+    /// Returns account's balance as the number of EverUSD tokens.
+    /// Amount is returned as unsigned integer in smallest units of EverUSD
+    ///  "1" EverUSD is presented as "1 000 000 000"(depends on EVERUSD_DECIMALS == 9)
+    /// </pre>
     pub fn balance_everusd(acc: &T::AccountId) -> EverUSDBalance {
         BalanceEverUSD::<T>::get(acc)
     }
 
+    /// <pre>
     /// Method: total_supply() -> EverUSDBalance
     /// Arguments: none
     ///
-    /// Returns the total number of EverUSD tokens supplied by the custodian
+    /// Returns the total number of EverUSD tokens, owned by all holders, that was
+    /// supplied by the custodian. Every mint() operation inreases total_supply, while
+    /// burn() - decreases it. Initial total_supply of EverUSD == 0
+    /// </pre>
     #[cfg(test)]
     pub fn total_supply() -> EverUSDBalance {
         TotalSupplyEverUSD::get()
     }
 
+    /// <pre>
     /// Method: get_bond(bond: BondId) -> bond: BondId) -> BondStruct
     /// Arguments: bond: BondId - bond unique identifier
     ///
-    ///  Returns bond structure if found
+    ///  Returns bond structure if it was found in BondRegistry by given BondId
+    /// </pre>
     #[cfg(test)]
     pub fn get_bond(bond: &BondId) -> BondStructOf<T> {
         BondRegistry::<T>::get(bond)
@@ -1435,9 +1614,11 @@ impl<T: Trait> Module<T> {
         BondUnitPackageRegistry::<T>::iter_prefix(id).collect()
     }
 
+    /// <pre>
     /// Same as BondRegistry::<T>::mutate(bond, f).
-    /// unlike BondRegistry::<T>::mutate(bond, f) `with_bond` doesn't write to storage
-    /// if f call returns error or bond key doesn't exist in the registry
+    /// Unlike BondRegistry::<T>::mutate(bond, f) `with_bond` doesn't write to storage
+    /// if call returns error or bond key doesn't exist in the registry
+    /// </pre>
     fn with_bond<R, E: From<Error<T>>, F: FnOnce(&mut BondStructOf<T>) -> Result<R, E>>(
         bond: &BondId,
         f: F,
@@ -1450,7 +1631,10 @@ impl<T: Trait> Module<T> {
         BondRegistry::<T>::try_mutate(bond, |mut item| f(&mut item))
     }
 
+    
+    /// <pre>
     /// Increase account balance by `amount` EverUSD
+    /// </pre>
     fn balance_add(who: &T::AccountId, amount: EverUSDBalance) -> DispatchResult {
         BalanceEverUSD::<T>::try_mutate(who, |balance| -> DispatchResult {
             *balance = balance
@@ -1460,7 +1644,9 @@ impl<T: Trait> Module<T> {
         })
     }
 
+    /// <pre>
     /// Decrease account balance by `amount` EverUSD
+    /// </pre>
     fn balance_sub(who: &T::AccountId, amount: EverUSDBalance) -> DispatchResult {
         BalanceEverUSD::<T>::try_mutate(who, |balance| -> DispatchResult {
             *balance = balance
@@ -1470,7 +1656,10 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Deletes  expired burn request from the queue
+    /// <pre>
+    /// Deletes expired burn requests.
+    /// Process less or equal than MAX_PURGE_REQUESTS expired requests
+    /// </pre>
     fn purge_expired_burn_requests(before: T::Moment) {
         let to_purge: Vec<_> = BurnRequestEverUSD::<T>::iter()
             .filter(|(_, request)| request.is_expired(before))
@@ -1483,7 +1672,10 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Deletes  expired mint request from the queue
+    /// <pre>
+    /// Deletes expired mint requests from the queue. 
+    /// Process less or equal than MAX_PURGE_REQUESTS expired requests
+    /// </pre>
     fn purge_expired_mint_requests(before: T::Moment) {
         let to_purge: Vec<_> = MintRequestEverUSD::<T>::iter()
             .filter(|(_, request)| request.is_expired(before))
@@ -1501,7 +1693,9 @@ impl<T: Trait> Module<T> {
         BondCouponYield::get(bond)
     }
 
-    /// Return combination of impact data and interest_rate
+    /// <pre>
+    /// Returns combination of impact data and interest_rate for given BondId.
+    /// </pre>
     pub fn get_impact_reports(bond: BondId) -> Vec<PeriodDataStruct> {
         let impact_data = BondImpactReport::get(bond);
         let coupon_yields = BondCouponYield::get(bond);
@@ -1517,11 +1711,16 @@ impl<T: Trait> Module<T> {
             .collect()
     }
 
-    /// Calculate bond coupon yield
-    /// Store values in BondCouponYield value
-    /// Update bond bond_credit value to the current coupon yield
+    /// <pre>
+    /// Calculates bond coupon yield and store accrued values in BondCouponYield map.
+    /// Calculated values are stored in array, holding data for each payment_period.
+    /// Function also updats bond's "bond_credit" value to the currently accrued coupon yield.
     /// Returns the number of processed periods.
-    /// common complexity O(N), where N is the number of issued bond unit packages
+    /// Common function complexity is O(N), where N is the number of issued bond unit packages.
+    /// For each BondUnitsPackage of bond (containing payment_period when it was bought),
+    /// the "package_yield" is calculated (yield per one bond unit), and then used to summarise 
+    /// yields of all bond's BondUnitsPackages.
+    /// </pre>
     fn calc_and_store_bond_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
@@ -1554,16 +1753,17 @@ impl<T: Trait> Module<T> {
             // index - accrued period number
             let index = bond_yields.len();
             let interest_rate = if index == 0 {
-                // start period interest rate value
+                // There is no periods and data yet, set start period interest rate value
                 bond.inner.interest_rate_start_period_value
             } else if reports[index - 1].signed {
-                // calc interested rate using impact data
+                // There is confirmed impact_data about this period
+                // Calculate interest rate, based on impact_data and baseline,min,max parameters of bond
                 bond.calc_effective_interest_rate(
                     bond.inner.impact_data_baseline[index - 1],
                     reports[index - 1].impact_data,
                 )
             } else {
-                //
+                // Report is missed, apply penalty for missed report(but not more than interest_rate_margin_cap)
                 min(
                     bond_yields[index - 1].interest_rate
                         + bond.inner.interest_rate_penalty_for_missed_report,
@@ -1623,7 +1823,14 @@ impl<T: Trait> Module<T> {
         processed
     }
 
-    /// Redeem bond units,  get principal value, and coupon yield in the balance
+    /// <pre>
+    /// Redeem bond units, get principal value, and coupon yield in the balance
+    /// Function summarizes data from all passed periods,
+    /// calculates coupon yield for each BondUnitsPackage, owned by bondholder.
+    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period" 
+    /// when it was bought), the "package_yield" value is calculated (yield per one bond unit).
+    /// This "package_yield" then used to summarize yields of all bond's BondUnitsPackages.
+    /// </pre>
     pub fn redeem_bond_units(
         id: &BondId,
         bond: &mut BondStructOf<T>,
@@ -1670,7 +1877,18 @@ impl<T: Trait> Module<T> {
         payable
     }
 
+    /// <pre>
     /// Transfer accrued coupon yield into bondholder balance
+    
+    /// Calculates "non-spent" amount of EverUSD, that bondholder can receive,
+    /// (gathering separate yields from all his BondUnitsPackage-s), transfers 
+    /// EverUSD to bondholder and stores information about "aready-transfered" 
+    /// amount of EverUSD for given bondholder.
+    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period" 
+    /// when it was bought), the "package_yield" value is calculated (yield per one bond unit).
+    /// This "package_yield" then used to summarize yields of all bond's BondUnitsPackages 
+    /// and transfers this amount to bondholder from bond's balance. 
+    /// </pre>
     pub fn request_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
@@ -1777,8 +1995,14 @@ impl<T: Trait> Module<T> {
         payable
     }
 
-    /// Returns effective coupon interest rate for `period`
-    /// common complexity O(1), O(N) in worst case then no reports were sent
+    /// <pre>
+    /// Returns effective coupon interest rate for `period`.
+    /// Iterates through periods, calculating interest_rate for each period
+    /// based on data of previous period(data can be absent). In case of absence
+    /// of impact data, "interest_rate_penalty_for_missed_report" is applied
+    /// to each new "empty" period, until "interest_rate_margin_cap" is reached.
+    /// Common complexity is O(1), O(N) in worst case(when no reports were sent)
+    /// </pre>
     #[cfg(test)]
     pub fn calc_bond_interest_rate(
         bond: &BondStructOf<T>,
@@ -1807,7 +2031,12 @@ impl<T: Trait> Module<T> {
             interest + missed_periods * bond.inner.interest_rate_penalty_for_missed_report,
         )
     }
-    /// Checks if a report comes at the right time
+    /// <pre>
+    /// Checks if a report comes at the right time.
+    /// Impact data (and confirmation by Auditor) must be sent 
+    /// after "impact_data_send_period" seconds before end of a payment_period
+    /// and before end of a payment_period.
+    /// </pre>
     fn is_report_in_time(
         bond: &BondStructOf<T>,
         now: <T as pallet_timestamp::Trait>::Moment,
@@ -1823,6 +2052,11 @@ impl<T: Trait> Module<T> {
             .unwrap_or(false)
     }
 
+    /// <pre>
+    /// Checks if it's a right time for Issuer to pay interest for this period
+    /// Payment must be sent before "interest_pay_period" seconds are passed
+    /// after payment_period beginning
+    /// </pre>
     fn is_interest_pay_period(
         bond: &BondStructOf<T>,
         now: <T as pallet_timestamp::Trait>::Moment,

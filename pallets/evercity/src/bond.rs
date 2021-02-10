@@ -15,8 +15,11 @@ use frame_support::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-// seconds in 1 DAY
+/// Amount of seconds in 1 "DAY". Every period duration for Evercity bonds 
+/// should be a multiple of this constant. This constant can be changed in
+/// testing environments to create bonds with short periods
 pub const DEFAULT_DAY_DURATION: u32 = 86400;
+
 pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
@@ -159,10 +162,12 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// invariably equals to interest_rate_start_period_value, sec
     pub start_period: BondPeriod,
 
+    /// <pre>
     /// This is "main" recalcualtion period of bond. Each payment_period:
     ///  - impact_data is sent to bond and confirmed by Auditor (while impact_data_send_period is active)
     ///  - coupon interest rate is recalculated for next payment_period
     ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
+    /// </pre>
     pub payment_period: BondPeriod,
 
     /// The number of periods from active_start_date (when bond becomes active,
@@ -214,7 +219,8 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && self.payment_period == other.payment_period
             && self.bond_finishing_period == other.bond_finishing_period
     }
-    /// Checks if bond data is valid
+    /// Checks if bond data is valid. Checking mincap-maxcap, periods durations
+    /// (should be multiple of "time_step"), ranges of price and impact data baseline values
     pub fn is_valid(&self, time_step: BondPeriod) -> bool {
         self.bond_units_mincap_amount > 0
             && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
@@ -241,17 +247,21 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
     }
 }
 
+/// <pre>
 /// Main bond struct, storing all data about given bond
 /// Consists of:
 ///  - issuance-related, inner part (BondInnerStruct): financial and impact data parameters, related to issuance of bond
 ///  - working part: bond state, connected accounts, raised and issued amounts, dates, etc
+/// </pre>
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
+    
     /// bond issuer account
     pub issuer: AccountId,
-    // #Auxiliary roles
+    
+    //#Auxiliary roles
     /// bond manager account
     pub manager: AccountId,
     /// bond auditor
@@ -260,6 +270,7 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub impact_reporter: AccountId,
     /// total amount of issued bond units
     pub issued_amount: BondUnitAmount,
+
     //#Timestamps
     /// Moment, when bond was created first time (moved to BondState::PREPARE)
     pub creation_date: Moment,
@@ -269,6 +280,7 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub active_start_date: Moment,
     /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
+    
     //#Bond ledger
     /// Bond fund, keeping EverUSD sent to bond
     pub bond_debit: EverUSDBalance,
@@ -278,6 +290,9 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     /// Ever-increasing coupon fund which was distributed among bondholders.
     /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
     pub coupon_yield: EverUSDBalance,
+
+    /// Incrementing counter, the "version" of bond data. Used to avoid
+    /// situations with outdated updates bond data on frontend 
     pub nonce: u64,
 }
 
@@ -339,10 +354,9 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
         PeriodIterator::starts_with(&self, period).next()
     }
 
-    /// Calculate coupon effective interest rate using impact_data
+    /// Calculate coupon effective interest rate using impact_data.
     /// This method moves interest_rate up and down when good or bad impact_data
-    /// is sent to bond.
-    /// impact_data_baseline - impact base value for the current period
+    /// is sent to bond and approved by Auditor
     pub fn calc_effective_interest_rate(
         &self,
         impact_data_baseline: u64,
@@ -411,9 +425,9 @@ pub struct AccountYield {
     pub period_num: BondPeriodNumber,
 }
 
-/// Pack of bond units, bought at given time, belonging to given Bearer
-/// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market)
-/// Bond units that bondholder acquire
+/// Pack of bond units, bought at given time, belonging to given Bearer.
+/// Created when performed a deal to aquire bond uints (booking, buy from bond, buy from market).
+/// Contains data about amount of bondholder's acquired bond units, aquisition period and coupon_yield
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondUnitPackage {
     /// amount of bond units
@@ -445,7 +459,7 @@ impl Default for BondImpactReportStruct {
     }
 }
 
-/// Struct, representing pack of bond units for sale
+/// Struct, representing pack of bond units for sale.
 /// Can include target bearer (to sell bond units only to given person)
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, RuntimeDebug)]
@@ -476,6 +490,17 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
 
 // @TESTME try to compare sort performance with binaryheap
 // @TODO try to find the package with exact match at fist
+
+/// <pre>
+/// Method: transfer_bond_units(from_packages, to_packages, lot_bond_units)
+/// Arguments: from_packages: &mut Vec<BondUnitPackage> - pack of BU packages(seller), BUs should be transfered "from"
+///            to_packages: &mut Vec<BondUnitPackage> - pack of BU packages(buyer), BUs should be transfered "to"
+///            lot_bond_units: BondUnitAmount -  amount of BUs to transfer
+///
+/// Internal function, called when a lot with given amount of BUs is sold, and "lot_bond_units" should be transfered from
+/// seller's BUs packages pack to buyer's BUs packages. Functions accumulates needed amount of BUs, 
+/// by removing and modifying seller's packages, beginning from last package
+/// </pre>
 pub(crate) fn transfer_bond_units<T: crate::Trait>(
     from_packages: &mut Vec<BondUnitPackage>,
     to_packages: &mut Vec<BondUnitPackage>,

@@ -29,7 +29,8 @@ pub const fn is_roles_correct(roles: u8) -> bool {
     roles <= ALL_ROLES_MASK && roles > 0
 }
 
-/// Structures, specific for each role
+/// Main structure, containing account data: roles(bit mask), identity(external id), creation_time.
+/// This structure is used to check and assign account roles
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, Default, RuntimeDebug)]
 pub struct EvercityAccountStructT<Moment> {
