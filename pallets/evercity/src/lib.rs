@@ -1165,7 +1165,7 @@ decl_module! {
                     Self::balance_sub(&item.issuer, transfer)?;
                 }
                 let ytm = item.bond_credit;
-                item.bond_credit = 0;
+                item.bond_credit = amount;
                 //item.coupon_yield = amount;
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
@@ -1339,6 +1339,10 @@ decl_module! {
                     .ok_or( Error::<T>::BondParamIncorrect )?;
                 let now = Timestamp::<T>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
+                if item.state == BondState::BANKRUPT && !item.is_shortage(){
+                    item.state = BondState::ACTIVE;
+                }
+
                 Self::deposit_event(RawEvent::BondDepositEverUSD(caller, bond, amount));
                 Ok(())
             })
