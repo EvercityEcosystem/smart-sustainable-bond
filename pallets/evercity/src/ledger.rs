@@ -1,6 +1,5 @@
 use crate::EverUSDBalance;
 
-#[derive(Debug)]
 pub struct EvercityBalance {
     /// custodian supply
     pub supply: EverUSDBalance,

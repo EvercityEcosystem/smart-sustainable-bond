@@ -1,7 +1,7 @@
 use crate::period::{PeriodDescr, PeriodIterator};
 use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 use frame_support::{
-    codec::{Decode, Encode},
+    codec::{Decode, Encode, EncodeLike},
     dispatch::{DispatchResult, Vec},
     sp_runtime::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
@@ -23,8 +23,8 @@ pub const DEFAULT_DAY_DURATION: u32 = 86400;
 pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
-pub struct BondId([u8; 8]);
+#[derive(Clone, Copy, Default, Encode, Eq, Decode, RuntimeDebug)]
+pub struct BondId([u8; 16]);
 
 impl fmt::Display for BondId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,9 +38,21 @@ impl PartialEq for BondId {
     }
 }
 
+//impl Eq for BondId {}
+
+impl Deref for BondId {
+    type Target = [u8; 16];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl EncodeLike<[u8; 16]> for BondId {}
+
+#[cfg(test)]
 impl From<&str> for BondId {
     fn from(name: &str) -> BondId {
-        let mut b = [0u8; 8];
+        let mut b = [0u8; 16];
         unsafe {
             core::intrinsics::copy_nonoverlapping(
                 name.as_ptr(),
@@ -63,15 +75,6 @@ pub enum BondImpactType {
 impl Default for BondImpactType {
     fn default() -> Self {
         BondImpactType::POWER_GENERATED
-    }
-}
-
-impl Eq for BondId {}
-
-impl Deref for BondId {
-    type Target = [u8; 8];
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -333,6 +336,12 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
     pub fn par_value(&self, unit_amount: BondUnitAmount) -> EverUSDBalance {
         unit_amount as EverUSDBalance * self.inner.bond_units_base_price as EverUSDBalance
     }
+    /// Returns true if bond has unpaid debt
+    #[inline]
+    pub fn is_shortage(&self) -> bool {
+        self.bond_credit > self.bond_debit
+    }
+
     /// Returns bond unpaid unliabilities
     pub fn get_debt(&self) -> EverUSDBalance {
         if self.bond_credit > self.bond_debit {

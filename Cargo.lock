@@ -1311,7 +1311,7 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
 name = "evercity-node"
-version = "2.0.0"
+version = "2.1.0"
 dependencies = [
  "evercity-runtime",
  "frame-benchmarking",
@@ -1346,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "evercity-runtime"
-version = "2.0.1"
+version = "2.0.2"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -3764,7 +3764,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3780,7 +3780,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity-transfer"
-version = "0.0.3"
+version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",

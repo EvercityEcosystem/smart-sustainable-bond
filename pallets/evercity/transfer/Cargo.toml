@@ -6,7 +6,7 @@ homepage = 'https://evercity.io'
 license = 'Apache-2.0'
 name = 'pallet-evercity-transfer'
 repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
-version = '0.0.3'
+version = '0.1.0'
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
