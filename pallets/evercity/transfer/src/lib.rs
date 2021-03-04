@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
@@ -68,6 +69,7 @@ decl_module! {
     /// Transfer module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
+        const MaximumTransferValue: BalanceOf<T> = T::MaximumTransferValue::get();
 
         fn deposit_event() = default;
 
