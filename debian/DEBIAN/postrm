@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "purge" ]; then
+        if [ -x "/usr/bin/deb-systemd-helper" ]; then
+                deb-systemd-helper purge 'evercity_chain.service' >/dev/null || true
+                deb-systemd-helper unmask 'evercity_chain.service' >/dev/null || true
+        fi
+	rm -rf /etc/evercity_chain
+fi
+
+
+case "$1" in
+    purge)
+        deluser --system evercity_chain || true
+        delgroup --system evercity_chain || true
+    ;;
+    *)
+    ;;
+esac
