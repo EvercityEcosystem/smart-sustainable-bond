@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+
+adduser --system --disabled-password --disabled-login --home /var/lib/evercity_chain \
+        --no-create-home --quiet --force-badname --group evercity_chain
+
+# Automatically added by dh_systemd_enable/12.10ubuntu1
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-deconfigure" ] || [ "$1" = "abort-remove" ] ; then
+        # This will only remove masks created by d-s-h on package removal.
+        deb-systemd-helper unmask 'evercity_chain.service' >/dev/null || true
+
+        # was-enabled defaults to true, so new installations run enable.
+        if deb-systemd-helper --quiet was-enabled 'evercity_chain.service'; then
+                # Enables the unit on first installation, creates new
+                # symlinks on upgrades if the unit file has changed.
+                deb-systemd-helper enable 'evercity_chain.service' >/dev/null || true
+        else
+                # Update the statefile to add new symlinks (if any), which need to be
+                # cleaned up on purge. Also remove old symlinks.
+                deb-systemd-helper update-state 'evercity_chain.service' >/dev/null || true
+        fi
+
+        chown -R evercity_chain:evercity_chain /var/lib/evercity_chain
+fi

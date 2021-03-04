@@ -1,0 +1,11 @@
+Package: evercity
+Version: 0.1.0-0ubuntu1
+Architecture: amd64
+Maintainer: Dmitry Dulesov <d.dulesov@mixbytes.io>
+Depends: libstdc++6 (>= 6), libc6 (>= 2.27)
+Section: network
+Priority: optional
+Description: Evercity substrate based souverain blockchain
+ processing the lifecycle of "green bonds", that copy financial mechanics form traditional bonds,
+ but allowing the dynamical change of bond's interest rate, depending
+ of "good/bad" reports from green project, that this bond represents.
