@@ -1,3 +1,119 @@
+//! <div>
+//! Crate "pallet-evercity" implements functions for processing 
+//! the lifecycle of "green bonds", that copy financial mechanics
+//! form traditional bonds, but allowing the dynamical change of
+//! bond's interest rate, depending of "good/bad" reports from
+//! green project, that this bond represents.
+//!
+//! Highlevel description of protocol:
+//!
+//! Bond - is the main entity of all protocol. Bond owns a pack of Bond Units, that
+//! can be bought by Investors (by spending their EverUSD tokens). Bond Units later
+//! can be used by Investors to claim corresponding coupon yield from bond later or be sold to
+//! other Investors.
+//! Single bond is the finite automation, passing states: [PREPARE]<->[BOOKING]->[ACTIVE or BANKRUPT]->[FINISHED].
+//! In PREPARE state Issuer and Managers prepare all Bond parameters: official documents,
+//! configure coupon yield conditions, periods, etc.
+//! In BOOKING state all financial paramters are fixed, and Investors can buy packs of Bond Units
+//! (or return them back at any time). If some minimal amount of Bond Units was bought, bond
+//! becomes ACTIVE.
+//! In ACTIVE state Bond Units can be bought and sold by Investors on free market for EverUSD.
+//! Also, periodically sending EverUSD to bond's balance, and these EverUSDs can be claimed by
+//! Investors, that own them.
+//! BANKRUPT state is the same state that ACTIVE, but bond don't have enough EverUSD to pay all its
+//! debts, in this case Investors can claim only avalable funds, depending of owned Bond Units.
+//! In FINISHED state bond cosidered closed, no operations with Bond Units are possible, Investors
+//! can claim all coupon yield and principal debt of bond form its balance.
+//!
+//! Example scenario:
+
+//! More cases and information are presented in Evercity project materials.
+//! Here we describe only example scenario with function calls and their meaning.
+//! 
+//!  - Issuer creates bond: <i>bond_add_new(BondId, BondInnerStructOf<T>)</i>, initial bond status is PREPARE
+//!  - Bond in PREPARE state:
+//!    - Master assigns Manager to help Issuer to configure Bond: <i>bond_add_new(BondId, BondInnerStructOf<T>)</i>
+//!    - Manager or Issuer modifies Bond<i>bond_update(BondId, u64, BondInnerStructOf<T>)</i>
+//!    - "bond_update()" can be called multiple times, allowing many updates of bond structure,
+//!      until all business requirements are met
+//!    - Master confirms that Bond is correct, moves Bond to go to BOOKING state: <i>bond_release(BondId, u64)</i>
+//!
+//!  - Bond in BOOKING state
+//!    - Investors see Bond on platform, and each buys some amount Bond Units: (many
+//!      calls) <i>bond_unit_package_buy(BondId, u64, BondUnitAmount)</i>
+//!    - Some of Investors refuse, returning their bought BondUnitsPackage-s: (many calls)
+//!      <i>bond_unit_package_return(BondId, BondUnitAmount)</i>
+//!    - If Investors have bought NOT enough BondUnits until "mincap_deadline", Master, Issuer or Manager withdraws it back
+//!      to PREPARE state: <i>bond_withdraw(BondId)</i>. Bond cannot be "canceled" until deadline.
+//!      All pre-bought Bond Units can be returned by Investors
+//!    - If Investors bought enough BondUnits until deadline, Master moves the Bond to ACTIVE state:
+//!      <i>bond_activate(BondId, u64)</i> 
+//!    - Date, when bond becomes ACTIVE (BOOKING->ACTIVE) - is a bond start time. All next periods
+//!      will be calculated using this time as start moment
+//!      - During activation Bond transfers all EverUSD, received from Investors to bond Issuer
+//!      - During activation the structure, holding info about each payment_period is created: 
+//!        <i>[(start_period_data), (period_1_data), (period_2_data), ..., (period_N_data)]</i>.
+//!        This structure(array, fixed size) will hold accumulated coupon yield values, confirmed
+//!        impact data, recieved for given period, etc)
+//!    - If deadline is passed, but "mincap" was not reached, bond returns to PREPARE state when
+//!      Master, Issuer or Manager calls <i>bond_withdraw(BondId)</i>
+//!      - \[TODO\] "bond_withdraw" logic can be changed, we're refactoring its logic currently
+//!  - Bond in ACTIVE state
+//!    - passes start_period, while interest_rate is fixed and Issuer constructs project in real world
+//!    - first payment period is coming, Issuer prepares report data about project and sum in EverUSD to pay to Investors
+//!    - It's the end of period, now it's time to send impact_data, it will affect NEXT payment period
+//!    - Issuer sends impact_data to bond: <i>bond_impact_report_send(BondId, BondPeriodNumber,
+//!      u64)</i>
+//!    - Auditor confirms data, sent by Issuer: <i>bond_impact_report_approve(BondId,
+//!      BondPeriodNumber, u64)</i>
+//!    - Confirmed impact data will later result in change of interest rate for NEXT period
+//!    - First payment_period begins (start period passed). Confirmed impact_data in previous 
+//!      period results in calculation of current period coupon yield.
+//!    - the beginning of payment period is the time for Issuer to pay coupon interest rate to
+//!      Investors. Effective coupoun yield rate is calculated, using impcat_data of previous
+//!      period. Any operation with bond units and EverUSD balance will update "bond_credit",
+//!      representing overall accrued bond's debt to Investors
+//!    - Issuer sends EverUSD in bond using: <i>bond_deposit_everusd(BondId, EverUSDBalance)</i>
+//!      - All EverUSD, sent by Issuer are placed on bond's balance, added to bond_debit, then, 
+//!        function <i>calc_and_store_bond_coupon_yield(...)</i> increases "bond_credit",
+//!        summarizing coupon yields for all previous periods. Later, difference between "bond_debit"
+//!        and "bond_credit" is used to calculate bond state (ACTIVE or BANKRUPT) and to calculate
+//!        amount ov EverUSD, that Investors can withdraw from bond at the current moment of time
+//!    - After all calculations, bond saves coupin rates and correct amounts of EverUSD that must be paid
+//!      to Investors for each of already passed payment_periods
+//!    - each Investor calls <i>bond_withdraw_everusd(BondId, EverUSDBalance)</i>,
+//!    requesting coupon yield from bond. 
+//!    - If there is not enough EverUSDfrom Issuer, any function working with debit/credit or
+//!    operating with Bond Units moves bond to BANKRUPT state
+//!  - Bond in BANKRUPT state
+//!    - bond still accept <i>bond_deposit_everusd(BondId, EverUSDBalance)</i> from Issuer,
+//!      increasing bond_debit
+//!    - in BANKRUPT state Investors can withdraw only part of coupon yield, corresponding
+//!      to amount of Bond Units they own
+//!  - Bond in ACTIVE state(finishing period)
+//!    - after all payment_period passed maturity period begins. It's time form Issuer to pay 
+//!      full bond debt back to Investors
+//!    - Investor accumulates needed amount of EverUSD on his address and calls
+//!      <i>bond_redeem(BondId)</i> function.
+//!      - function "bond_redeem" recalculates all yields per each period, summarizes them with
+//!      full maturity debt and transfers needed amount of EverUSD from Issuer's balance
+//!        - if Issuer already deposited a lot of EverUSD on bond's balance, "bond_redeem()" will
+//!          pay a "charge" to Issuer, instead of withdrawing EverUSD from his balance
+//!        - if there is not enough EverUSD on Issuer's balance - "bond_redeem()" fails with
+//!          "unsufficient balance" error
+//!      - if there is enough of EverUSD to pay all debts, all coupn yields are recalculated,
+//!        actual "bond_debit" and "bond_credit" are stored, and function moves bond to FINISHED
+//!        state
+//!   - Bond in FINISHED state
+//!      - move to FINISHED state is possible ONLY if bond's debt was fully covered by EverUSDs,
+//!        taken from bond Issuer's balance
+//!        - if Issuer don't have enough EverUSDs on his balance to pay pricipal debt, his call to
+//!          <i>bond_redeem(BondId)</i> will be unsuccessful, and bond will be in BANKRUPT state
+//!      - full debt of Issuer is taken from his balance and added to "bond_debit"
+//!      - Investors can call <i>bond_withdraw_everusd(BondId, EverUSDBalance)</i> to receive
+//!        all their EverUSDs, including total accrued coupon yield and principal debt
+//! </div>
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unnecessary_mut_passed)]
 #![allow(clippy::too_many_arguments)]
@@ -1133,13 +1249,18 @@ decl_module! {
         /// Arguments: origin: AccountId - transaction caller
         ///            bond: BondId - bond identifier
         ///
+        /// Access: any account
         /// Makes the bond reached maturity date. Requires the bond Issuer to pay back
-        /// redemption yield. Function moves bond form ACTIVE or BANKRUPT state to FINISHED.
+        /// redemption yield. Function moves bond from ACTIVE or BANKRUPT state to FINISHED.
         /// Function checks correct time (all payment_periods must be passed),
         /// calculates total bond credit and debit, summarizing all debts and yields,
-        /// and transfers needed sum from/to Issuer's EverUSD balance. If all operations
-        /// were successful, Issuer don't have any obligations, Investors now can 
-        /// withdraw all bond maturity debt and bond becomes FINISHED.
+        /// and transfers needed sum from/to Issuer's(!) EverUSD balance (calculated
+        /// using "bond_debit", "bond_credit" and "issued_amount" (bond price)). Any account
+        /// can call this function 
+        /// If all operations are successful, bond_debit will be fully covered EverUSD, paid
+        /// by Issuer and Issuer don't have any obligations. Investors now can 
+        /// withdraw all their accrued coupon yield and parts of bond maturity debt
+        /// Bond becomes FINISHED.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_redeem()]
         fn bond_redeem(origin, bond: BondId) -> DispatchResult {
@@ -1184,7 +1305,7 @@ decl_module! {
         /// Marks the bond as bankrupt, moving it from ACTIVE to BANKRUPT state.
         /// Function checks, that "get_debt()" of bond is > 0 (bond_credit > bond_debit),
         /// and that "interest_pay_period" is not active(Issuer still have a chance to pay debt).
-        /// Then fucntion calcualtes and stores all accumulated coupon_yield and marks bond as BANKRUPT
+        /// Then function calculates and stores all accumulated coupon_yield and marks bond as BANKRUPT
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_declare_bankrupt()]
         fn bond_declare_bankrupt(origin, bond: BondId) -> DispatchResult {
@@ -1266,7 +1387,7 @@ decl_module! {
         /// to bond.issuer address. If caller is the Investor of bond, then, in FINISHED state he 
         /// receives all bond debt (principal value + coupon yield), or coupon yield only 
         /// (by calling "request_coupon_yield()") if bond still ACTIVE or BANKRUPT. If amount
-        /// of EverUSD ob bond's balance is not enough to pay to Investor, bond moves to BANKRUPT state.
+        /// of EverUSD on bond's balance is not enough to pay to Investors, bond moves to BANKRUPT state.
         /// </pre>
         //  @TODO add parameter beneficiary:AccountId  who will receive coupon yield
         //  @TODO consider separate functions for Issuer and Investor
