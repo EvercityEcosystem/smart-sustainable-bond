@@ -15,7 +15,7 @@ use frame_support::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-/// Amount of seconds in 1 "DAY". Every period duration for Evercity bonds 
+/// Amount of seconds in 1 "DAY". Every period duration for Evercity bonds
 /// should be a multiple of this constant. This constant can be changed in
 /// testing environments to create bonds with short periods
 pub const DEFAULT_DAY_DURATION: u32 = 86400;
@@ -277,10 +277,10 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
-    
+
     /// bond issuer account
     pub issuer: AccountId,
-    
+
     //#Auxiliary roles
     /// bond manager account
     pub manager: AccountId,
@@ -304,7 +304,7 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub active_start_date: Moment,
     /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
-    
+
     //#Bond ledger
     /// Bond fund, keeping EverUSD sent to bond
     #[codec(compact)]
@@ -319,7 +319,7 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     pub coupon_yield: EverUSDBalance,
 
     /// Incrementing counter, the "version" of bond data. Used to avoid
-    /// situations with outdated updates bond data on frontend 
+    /// situations with outdated updates bond data on frontend
     #[codec(compact)]
     pub nonce: u64,
 }
@@ -542,7 +542,7 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
 ///            lot_bond_units: BondUnitAmount -  amount of BUs to transfer
 ///
 /// Internal function, called when a lot with given amount of BUs is sold, and "lot_bond_units" should be transfered from
-/// seller's BUs packages pack to buyer's BUs packages. Functions accumulates needed amount of BUs, 
+/// seller's BUs packages pack to buyer's BUs packages. Functions accumulates needed amount of BUs,
 /// by removing and modifying seller's packages, beginning from last package
 /// </pre>
 pub(crate) fn transfer_bond_units<T: crate::Trait>(

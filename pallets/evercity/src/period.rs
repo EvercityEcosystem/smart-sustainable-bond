@@ -41,10 +41,12 @@ impl PeriodDescr {
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct PeriodYield {
     /// bond cumulative accrued yield for this period
+    #[codec(compact)]
     pub total_yield: EverUSDBalance,
-    /// obsolete
-    pub coupon_yield_before: EverUSDBalance,
+    // obsolete
+    // pub coupon_yield_before: EverUSDBalance,
     /// effective interest rate for current period
+    #[codec(compact)]
     pub interest_rate: BondInterest,
 }
 
