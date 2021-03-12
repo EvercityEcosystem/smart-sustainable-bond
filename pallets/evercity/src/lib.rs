@@ -147,8 +147,8 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use period::{PeriodDataStruct, PeriodYield};
 
-pub trait Trait: frame_system::Trait + pallet_timestamp::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config + pallet_timestamp::Config {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     type BurnRequestTtl: Get<u32>;
     type MintRequestTtl: Get<u32>;
     type MaxMintAmount: Get<EverUSDBalance>;
@@ -200,7 +200,7 @@ macro_rules! ensure_active {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Evercity {
+    trait Store for Module<T: Config> as Evercity {
         Fuse get(fn fuse)
             build(|config| !config.genesis_account_registry.is_empty()):
             bool;
@@ -267,7 +267,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         BondUnitSaleLotStructOf = BondUnitSaleLotStructOf<T>,
     {
         /// \[master, account, role, data\]
@@ -331,7 +331,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Potentially dangerous action
         InvalidAction,
         /// Account tried to use more EverUSD  than was available on the balance
@@ -387,7 +387,7 @@ decl_error! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
@@ -425,7 +425,7 @@ decl_module! {
         /// Accounts are not allowed to perform any actions without role,
         /// but still have its data in blockchain (to not loose related entities)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::account_disable()]
+        #[weight = <T as Config>::WeightInfo::account_disable()]
         fn account_disable(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -452,7 +452,7 @@ decl_module! {
         /// "identity", planned to use in the future to connect accounts with external services like
         /// KYC providers
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::account_add_with_role_and_data()]
+        #[weight = <T as Config>::WeightInfo::account_add_with_role_and_data()]
         fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8,#[compact]  identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -475,7 +475,7 @@ decl_module! {
         ///
         /// Modifies existing account, assigning new role(s) or identity to it
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::account_set_with_role_and_data()]
+        #[weight = <T as Config>::WeightInfo::account_set_with_role_and_data()]
         fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8,#[compact]  identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(caller != who, Error::<T>::InvalidAction);
@@ -504,7 +504,7 @@ decl_module! {
         /// It's possible to create only one request per account. Mint request has a time-to-live
         /// and becomes invalidated after it.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_mint_request_create_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_mint_request_create_everusd()]
         fn token_mint_request_create_everusd(origin, #[compact] amount_to_mint: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
@@ -532,7 +532,7 @@ decl_module! {
         ///
         /// Revokes and deletes currently existing mint request, created by caller's account
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_mint_request_revoke_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_mint_request_revoke_everusd()]
         fn token_mint_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(MintRequestEverUSD::<T>::contains_key(&caller), Error::<T>::MintRequestDoesntExist);
@@ -554,7 +554,7 @@ decl_module! {
         /// Custodian can confirm unwanted amount of tokens, because attacker is modified mint request
         /// while Custodian makes a decision
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_mint_request_confirm_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_mint_request_confirm_everusd()]
         fn token_mint_request_confirm_everusd(origin, who: T::AccountId, #[compact] amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -588,7 +588,7 @@ decl_module! {
         ///
         /// Declines and deletes the mint request of account (Custodian)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_mint_request_decline_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_mint_request_decline_everusd()]
         fn token_mint_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -610,7 +610,7 @@ decl_module! {
         /// It's possible to create only one request per account. Burn request has a time-to-live
         /// and becomes invalidated after it.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_burn_request_create_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_burn_request_create_everusd()]
         fn token_burn_request_create_everusd(origin, #[compact]  amount_to_burn: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
@@ -640,7 +640,7 @@ decl_module! {
         ///
         /// Revokes and deletes currently existing burn request, created by caller's account
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_burn_request_revoke_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_burn_request_revoke_everusd()]
         fn token_burn_request_revoke_everusd(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(BurnRequestEverUSD::<T>::contains_key(&caller), Error::<T>::BurnRequestDoesntExist);
@@ -659,7 +659,7 @@ decl_module! {
         ///
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_burn_request_confirm_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_burn_request_confirm_everusd()]
         fn token_burn_request_confirm_everusd(origin, who: T::AccountId, #[compact]  amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -691,7 +691,7 @@ decl_module! {
         ///
         /// Declines and deletes the burn request of account (Custodian)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::token_burn_request_decline_everusd()]
+        #[weight = <T as Config>::WeightInfo::token_burn_request_decline_everusd()]
         fn token_burn_request_decline_everusd(origin, who: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
@@ -722,7 +722,7 @@ decl_module! {
         /// If all checks were passed, bond object is created in BondRegistry, receives state "PREPARE"
         /// and awaits when account with Master role allows it to be moved to state BOOKING
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_add_new()]
+        #[weight = <T as Config>::WeightInfo::bond_add_new()]
         fn bond_add_new(origin, bond: BondId, body: BondInnerStructOf<T> ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_issuer(&caller),Error::<T>::AccountNotAuthorized);
@@ -759,7 +759,7 @@ decl_module! {
         /// can return bond back from BOOKING to PREPARE state (f.e. if mincap of sold Bond Units
         /// is not reached)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_set()]
+        #[weight = <T as Config>::WeightInfo::bond_set()]
         fn bond_set_manager(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond Auxiliary roles can be set only by Master
@@ -790,7 +790,7 @@ decl_module! {
         /// Assigned account must have a role AUDITOR. impact_data for given bond can be
         /// confirmed only by assigned Auditor.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_set()]
+        #[weight = <T as Config>::WeightInfo::bond_set()]
         fn bond_set_auditor(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond auxiliary roles can be set only by Master
@@ -819,7 +819,7 @@ decl_module! {
         /// Assigns an account to be a publisher of impact_data for this bond. Only assigned
         /// by Master, target account must have IMPACT_REPORTER role.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_set()]
+        #[weight = <T as Config>::WeightInfo::bond_set()]
         fn bond_set_impact_reporter(origin, bond: BondId, acc: T::AccountId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond auxiliary roles can be set only by Master
@@ -849,7 +849,7 @@ decl_module! {
         /// Function accepts same information as bond_add(), but requires, that only allowed options was
         /// changed (calling "is_financial_options_eq()" with previous version of bond)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_update()]
+        #[weight = <T as Config>::WeightInfo::bond_update()]
         fn bond_update(origin, bond: BondId,#[compact] nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
@@ -894,7 +894,7 @@ decl_module! {
         /// Other checks are: nonce and "is_valid()", to avoid release of incorrect bond
         /// </pre>
 
-        #[weight = <T as Trait>::WeightInfo::bond_release()]
+        #[weight = <T as Config>::WeightInfo::bond_release()]
         fn bond_release(origin, bond: BondId, #[compact]  nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be released only by Master
@@ -937,7 +937,7 @@ decl_module! {
         /// Bond must be in BOOKING, ACTIVE, BANKRUPT state, amount of Bond Units
         /// should not except "bond_units_maxcap_amount"
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_unit_package_buy()]
+        #[weight = <T as Config>::WeightInfo::bond_unit_package_buy()]
         fn bond_unit_package_buy(origin, bond: BondId,#[compact]  nonce: u64,#[compact] unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1017,7 +1017,7 @@ decl_module! {
         /// BUs are returned to common pool, decreasing "issued_amount" of bond.
         /// </pre>
         // Investor gives back bond units and withdraw tokens
-        #[weight = <T as Trait>::WeightInfo::bond_unit_package_return()]
+        #[weight = <T as Config>::WeightInfo::bond_unit_package_return()]
         fn bond_unit_package_return(origin, bond: BondId,#[compact]  unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1066,7 +1066,7 @@ decl_module! {
         /// for Investors parameters. Cannot be called until "mincap_deadline"
         /// </pre>
         // Called after the Bond was released but not raised enough tokens until the deadline
-        #[weight = <T as Trait>::WeightInfo::bond_withdraw()]
+        #[weight = <T as Config>::WeightInfo::bond_withdraw()]
         fn bond_withdraw(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond issuer, bond Manager, or Master can do it
@@ -1126,7 +1126,7 @@ decl_module! {
         /// coupon_yield_rate (depending on impact_report_data for each period). Requires that
         /// "bond_units_mincap_amount" was reached.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_activate()]
+        #[weight = <T as Config>::WeightInfo::bond_activate()]
         fn bond_activate(origin, bond: BondId,#[compact]  nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             //Bond can be activated only by Master
@@ -1179,7 +1179,7 @@ decl_module! {
         /// Data must be send during correct period (depending on "impact_data_send_period" and "payment_period"
         /// properties of bond). Also, impact_data for this period must be not confirmed by Auditor yet.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_impact_report_send()]
+        #[weight = <T as Config>::WeightInfo::bond_impact_report_send()]
         fn bond_impact_report_send(origin, bond: BondId,#[compact] period: BondPeriodNumber,#[compact] impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = Timestamp::<T>::get();
@@ -1217,7 +1217,7 @@ decl_module! {
         /// properties of bond)
         /// </pre>
         // Auditor signs impact report
-        #[weight = <T as Trait>::WeightInfo::bond_impact_report_approve()]
+        #[weight = <T as Config>::WeightInfo::bond_impact_report_approve()]
         fn bond_impact_report_approve(origin, bond: BondId,#[compact] period: BondPeriodNumber,#[compact]  impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_auditor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1263,7 +1263,7 @@ decl_module! {
         /// withdraw all their accrued coupon yield and parts of bond maturity debt
         /// Bond becomes FINISHED.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_redeem()]
+        #[weight = <T as Config>::WeightInfo::bond_redeem()]
         fn bond_redeem(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = Timestamp::<T>::get();
@@ -1308,7 +1308,7 @@ decl_module! {
         /// and that "interest_pay_period" is not active(Issuer still have a chance to pay debt).
         /// Then function calculates and stores all accumulated coupon_yield and marks bond as BANKRUPT
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_declare_bankrupt()]
+        #[weight = <T as Config>::WeightInfo::bond_declare_bankrupt()]
         fn bond_declare_bankrupt(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
              ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -1339,7 +1339,7 @@ decl_module! {
         /// that is called in many operations, changing Investors BondUnitsPackage-s (like buy/sell BUs).
         /// Have the complexity O(N), where N - amount of BondUnitsPackage-s
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_accrue_coupon_yield()]
+        #[weight = <T as Config>::WeightInfo::bond_accrue_coupon_yield()]
         fn bond_accrue_coupon_yield(origin, bond: BondId) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
 
@@ -1358,7 +1358,7 @@ decl_module! {
         ///
         /// Totally removes bond from BondsRegistry before it was issued(in PREPARE state)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_revoke()]
+        #[weight = <T as Config>::WeightInfo::bond_revoke()]
         fn bond_revoke(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be revoked only by Owner or by Manager assigned to the Bond
@@ -1392,7 +1392,7 @@ decl_module! {
         /// </pre>
         //  @TODO add parameter beneficiary:AccountId  who will receive coupon yield
         //  @TODO consider separate functions for Issuer and Investor
-        #[weight = <T as Trait>::WeightInfo::bond_withdraw_everusd()]
+        #[weight = <T as Config>::WeightInfo::bond_withdraw_everusd()]
         fn bond_withdraw_everusd(origin, bond: BondId) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Self::with_bond(&bond, |mut item|{
@@ -1445,7 +1445,7 @@ decl_module! {
         /// "Lazy" call for function "calc_and_store_bond_coupon_yield()", that calculates and stores
         /// coupon yield amounts for each payment_period, where it's possible
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_deposit_everusd()]
+        #[weight = <T as Config>::WeightInfo::bond_deposit_everusd()]
         fn bond_deposit_everusd(origin, bond: BondId,#[compact]  amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Self::with_bond(&bond, |mut item|{
@@ -1488,7 +1488,7 @@ decl_module! {
         /// choose this lot and buy it.
         /// Also, function purges expired lots for this bond and seller from BondUnitPackageLot storage.
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_unit_lot_bid()]
+        #[weight = <T as Config>::WeightInfo::bond_unit_lot_bid()]
         fn bond_unit_lot_bid(origin, bond: BondId, lot: BondUnitSaleLotStructOf<T>) -> DispatchResult{
             let caller = ensure_signed(origin)?;
             let now = Timestamp::<T>::get();
@@ -1538,7 +1538,7 @@ decl_module! {
         /// and caller(buyer), because this deal changes BondUnitsPackages of buyer and seller
         /// (buyer receives "newer" BondUnitsPackage, that buyer owned)
         /// </pre>
-        #[weight = <T as Trait>::WeightInfo::bond_unit_lot_settle()]
+        #[weight = <T as Config>::WeightInfo::bond_unit_lot_settle()]
         fn bond_unit_lot_settle(origin, bond: BondId, bondholder: T::AccountId, lot: BondUnitSaleLotStructOf<T>)->DispatchResult{
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
@@ -1586,7 +1586,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn account_add(account: &T::AccountId, mut data: EvercityAccountStructOf<T>) {
         data.create_time = Timestamp::<T>::get();
         AccountRegistry::<T>::insert(account, &data);
@@ -1735,7 +1735,7 @@ impl<T: Trait> Module<T> {
     #[cfg(test)]
     fn bond_packages(id: &BondId) -> std::collections::HashMap<T::AccountId, Vec<BondUnitPackage>>
     where
-        <T as frame_system::Trait>::AccountId: std::hash::Hash,
+        <T as frame_system::Config>::AccountId: std::hash::Hash,
     {
         BondUnitPackageRegistry::<T>::iter_prefix(id).collect()
     }
@@ -1849,7 +1849,7 @@ impl<T: Trait> Module<T> {
     fn calc_and_store_bond_coupon_yield(
         id: &BondId,
         bond: &mut BondStructOf<T>,
-        now: <T as pallet_timestamp::Trait>::Moment,
+        now: <T as pallet_timestamp::Config>::Moment,
     ) -> usize {
         let (_, period) = ensure_active!(bond.time_passed_after_activation(now), false);
         // here is current pay period
@@ -2171,7 +2171,7 @@ impl<T: Trait> Module<T> {
     /// </pre>
     fn is_report_in_time(
         bond: &BondStructOf<T>,
-        now: <T as pallet_timestamp::Trait>::Moment,
+        now: <T as pallet_timestamp::Config>::Moment,
         period: BondPeriodNumber,
     ) -> bool {
         // get  the number of seconds from bond activation
@@ -2191,7 +2191,7 @@ impl<T: Trait> Module<T> {
     /// </pre>
     fn is_interest_pay_period(
         bond: &BondStructOf<T>,
-        now: <T as pallet_timestamp::Trait>::Moment,
+        now: <T as pallet_timestamp::Config>::Moment,
     ) -> bool {
         let (moment, period) = ensure_active!(bond.time_passed_after_activation(now), true);
 
