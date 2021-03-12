@@ -285,7 +285,7 @@ decl_module! {
 
         // Account management functions
 
-        #[weight = 0]
+        #[weight = T::DbWeight::get().reads_writes(1,1)]
         fn set_master(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Fuse::try_mutate(|fuse|->DispatchResult{
