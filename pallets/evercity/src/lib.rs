@@ -134,6 +134,7 @@ pub use bond::{
     DEFAULT_DAY_DURATION,
 };
 pub use default_weight::WeightInfo;
+use frame_support::debug::native;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::Vec,
@@ -452,7 +453,7 @@ decl_module! {
         /// KYC providers
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::account_add_with_role_and_data()]
-        fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
+        fn account_add_with_role_and_data(origin, who: T::AccountId, role: u8,#[compact]  identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
@@ -475,7 +476,7 @@ decl_module! {
         /// Modifies existing account, assigning new role(s) or identity to it
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::account_set_with_role_and_data()]
-        fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8, identity: u64) -> DispatchResult {
+        fn account_set_with_role_and_data(origin, who: T::AccountId, role: u8,#[compact]  identity: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(caller != who, Error::<T>::InvalidAction);
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -504,7 +505,7 @@ decl_module! {
         /// and becomes invalidated after it.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_create_everusd()]
-        fn token_mint_request_create_everusd(origin, amount_to_mint: EverUSDBalance) -> DispatchResult {
+        fn token_mint_request_create_everusd(origin, #[compact] amount_to_mint: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(amount_to_mint <= T::MaxMintAmount::get(), Error::<T>::MintRequestParamIncorrect);
@@ -554,7 +555,7 @@ decl_module! {
         /// while Custodian makes a decision
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_mint_request_confirm_everusd()]
-        fn token_mint_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
+        fn token_mint_request_confirm_everusd(origin, who: T::AccountId, #[compact] amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(MintRequestEverUSD::<T>::contains_key(&who), Error::<T>::MintRequestDoesntExist);
@@ -610,7 +611,7 @@ decl_module! {
         /// and becomes invalidated after it.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_create_everusd()]
-        fn token_burn_request_create_everusd(origin, amount_to_burn: EverUSDBalance) -> DispatchResult {
+        fn token_burn_request_create_everusd(origin, #[compact]  amount_to_burn: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_token_mint_burn_allowed(&caller), Error::<T>::AccountNotAuthorized);
 
@@ -659,7 +660,7 @@ decl_module! {
         /// Confirms the burn request of account, destroying "amount" of tokens on its balance.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::token_burn_request_confirm_everusd()]
-        fn token_burn_request_confirm_everusd(origin, who: T::AccountId, amount: EverUSDBalance) -> DispatchResult {
+        fn token_burn_request_confirm_everusd(origin, who: T::AccountId, #[compact]  amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_custodian(&caller),Error::<T>::AccountNotAuthorized);
             ensure!(BurnRequestEverUSD::<T>::contains_key(&who), Error::<T>::BurnRequestDoesntExist);
@@ -814,7 +815,7 @@ decl_module! {
         ///            bond: BondId - bond identifier
         ///            acc: AccountId - assignee
         /// Access: only accounts with Master role
-        /// 
+        ///
         /// Assigns an account to be a publisher of impact_data for this bond. Only assigned
         /// by Master, target account must have IMPACT_REPORTER role.
         /// </pre>
@@ -849,7 +850,7 @@ decl_module! {
         /// changed (calling "is_financial_options_eq()" with previous version of bond)
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_update()]
-        fn bond_update(origin, bond: BondId, nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
+        fn bond_update(origin, bond: BondId,#[compact] nonce: u64, body: BondInnerStructOf<T>) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(body.is_valid(T::TimeStep::get()), Error::<T>::BondParamIncorrect );
             // Bond can be update only by Owner or assigned Manager
@@ -886,7 +887,7 @@ decl_module! {
         /// Releases the bond on the market starting presale.
         /// Moves bond form PREPARE to BOOKING state, allowing investors to buy
         /// packs of bond units(BU), denying any changes of financial parameters,
-        /// and waiting until "mincap" of bond units will be booked. If it happens, 
+        /// and waiting until "mincap" of bond units will be booked. If it happens,
         /// bond can further be move to ACTIVE state, allowing Investors to trade
         /// their Bond Units on free market with other Investors/
         /// Function requires PREPARE state, not expired "mincap_deadline" to be successful.
@@ -894,7 +895,7 @@ decl_module! {
         /// </pre>
 
         #[weight = <T as Trait>::WeightInfo::bond_release()]
-        fn bond_release(origin, bond: BondId, nonce: u64) -> DispatchResult {
+        fn bond_release(origin, bond: BondId, #[compact]  nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             // Bond can be released only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -915,7 +916,7 @@ decl_module! {
             })
         }
 
-        
+
         /// <pre>
         /// Method: bond_unit_package_buy(origin, bond: BondId, unit_amount: BondUnitAmount )
         /// Arguments: origin: AccountId - transaction caller
@@ -932,12 +933,12 @@ decl_module! {
         ///  - aquisition time(number of period when this BUs package was bought)
         ///  - accrued coupon yield(EverUSD): internal field, calculated and saved only when any
         ///    financial operations with this package are performed
-        /// 
+        ///
         /// Bond must be in BOOKING, ACTIVE, BANKRUPT state, amount of Bond Units
         /// should not except "bond_units_maxcap_amount"
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_unit_package_buy()]
-        fn bond_unit_package_buy(origin, bond: BondId, nonce: u64, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_buy(origin, bond: BondId,#[compact]  nonce: u64,#[compact] unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             Self::with_bond(&bond, |mut item|{
@@ -1017,7 +1018,7 @@ decl_module! {
         /// </pre>
         // Investor gives back bond units and withdraw tokens
         #[weight = <T as Trait>::WeightInfo::bond_unit_package_return()]
-        fn bond_unit_package_return(origin, bond: BondId, unit_amount: BondUnitAmount ) -> DispatchResult {
+        fn bond_unit_package_return(origin, bond: BondId,#[compact]  unit_amount: BondUnitAmount ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_investor(&caller), Error::<T>::AccountNotAuthorized);
             ensure!(unit_amount > 0, Error::<T>::BondParamIncorrect);
@@ -1119,14 +1120,14 @@ decl_module! {
         /// Activates the bond after it raised minimum capacity of bond units, opening
         /// BondUnitsPackages, owned by Investors, to be traded of free market. Function
         /// moves bond from BOOKING to ACTIVE state, and transfers all the sum(EverUSD),
-        /// paid by Investors to bond Issuer. Also, function creates the fixed size array of 
+        /// paid by Investors to bond Issuer. Also, function creates the fixed size array of
         /// BondImpactReportStruct-s with amount of elements, equal to amount of payment periods.
         /// This array will be used to store future impact_report_data and effective
-        /// coupon_yield_rate (depending on impact_report_data for each period). Requires that 
+        /// coupon_yield_rate (depending on impact_report_data for each period). Requires that
         /// "bond_units_mincap_amount" was reached.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_activate()]
-        fn bond_activate(origin, bond: BondId, nonce: u64) -> DispatchResult {
+        fn bond_activate(origin, bond: BondId,#[compact]  nonce: u64) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             //Bond can be activated only by Master
             ensure!(Self::account_is_master(&caller), Error::<T>::AccountNotAuthorized);
@@ -1179,7 +1180,7 @@ decl_module! {
         /// properties of bond). Also, impact_data for this period must be not confirmed by Auditor yet.
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_impact_report_send()]
-        fn bond_impact_report_send(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
+        fn bond_impact_report_send(origin, bond: BondId,#[compact] period: BondPeriodNumber,#[compact] impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             let now = Timestamp::<T>::get();
             let moment = {
@@ -1217,7 +1218,7 @@ decl_module! {
         /// </pre>
         // Auditor signs impact report
         #[weight = <T as Trait>::WeightInfo::bond_impact_report_approve()]
-        fn bond_impact_report_approve(origin, bond: BondId, period: BondPeriodNumber, impact_data: u64 ) -> DispatchResult {
+        fn bond_impact_report_approve(origin, bond: BondId,#[compact] period: BondPeriodNumber,#[compact]  impact_data: u64 ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(Self::account_is_auditor(&caller), Error::<T>::AccountNotAuthorized);
             let now = Timestamp::<T>::get();
@@ -1286,7 +1287,7 @@ decl_module! {
                     Self::balance_sub(&item.issuer, transfer)?;
                 }
                 let ytm = item.bond_credit;
-                item.bond_credit = 0;
+                item.bond_credit = amount;
                 //item.coupon_yield = amount;
                 item.bond_debit = amount;
                 item.state = BondState::FINISHED;
@@ -1384,8 +1385,8 @@ decl_module! {
         /// Also, this function is used by bond Issuer to withdraw EverUSD from `free bond balance`.
         /// Available only in ACTIVE, BANKRUPT of FINISHED states.
         /// If caller is Issuer of this bond, "get_free_balance()" amount of EverUSD tokens are transfered
-        /// to bond.issuer address. If caller is the Investor of bond, then, in FINISHED state he 
-        /// receives all bond debt (principal value + coupon yield), or coupon yield only 
+        /// to bond.issuer address. If caller is the Investor of bond, then, in FINISHED state he
+        /// receives all bond debt (principal value + coupon yield), or coupon yield only
         /// (by calling "request_coupon_yield()") if bond still ACTIVE or BANKRUPT. If amount
         /// of EverUSD on bond's balance is not enough to pay to Investors, bond moves to BANKRUPT state.
         /// </pre>
@@ -1445,7 +1446,7 @@ decl_module! {
         /// coupon yield amounts for each payment_period, where it's possible
         /// </pre>
         #[weight = <T as Trait>::WeightInfo::bond_deposit_everusd()]
-        fn bond_deposit_everusd(origin, bond: BondId, amount: EverUSDBalance) -> DispatchResult {
+        fn bond_deposit_everusd(origin, bond: BondId,#[compact]  amount: EverUSDBalance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Self::with_bond(&bond, |mut item|{
                 ensure!(
@@ -1460,6 +1461,10 @@ decl_module! {
                     .ok_or( Error::<T>::BondParamIncorrect )?;
                 let now = Timestamp::<T>::get();
                 Self::calc_and_store_bond_coupon_yield(&bond, &mut item, now);
+                if item.state == BondState::BANKRUPT && !item.is_shortage(){
+                    item.state = BondState::ACTIVE;
+                }
+
                 Self::deposit_event(RawEvent::BondDepositEverUSD(caller, bond, amount));
                 Ok(())
             })
@@ -1479,7 +1484,7 @@ decl_module! {
         ///   - "deadline": moment, after that lot cannot be sold
         ///   - "new_bondholder": (optional) target buyer(to restrict sale of this lot to given buyer)
         /// Function checks, that seller have BondUnitsPackage-s, containing enough BUs for lot creation,
-        /// expiration date. Then, creates new lot in BondUnitPackageLot registry. Later, buyers can 
+        /// expiration date. Then, creates new lot in BondUnitPackageLot registry. Later, buyers can
         /// choose this lot and buy it.
         /// Also, function purges expired lots for this bond and seller from BondUnitPackageLot storage.
         /// </pre>
@@ -1528,7 +1533,7 @@ decl_module! {
         /// If "new_bondholder" field of lot is set, only given account can buy this lot.
         /// Buyer should have enough EverUSD to buy the lot. When lot is sold,
         /// expired lots (fixed amount) are purged from BondUnitPackageLot registry.
-        /// 
+        ///
         /// Before transfer of EverUSD, function caluclates and stores bond coupon yield for bondholder(seller)
         /// and caller(buyer), because this deal changes BondUnitsPackages of buyer and seller
         /// (buyer receives "newer" BondUnitsPackage, that buyer owned)
@@ -1752,7 +1757,6 @@ impl<T: Trait> Module<T> {
         BondRegistry::<T>::try_mutate(bond, |mut item| f(&mut item))
     }
 
-    
     /// <pre>
     /// Increase account balance by `amount` EverUSD
     /// </pre>
@@ -1794,7 +1798,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// <pre>
-    /// Deletes expired mint requests from the queue. 
+    /// Deletes expired mint requests from the queue.
     /// Process less or equal than MAX_PURGE_REQUESTS expired requests
     /// </pre>
     fn purge_expired_mint_requests(before: T::Moment) {
@@ -1839,7 +1843,7 @@ impl<T: Trait> Module<T> {
     /// Returns the number of processed periods.
     /// Common function complexity is O(N), where N is the number of issued bond unit packages.
     /// For each BondUnitsPackage of bond (containing payment_period when it was bought),
-    /// the "package_yield" is calculated (yield per one bond unit), and then used to summarise 
+    /// the "package_yield" is calculated (yield per one bond unit), and then used to summarise
     /// yields of all bond's BondUnitsPackages.
     /// </pre>
     fn calc_and_store_bond_coupon_yield(
@@ -1931,7 +1935,7 @@ impl<T: Trait> Module<T> {
             bond_yields.push(PeriodYield {
                 total_yield,
                 interest_rate,
-                coupon_yield_before: 0,
+                //coupon_yield_before: 0,
             });
             processed += 1;
             Self::deposit_event(RawEvent::BondCouponYield(*id, total_yield));
@@ -1948,7 +1952,7 @@ impl<T: Trait> Module<T> {
     /// Redeem bond units, get principal value, and coupon yield in the balance
     /// Function summarizes data from all passed periods,
     /// calculates coupon yield for each BondUnitsPackage, owned by bondholder.
-    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period" 
+    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period"
     /// when it was bought), the "package_yield" value is calculated (yield per one bond unit).
     /// This "package_yield" then used to summarize yields of all bond's BondUnitsPackages.
     /// </pre>
@@ -2000,15 +2004,15 @@ impl<T: Trait> Module<T> {
 
     /// <pre>
     /// Transfer accrued coupon yield into bondholder balance
-    
+
     /// Calculates "non-spent" amount of EverUSD, that bondholder can receive,
-    /// (gathering separate yields from all his BondUnitsPackage-s), transfers 
-    /// EverUSD to bondholder and stores information about "aready-transfered" 
+    /// (gathering separate yields from all his BondUnitsPackage-s), transfers
+    /// EverUSD to bondholder and stores information about "aready-transfered"
     /// amount of EverUSD for given bondholder.
-    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period" 
+    /// For each BondUnitsPackage, owned by "bondholder"(containing "payment_period"
     /// when it was bought), the "package_yield" value is calculated (yield per one bond unit).
-    /// This "package_yield" then used to summarize yields of all bond's BondUnitsPackages 
-    /// and transfers this amount to bondholder from bond's balance. 
+    /// This "package_yield" then used to summarize yields of all bond's BondUnitsPackages
+    /// and transfers this amount to bondholder from bond's balance.
     /// </pre>
     pub fn request_coupon_yield(
         id: &BondId,
@@ -2026,14 +2030,13 @@ impl<T: Trait> Module<T> {
             return 0;
         }
 
-        assert!(!bond_yields.is_empty());
+        debug_assert!(!bond_yields.is_empty());
 
         let current_coupon_yield = min(bond.bond_debit, total_yield);
 
-        // @TODO replace with `mutate` method
         let mut last_bondholder_coupon_yield = BondLastCouponYield::<T>::get(id, bondholder);
-        assert!(current_coupon_yield >= last_bondholder_coupon_yield.coupon_yield);
-        assert!(bond_yields.len() > last_bondholder_coupon_yield.period_num as usize);
+        debug_assert!(current_coupon_yield >= last_bondholder_coupon_yield.coupon_yield);
+        debug_assert!(bond_yields.len() > last_bondholder_coupon_yield.period_num as usize);
 
         if last_bondholder_coupon_yield.coupon_yield == current_coupon_yield {
             // no more accrued coupon yield
@@ -2054,34 +2057,43 @@ impl<T: Trait> Module<T> {
             .enumerate()
             .skip(last_bondholder_coupon_yield.period_num as usize)
         {
+            native::info!(
+                "period {}. period_yield {}-{}, current total coupon yield  {}, bondholder {};",
+                i,
+                prev_total_yield,
+                bond_yield.total_yield,
+                current_coupon_yield,
+                last_bondholder_coupon_yield.coupon_yield,
+            );
+
             if last_bondholder_coupon_yield.coupon_yield >= current_coupon_yield {
                 break;
             }
-
+            // don't open next period till the current period be fully repaid
+            if current_coupon_yield <= prev_total_yield {
+                break;
+            }
+            // current period accrued coupon yield
             let accrued_yield = bond_yield.total_yield.saturating_sub(prev_total_yield);
+            prev_total_yield = bond_yield.total_yield;
 
-            let (coupon_yield, instalment) = if current_coupon_yield >= bond_yield.total_yield {
-                (
-                    bond_yield.total_yield,
-                    bond_yield
-                        .total_yield
-                        .saturating_sub(last_bondholder_coupon_yield.coupon_yield),
-                )
+            let coupon_yield = if current_coupon_yield >= bond_yield.total_yield {
+                bond_yield.total_yield
             } else {
-                (
-                    current_coupon_yield,
-                    current_coupon_yield.saturating_sub(last_bondholder_coupon_yield.coupon_yield),
-                )
+                current_coupon_yield
             };
+            // to be distributed among bondholders
+            let installment =
+                coupon_yield.saturating_sub(last_bondholder_coupon_yield.coupon_yield);
 
             last_bondholder_coupon_yield.coupon_yield = coupon_yield;
             last_bondholder_coupon_yield.period_num = i as BondPeriodNumber;
 
-            if instalment == 0 {
-                break;
+            if installment == 0 {
+                continue;
             }
 
-            assert!(instalment <= accrued_yield);
+            debug_assert!(installment <= accrued_yield);
 
             let package_yield = bond.inner.bond_units_base_price / 1000
                 * bond_yield.interest_rate as EverUSDBalance
@@ -2096,17 +2108,16 @@ impl<T: Trait> Module<T> {
                         * (period_desc.duration(package.acquisition) / time_step) as EverUSDBalance
                         / 100;
 
-                    let package_coupon_yield = if instalment == accrued_yield {
+                    let package_coupon_yield = if installment == accrued_yield {
                         accrued
                     } else {
-                        (instalment as u128 * accrued as u128 / accrued_yield as u128) as u64
+                        (installment as u128 * accrued as u128 / accrued_yield as u128) as u64
                     };
 
                     payable += package_coupon_yield;
                     package.coupon_yield += package_coupon_yield;
                 }
             });
-            prev_total_yield = bond_yield.total_yield;
         }
 
         bond.coupon_yield = bond.coupon_yield.saturating_add(payable);
@@ -2154,7 +2165,7 @@ impl<T: Trait> Module<T> {
     }
     /// <pre>
     /// Checks if a report comes at the right time.
-    /// Impact data (and confirmation by Auditor) must be sent 
+    /// Impact data (and confirmation by Auditor) must be sent
     /// after "impact_data_send_period" seconds before end of a payment_period
     /// and before end of a payment_period.
     /// </pre>

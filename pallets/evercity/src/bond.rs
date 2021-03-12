@@ -1,7 +1,7 @@
 use crate::period::{PeriodDescr, PeriodIterator};
 use crate::{EverUSDBalance, Expired, MIN_BOND_DURATION};
 use frame_support::{
-    codec::{Decode, Encode},
+    codec::{Decode, Encode, EncodeLike},
     dispatch::{DispatchResult, Vec},
     sp_runtime::{
         traits::{AtLeast32Bit, SaturatedConversion, UniqueSaturatedInto},
@@ -15,7 +15,7 @@ use frame_support::{
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-/// Amount of seconds in 1 "DAY". Every period duration for Evercity bonds 
+/// Amount of seconds in 1 "DAY". Every period duration for Evercity bonds
 /// should be a multiple of this constant. This constant can be changed in
 /// testing environments to create bonds with short periods
 pub const DEFAULT_DAY_DURATION: u32 = 86400;
@@ -23,8 +23,8 @@ pub const DEFAULT_DAY_DURATION: u32 = 86400;
 pub const MIN_PAYMENT_PERIOD: BondPeriod = 1;
 
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(Clone, Copy, Default, Encode, Decode, RuntimeDebug)]
-pub struct BondId([u8; 8]);
+#[derive(Clone, Copy, Default, Encode, Eq, Decode, RuntimeDebug)]
+pub struct BondId([u8; 16]);
 
 impl fmt::Display for BondId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,9 +38,21 @@ impl PartialEq for BondId {
     }
 }
 
+//impl Eq for BondId {}
+
+impl Deref for BondId {
+    type Target = [u8; 16];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl EncodeLike<[u8; 16]> for BondId {}
+
+#[cfg(test)]
 impl From<&str> for BondId {
     fn from(name: &str) -> BondId {
-        let mut b = [0u8; 8];
+        let mut b = [0u8; 16];
         unsafe {
             core::intrinsics::copy_nonoverlapping(
                 name.as_ptr(),
@@ -63,15 +75,6 @@ pub enum BondImpactType {
 impl Default for BondImpactType {
     fn default() -> Self {
         BondImpactType::POWER_GENERATED
-    }
-}
-
-impl Eq for BondId {}
-
-impl Deref for BondId {
-    type Target = [u8; 8];
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
@@ -132,34 +135,44 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// Cap of impact_data value (absolute value). Values more then cap
     /// are considered equal to impact_data_max_deviation_cap
     /// when calculating coupon interest_rate depending on impact_data
+    #[codec(compact)]
     pub impact_data_max_deviation_cap: u64,
     /// Floor of impact_data value (absolute value). Values less then floor
     /// are considered equal to impact_data_max_deviation_floor
     /// when calculating coupon interest_rate depending on impact_data
+    #[codec(compact)]
     pub impact_data_max_deviation_floor: u64,
     /// Amount of seconds before end of a payment_period
     /// when Issuer should release regular impact report (confirmed by Auditor)
+    #[codec(compact)]
     pub impact_data_send_period: BondPeriod,
     /// Penalty, adding to interest rate when impact report was not
     /// released during impact_data_send_period, ppm
+    #[codec(compact)]
     pub interest_rate_penalty_for_missed_report: BondInterest,
     /// Base coupon interest rate, ppm. All changes of interest_rate
     /// during payment periods are based on this value, ppm
+    #[codec(compact)]
     pub interest_rate_base_value: BondInterest,
     /// Upper margin of interest_rate. Interest rate cannot
     /// be more than this value, ppm
+    #[codec(compact)]
     pub interest_rate_margin_cap: BondInterest,
     /// Lower margin of interest_rate. Interest rate cannot
     /// be less than this value, ppm
+    #[codec(compact)]
     pub interest_rate_margin_floor: BondInterest,
     /// Interest rate during the start_periodm when interest rate is constant
     /// (from activation to first payment period), ppm
+    #[codec(compact)]
     pub interest_rate_start_period_value: BondInterest,
     /// Period when Issuer should pay off coupon interests, sec
+    #[codec(compact)]
     pub interest_pay_period: BondPeriod,
 
     /// Period from activation when effective interest rate
     /// invariably equals to interest_rate_start_period_value, sec
+    #[codec(compact)]
     pub start_period: BondPeriod,
 
     /// <pre>
@@ -168,27 +181,34 @@ pub struct BondInnerStruct<Moment, Hash> {
     ///  - coupon interest rate is recalculated for next payment_period
     ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
     /// </pre>
+    #[codec(compact)]
     pub payment_period: BondPeriod,
 
     /// The number of periods from active_start_date (when bond becomes active,
     /// all periods and interest rate changes begin to work, funds become available for Issuer)
     /// until maturity date (when full bond debt must be paid).
     /// (bond maturity period = start_period + bond_duration * payment_period)
+    #[codec(compact)]
     pub bond_duration: BondPeriodNumber,
 
     /// Period from maturity date until full repayment.
     /// After this period bond can be moved to BondState::BANKRUPT, sec
+    #[codec(compact)]
     pub bond_finishing_period: BondPeriod,
 
     /// Minimal amount(mincap_amount) of bond units should be raised up to this date,
     /// otherwise bond can be withdrawn by issuer back to BondState::PREPARE
+    #[codec(compact)]
     pub mincap_deadline: Moment,
     /// Minimal amount of bond units, that should be raised
+    #[codec(compact)]
     pub bond_units_mincap_amount: BondUnitAmount,
     /// Maximal amount of bond units, that can be raised durill all bond lifetime
+    #[codec(compact)]
     pub bond_units_maxcap_amount: BondUnitAmount,
 
     /// Base price of Bond Unit
+    #[codec(compact)]
     pub bond_units_base_price: EverUSDBalance,
 }
 
@@ -231,7 +251,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
             && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
             && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
             && is_period_muliple_of_time_step(self.interest_pay_period, time_step)
-            && self.start_period >= self.payment_period
+            && self.start_period >= self.impact_data_send_period
             && self.interest_pay_period <= self.payment_period
             && self.bond_units_base_price > 0
             && self
@@ -257,10 +277,10 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondStruct<AccountId, Moment, Hash> {
     pub inner: BondInnerStruct<Moment, Hash>,
-    
+
     /// bond issuer account
     pub issuer: AccountId,
-    
+
     //#Auxiliary roles
     /// bond manager account
     pub manager: AccountId,
@@ -269,30 +289,38 @@ pub struct BondStruct<AccountId, Moment, Hash> {
     /// bond impact data reporter
     pub impact_reporter: AccountId,
     /// total amount of issued bond units
+    #[codec(compact)]
     pub issued_amount: BondUnitAmount,
 
     //#Timestamps
     /// Moment, when bond was created first time (moved to BondState::PREPARE)
+    #[codec(compact)]
     pub creation_date: Moment,
     /// Moment, when bond was opened for booking (moved to BondState::BOOKING)
+    #[codec(compact)]
     pub booking_start_date: Moment,
     /// Moment, when bond became active (moved to BondState::ACTIVE)
+    #[codec(compact)]
     pub active_start_date: Moment,
     /// Bond current state (PREPARE, BOOKING, ACTIVE, BANKRUPT, FINISHED)
     pub state: BondState,
-    
+
     //#Bond ledger
     /// Bond fund, keeping EverUSD sent to bond
+    #[codec(compact)]
     pub bond_debit: EverUSDBalance,
     /// Bond liabilities: amount of EverUSD bond needs to pay to Bond Units bearers
+    #[codec(compact)]
     pub bond_credit: EverUSDBalance,
     // free balance is difference between bond_debit and bond_credit
     /// Ever-increasing coupon fund which was distributed among bondholders.
     /// Undistributed bond fund is equal to (bond_debit - coupon_yield)
+    #[codec(compact)]
     pub coupon_yield: EverUSDBalance,
 
     /// Incrementing counter, the "version" of bond data. Used to avoid
-    /// situations with outdated updates bond data on frontend 
+    /// situations with outdated updates bond data on frontend
+    #[codec(compact)]
     pub nonce: u64,
 }
 
@@ -308,6 +336,12 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
     pub fn par_value(&self, unit_amount: BondUnitAmount) -> EverUSDBalance {
         unit_amount as EverUSDBalance * self.inner.bond_units_base_price as EverUSDBalance
     }
+    /// Returns true if bond has unpaid debt
+    #[inline]
+    pub fn is_shortage(&self) -> bool {
+        self.bond_credit > self.bond_debit
+    }
+
     /// Returns bond unpaid unliabilities
     pub fn get_debt(&self) -> EverUSDBalance {
         if self.bond_credit > self.bond_debit {
@@ -421,7 +455,9 @@ impl<AccountId, Moment: UniqueSaturatedInto<u64> + AtLeast32Bit + Copy, Hash>
 /// Struct, accumulating per-account coupon_yield for each period num
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct AccountYield {
+    #[codec(compact)]
     pub coupon_yield: EverUSDBalance,
+    #[codec(compact)]
     pub period_num: BondPeriodNumber,
 }
 
@@ -431,10 +467,13 @@ pub struct AccountYield {
 #[derive(Encode, Decode, Clone, Default, PartialEq, RuntimeDebug)]
 pub struct BondUnitPackage {
     /// amount of bond units
+    #[codec(compact)]
     pub bond_units: BondUnitAmount,
     /// acquisition moment (seconds after bond start date)
+    #[codec(compact)]
     pub acquisition: BondPeriod,
     /// paid coupon yield
+    #[codec(compact)]
     pub coupon_yield: EverUSDBalance,
 }
 
@@ -444,7 +483,9 @@ pub struct BondUnitPackage {
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug)]
 pub struct BondImpactReportStruct {
+    #[codec(compact)]
     pub create_period: BondPeriod,
+    #[codec(compact)]
     pub impact_data: u64,
     pub signed: bool,
 }
@@ -465,13 +506,16 @@ impl Default for BondImpactReportStruct {
 #[derive(Encode, Decode, Clone, Default, Eq, PartialEq, RuntimeDebug)]
 pub struct BondUnitSaleLotStruct<AccountId, Moment> {
     /// Sale lot is available for buy only before this deadline
+    #[codec(compact)]
     pub deadline: Moment,
     /// If set (can be empty) - then buying of this lot is possible
     /// only for new_bondholder
     pub new_bondholder: AccountId,
     /// Amount of bond units to sell
+    #[codec(compact)]
     pub bond_units: BondUnitAmount,
     /// Total price of this lot
+    #[codec(compact)]
     pub amount: EverUSDBalance,
 }
 
@@ -498,7 +542,7 @@ pub type BondUnitSaleLotStructOf<T> = BondUnitSaleLotStruct<
 ///            lot_bond_units: BondUnitAmount -  amount of BUs to transfer
 ///
 /// Internal function, called when a lot with given amount of BUs is sold, and "lot_bond_units" should be transfered from
-/// seller's BUs packages pack to buyer's BUs packages. Functions accumulates needed amount of BUs, 
+/// seller's BUs packages pack to buyer's BUs packages. Functions accumulates needed amount of BUs,
 /// by removing and modifying seller's packages, beginning from last package
 /// </pre>
 pub(crate) fn transfer_bond_units<T: crate::Trait>(

@@ -1,6 +1,6 @@
 use frame_support::{
-    assert_noop, assert_ok, dispatch::DispatchResult, sp_std::ops::RangeInclusive, Blake2_256,
-    StorageHasher,
+    assert_noop, assert_ok, dispatch::DispatchResult, sp_io, sp_std::ops::RangeInclusive,
+    Blake2_256, StorageHasher,
 };
 
 use crate::bond::transfer_bond_units;
@@ -41,10 +41,12 @@ fn add_token(id: AccountId, amount: EverUSDBalance) -> DispatchResult {
     Evercity::token_mint_request_create_everusd(Origin::signed(id), amount)?;
     Evercity::token_mint_request_confirm_everusd(Origin::signed(CUSTODIAN_ID), id, amount)
 }
+
 /// Converts days into milliseconds
 fn days2timestamp(days: u32) -> Moment {
     (days * DEFAULT_DAY_DURATION) as u64 * 1000_u64
 }
+
 /// Returns all accounts
 fn iter_accounts() -> RangeInclusive<u64> {
     1_u64..=9
@@ -111,6 +113,7 @@ fn it_adds_new_account_with_correct_roles() {
         assert_eq!(Evercity::account_is_auditor(&102), true);
     });
 }
+
 #[test]
 fn it_correctly_sets_new_role_to_existing_account() {
     new_test_ext().execute_with(|| {
@@ -634,28 +637,28 @@ fn bond_interest_min_max() {
         assert_eq!(
             bond.calc_effective_interest_rate(
                 impact_base_value,
-                bond.inner.impact_data_max_deviation_cap
+                bond.inner.impact_data_max_deviation_cap,
             ),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
             bond.calc_effective_interest_rate(
                 impact_base_value,
-                bond.inner.impact_data_max_deviation_cap + 1
+                bond.inner.impact_data_max_deviation_cap + 1,
             ),
             bond.inner.interest_rate_margin_floor
         );
         assert_eq!(
             bond.calc_effective_interest_rate(
                 impact_base_value,
-                bond.inner.impact_data_max_deviation_floor
+                bond.inner.impact_data_max_deviation_floor,
             ),
             bond.inner.interest_rate_margin_cap
         );
         assert_eq!(
             bond.calc_effective_interest_rate(
                 impact_base_value,
-                bond.inner.impact_data_max_deviation_floor - 1
+                bond.inner.impact_data_max_deviation_floor - 1,
             ),
             bond.inner.interest_rate_margin_cap
         );
@@ -790,6 +793,23 @@ fn bond_period_interest_rate() {
             Evercity::calc_bond_interest_rate(&bond, reports.as_ref(), 8)
         );
     });
+}
+
+#[test]
+fn bond_create_with_small_start_period() {
+    let bondid1: BondId = "B1".into();
+    const ACCOUNT: u64 = 3;
+    new_test_ext().execute_with(|| {
+        let mut bond = get_test_bond().inner;
+        bond.start_period = bond.impact_data_send_period;
+        assert!(bond.start_period < bond.payment_period);
+        assert!(bond.start_period >= bond.impact_data_send_period);
+        assert_ok!(Evercity::bond_add_new(
+            Origin::signed(ACCOUNT),
+            bondid1,
+            bond
+        ));
+    })
 }
 
 #[test]
@@ -1609,6 +1629,161 @@ fn bond_calc_coupon_yield_advanced() {
 
         assert_eq!(balance1, balance2);
         assert_eq!(balance1, 124668493149600 / 2 + 4000 * 600 * UNIT);
+        // check bond debt after been redeemed
+        chain_bond_item1 = Evercity::get_bond(&bondid1);
+        chain_bond_item2 = Evercity::get_bond(&bondid2);
+
+        assert_eq!(chain_bond_item1.bond_debit, chain_bond_item1.bond_credit);
+        assert_eq!(chain_bond_item2.bond_debit, chain_bond_item2.bond_credit);
+    });
+}
+
+#[test]
+fn bond_restore_from_bankrupt() {
+    const ACCOUNT1: u64 = 3;
+    const INVESTOR1: u64 = 4;
+    let bondid1: BondId = "BOND1".into();
+
+    fn deposit(account: u64, bond: BondId, amount: EverUSDBalance) -> BondStructOf<TestRuntime> {
+        assert_ok!(Evercity::bond_deposit_everusd(
+            Origin::signed(account),
+            bond,
+            amount
+        ));
+        Evercity::get_bond(&bond)
+    }
+
+    new_test_ext().execute_with(|| {
+        bond_grand_everusd();
+        bond_activate(bondid1, ACCOUNT1, get_test_bond().inner);
+        let chain_bond_item1 = Evercity::get_bond(&bondid1);
+        let start_moment = chain_bond_item1.active_start_date;
+
+        for period in 0..12_usize {
+            assert_ok!(Evercity::set_impact_data(
+                &bondid1,
+                period as BondPeriodNumber,
+                chain_bond_item1.inner.impact_data_baseline[period]
+            ));
+        }
+        //reset balance
+        Evercity::set_balance(&INVESTOR1, 0);
+        Evercity::set_balance(&ACCOUNT1, 124668493149600 + 4000 * 600 * 2 * UNIT);
+
+        let mut investor_balance = 0;
+
+        let mut now = start_moment + (160 * DEFAULT_DAY_DURATION) as u64 * 1000;
+        for _ in 0..11_usize {
+            <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+            deposit(ACCOUNT1, bondid1, 10000 * UNIT);
+
+            assert_ok!(Evercity::bond_withdraw_everusd(
+                Origin::signed(INVESTOR1),
+                bondid1,
+            ));
+            let b = Evercity::balances_everusd(&INVESTOR1);
+            assert!(b > investor_balance);
+            investor_balance = b;
+            println!("balance {:}", b);
+
+            now += (DEFAULT_DAY_DURATION * 30) as u64 * 1000;
+            let chain_bond_item1 = Evercity::get_bond(&bondid1);
+            assert_eq!(chain_bond_item1.state, BondState::BANKRUPT);
+        }
+
+        deposit(ACCOUNT1, bondid1, 50000 * UNIT);
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+
+        let chain_bond_item1 = Evercity::get_bond(&bondid1);
+        assert_eq!(chain_bond_item1.state, BondState::ACTIVE);
+
+        assert_ok!(Evercity::bond_redeem(Origin::signed(ACCOUNT1), bondid1));
+        let chain_bond_item1 = Evercity::get_bond(&bondid1);
+        assert_eq!(chain_bond_item1.state, BondState::FINISHED);
+        assert_eq!(chain_bond_item1.bond_credit, chain_bond_item1.bond_debit);
+        assert_eq!(Evercity::balances_everusd(&ACCOUNT1), 0);
+    });
+}
+
+#[test]
+fn bond_withdraw_everusd() {
+    const ACCOUNT1: u64 = 3;
+    const INVESTOR1: u64 = 4;
+    let bondid1: BondId = "BOND1".into();
+
+    fn deposit(account: u64, bond: BondId, amount: EverUSDBalance) -> BondStructOf<TestRuntime> {
+        assert_ok!(Evercity::bond_deposit_everusd(
+            Origin::signed(account),
+            bond,
+            amount
+        ));
+        Evercity::get_bond(&bond)
+    }
+
+    new_test_ext().execute_with(|| {
+        bond_grand_everusd();
+        bond_activate(bondid1, ACCOUNT1, get_test_bond().inner);
+        let chain_bond_item1 = Evercity::get_bond(&bondid1);
+        let start_moment = chain_bond_item1.active_start_date;
+
+        for period in 0..12_usize {
+            assert_ok!(Evercity::set_impact_data(
+                &bondid1,
+                period as BondPeriodNumber,
+                chain_bond_item1.inner.impact_data_baseline[period]
+            ));
+        }
+        //reset balance
+        Evercity::set_balance(&INVESTOR1, 0);
+        Evercity::set_balance(&ACCOUNT1, 124668493149600 + 4000 * 600 * 2 * UNIT);
+
+        let mut now = start_moment + (130 * DEFAULT_DAY_DURATION) as u64 * 1000;
+        <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+        // 29983 UNIT in start period
+        deposit(ACCOUNT1, bondid1, 30000 * UNIT);
+        assert_ok!(Evercity::bond_withdraw_everusd(
+            Origin::signed(INVESTOR1),
+            bondid1,
+        ));
+
+        let mut investor_balance = Evercity::balances_everusd(&INVESTOR1);
+        println!("balance {:}", investor_balance);
+        // after first non-start period
+        now += (DEFAULT_DAY_DURATION * 30) as u64 * 1000;
+
+        for m in 0..11_usize {
+            // 7891 UNIT every payment period that is paid by two payments
+            <pallet_timestamp::Module<TestRuntime>>::set_timestamp(now);
+            deposit(ACCOUNT1, bondid1, 5891 * UNIT);
+
+            assert_ok!(Evercity::bond_withdraw_everusd(
+                Origin::signed(INVESTOR1),
+                bondid1,
+            ));
+
+            let b = Evercity::balances_everusd(&INVESTOR1);
+            assert!(b > investor_balance);
+            investor_balance = b;
+            println!("{} balance {:}", m, b);
+
+            let chain_bond_item1 = Evercity::get_bond(&bondid1);
+            assert_eq!(chain_bond_item1.state, BondState::BANKRUPT);
+
+            deposit(ACCOUNT1, bondid1, 2000 * UNIT);
+            assert_ok!(Evercity::bond_withdraw_everusd(
+                Origin::signed(INVESTOR1),
+                bondid1,
+            ));
+
+            let b = Evercity::balances_everusd(&INVESTOR1);
+            assert!(b > investor_balance);
+            investor_balance = b;
+            println!("{} balance {:}", m, b);
+
+            now += (DEFAULT_DAY_DURATION * 30) as u64 * 1000;
+            let chain_bond_item1 = Evercity::get_bond(&bondid1);
+            assert_eq!(chain_bond_item1.state, BondState::ACTIVE);
+        }
     });
 }
 

@@ -1,10 +1,10 @@
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-use sp_core::H256;
-use sp_runtime::{
+use frame_support::sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use sp_core::H256;
 
 use crate::account::*;
 use crate::bond::BondPeriodNumber;
@@ -117,11 +117,9 @@ static ROLES: [(u64, u8); 8] = [
 ];
 
 pub type System = frame_system::Module<TestRuntime>;
-// pub type Evercity = Module<TestRuntime>;
-// pub type Balances = pallet_balances::Module<TestRuntime>;
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> frame_support::sp_io::TestExternalities {
     let mut t = frame_system::GenesisConfig::default()
         .build_storage::<TestRuntime>()
         .unwrap();

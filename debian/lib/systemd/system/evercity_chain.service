@@ -1,0 +1,24 @@
+[Unit]
+Description=Evercity chain node
+After=network.target
+StartLimitIntervalSec=400
+StartLimitBurst=20
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+LimitNOFILE=49152
+User=evercity_chain
+Group=evercity_chain
+ExecStart=/usr/local/bin/evercity-node --name "%H" --base-path /var/lib/evercity_chain --db-cache 5 --ws-external --dev
+Environment="RUST_MIN_STACK=4194304"
+ProtectSystem=strict
+ReadOnlyPaths=/var/lib/evercity_chain
+ReadWritePaths=/var/lib/evercity_chain/chains/dev
+#MemoryAccounting=true
+#MemoryHigh=1600M
+#MemoryMax=1843M
+
+[Install]
+WantedBy=multi-user.target
+Alias=evercity_chain.service

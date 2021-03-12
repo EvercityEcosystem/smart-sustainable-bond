@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ]; then
+        systemctl stop evercity_chain.service || exit 1
+fi
