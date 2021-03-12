@@ -5,21 +5,18 @@ use frame_support::{
     dispatch::DispatchResult,
     ensure,
     traits::{
-        Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, WithdrawReason,
-        WithdrawReasons,
+        Currency, ExistenceRequirement, Get, LockIdentifier, LockableCurrency, WithdrawReasons,
     },
     weights::Weight,
 };
-
+use frame_system::ensure_signed;
 #[cfg(test)]
 mod tests;
-
-use frame_system::ensure_signed;
 
 const EVERCITY_LOCK_ID: LockIdentifier = *b"ever/fee";
 
 type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub trait WeightInfo {
     fn transfer() -> Weight;
@@ -31,8 +28,8 @@ impl WeightInfo for () {
     }
 }
 
-pub trait Trait: frame_system::Trait {
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config {
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
     /// The currency in which fees are paid and contract balances are held.
     type Currency: LockableCurrency<Self::AccountId>;
     type WeightInfo: WeightInfo;
@@ -43,7 +40,7 @@ pub trait Trait: frame_system::Trait {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         BalanceOf = BalanceOf<T>,
     {
         /// Account endowed. \[account, value\]
@@ -52,14 +49,14 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as EvercityTransfer {
+    trait Store for Module<T: Config> as EvercityTransfer {
 
     }
 }
 
 decl_error! {
     /// Error for the Transfer module
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Attempt to transfer more than defined limit
         TransferRestriction,
     }
@@ -67,20 +64,20 @@ decl_error! {
 
 decl_module! {
     /// Transfer module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
         const MaximumTransferValue: BalanceOf<T> = T::MaximumTransferValue::get();
 
         fn deposit_event() = default;
 
-        #[weight = <T as Trait>::WeightInfo::transfer()]
+        #[weight = <T as Config>::WeightInfo::transfer()]
         fn transfer(origin,  who: T::AccountId, value: BalanceOf<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(value<= T::MaximumTransferValue::get(), Error::<T>::TransferRestriction);
 
             T::Currency::transfer(&sender, &who, value, ExistenceRequirement::AllowDeath )?;
 
-            T::Currency::extend_lock(EVERCITY_LOCK_ID, &who, value, WithdrawReasons::except(WithdrawReason::TransactionPayment) );
+            T::Currency::extend_lock(EVERCITY_LOCK_ID, &who, value, WithdrawReasons::except(WithdrawReasons::FEE) );
             Self::deposit_event(RawEvent::Endow(who, value));
             Ok(())
         }

@@ -1,21 +1,28 @@
+#![allow(clippy::large_enum_variant)]
+
+use crate::{self as pallet_evercity, *};
+use frame_support::parameter_types;
 use frame_support::sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 
-use crate::account::*;
-use crate::bond::BondPeriodNumber;
-use crate::{
-    BondInnerStructOf, BondPeriod, BondStructOf, EverUSDBalance, EvercityAccountStructT, Trait,
-    DEFAULT_DAY_DURATION,
-};
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
-impl_outer_origin! {
-    pub enum Origin for TestRuntime {}
-}
+frame_support::construct_runtime!(
+        pub enum TestRuntime where
+            Block = Block,
+            NodeBlock = Block,
+            UncheckedExtrinsic = UncheckedExtrinsic,
+        {
+            System: frame_system::{Module, Call, Config, Storage, Event<T>},
+            Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+            Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+            Evercity: pallet_evercity::{Module, Call, Storage, Event<T>},
+        }
+);
 
 // Configure a mock runtime to test the pallet.
 pub const MILLISECS_PER_BLOCK: u64 = 6000;
@@ -23,44 +30,35 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const EVERUSD_MAX_MINT_AMOUNT: EverUSDBalance = 60_000_000_000_000_000; // =60 million dollar
 pub const UNIT: EverUSDBalance = 1_000_000_000;
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct TestRuntime;
-
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const ExistentialDeposit: u64 = 0;
+    pub const BlockHashCount: u64 = 2400;
 }
 
-impl frame_system::Trait for TestRuntime {
-    type BaseCallFilter = ();
+impl frame_system::Config for TestRuntime {
     type Origin = Origin;
-    type Call = ();
     type Index = u64;
     type BlockNumber = u64;
+    type Call = Call;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = ();
+    type Event = Event;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type DbWeight = ();
+    type BaseCallFilter = ();
     type SystemWeightInfo = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type SS58Prefix = ();
 }
+
 parameter_types! {
     pub const BurnRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
     pub const MintRequestTtl: u32 = DEFAULT_DAY_DURATION as u32 * 7 * 1000;
@@ -68,8 +66,8 @@ parameter_types! {
     pub const TimeStep: BondPeriod = DEFAULT_DAY_DURATION;
 }
 
-impl Trait for TestRuntime {
-    type Event = ();
+impl Config for TestRuntime {
+    type Event = Event;
     type BurnRequestTtl = BurnRequestTtl;
     type MintRequestTtl = MintRequestTtl;
     type MaxMintAmount = MaxMintAmount;
@@ -83,7 +81,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl pallet_timestamp::Trait for TestRuntime {
+impl pallet_timestamp::Config for TestRuntime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = ();
@@ -92,12 +90,13 @@ impl pallet_timestamp::Trait for TestRuntime {
 }
 
 parameter_types! {
+    pub const ExistentialDeposit: u64 = 0;
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for TestRuntime {
+impl pallet_balances::Config for TestRuntime {
     type Balance = u64;
-    type Event = ();
+    type Event = Event;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -115,8 +114,6 @@ static ROLES: [(u64, u8); 8] = [
     (7_u64, ISSUER_ROLE_MASK | INVESTOR_ROLE_MASK),
     (8_u64, MANAGER_ROLE_MASK),
 ];
-
-pub type System = frame_system::Module<TestRuntime>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> frame_support::sp_io::TestExternalities {
