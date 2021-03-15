@@ -6,10 +6,6 @@
 
 # Build from GitHub on clean Ubuntu 18.04
 
-```bash
-# (!) In this document we work as user "evercity" with $HOME=/home/evercity and SUDO privilege
-```
-
 ## Install required packages
 
 ```bash
@@ -53,7 +49,9 @@ Build node
 cargo build --release
 ```
 
-## Running a node manually
+# Running and testing of the node
+
+## Running manually
 
 ```bash
 # node binary after build is usually in ./target/release/evercity-node
@@ -79,7 +77,7 @@ Feb 17 16:55:39.869  INFO 💤 Idle (0 peers), best: #41 (0xf6cb…55ef), finali
 ```
 where "finalized" block numbers are increasing. Finalization is possible only when several validators agreed on the block (in case of one validator in "dev" mode finalization always works)
 
-## Work with development node
+## Working with development node
 
 Development node is a blockchain with 1 validator(itself), running by default on ws://127.0.0.1:9944 endpoint.
 Examples:
