@@ -1,7 +1,7 @@
 # Initial configuration of evercity node
   you need:
    - Linux server with 4 CPU Intel Xeon or AMD EPYC
-   - 16 Gb RAM
+   - 8-16 Gb RAM
    - 400 Gb free space on SSD
 
 # Build from GitHub on clean Ubuntu 18.04
@@ -11,6 +11,7 @@
 ```
 
 ## Install required packages
+
 ```bash
 # renew list of packages
 sudo apt update
@@ -19,44 +20,41 @@ sudo apt update
 sudo apt install -y cmake pkg-config libssl-dev git build-essential clang libclang-dev curl libz-dev
 ```
 
-## Install Rust compiler and components for building node
+## Download and install Rust
+
 ```bash
-# Download and install Rust
-sudo curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh # proceed with (Default) installation
+# download and run install script. Proceed with (Default) installation
+sudo curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # "turn on" Rust environment in current shell
 source $HOME/.cargo/env
 
-# Update to lastest version of Rust
+# update to lastest version of Rust
 rustup update
-
-## Install Rust nightly version(select needed "nightly" release
-
-```bash
-# set wanted nightly version of Rust
-# (!) I set version to 'nightly-2020-10-01' because with newer version (f.e. 'nightly-2021-02-13')
-# there is a compilation error
-NIGHTLY_RELEASE=nightly-2020-10-01
-
-# install and make default nightly Rust
-rustup install $NIGHTLY_RELEASE
-rustup default $NIGHTLY_RELEASE
-
-# Add WASM compilation target
-rustup target add wasm32-unknown-unknown --toolchain $NIGHTLY_RELEASE
 ```
 
-## Clone and build node
-```bash
-# clone needed branch of "evercity-substrate" ("master" by default)
-git clone https://github.com/EvercityEcosystem/evercity-substrate.git
-cd evercity-substrate
+## Clone repo, install Rust compiler and components, build
 
-# build node using toolchain $NIGHTLY_RELEASE with target "wasm32-unknown-unknown" installed
-WASM_BUILD_TOOLCHAIN=$NIGHTLY_RELEASE cargo build --release
+Clone last version of node
+```bash
+git clone https://github.com/EvercityEcosystem/smart-sustainable-bond.git
+cd smart-sustainable-bond
+```
+
+Install Rust nightly version(select needed "nightly" release
+
+```bash
+# Install needed version of Rust and compоnents, configured in "rust-toolchain.toml" file
+rustup install
+```
+
+Build node
+```
+cargo build --release
 ```
 
 ## Running a node manually
+
 ```bash
 # node binary after build is usually in ./target/release/evercity-node
 cd ./target/release
@@ -85,11 +83,40 @@ where "finalized" block numbers are increasing. Finalization is possible only wh
 
 Development node is a blockchain with 1 validator(itself), running by default on ws://127.0.0.1:9944 endpoint.
 Examples:
-```
+```bash
 # run "dev" node on ws://127.0.0.1:9944
 ./evercity-node --dev 
-# fully delete current "dev" chain, next launch will be from block #0
-./evercity-node purge-chain --dev # предлагает удалить всю цепочку
+
+# fully delete current "dev" chain, next launch will be from block #0. Requires confirmation
+./evercity-node purge-chain --dev
+```
+
+## Running testcase scenarios with local "dev" blockchain
+
+Testcase scenarios are contained in Node.JS script, interacting with local 127.0.0.1:9944 "dev" node.
+Scenarios init user balances, assigns roles to accounts, create bonds and perform all actions of real
+blockchain users(invest, receive coupon yield). Scenarios use local "dev" chain by default
+
+
+1. (Optional) Purge previously created "dev"chain (requires confirmation) and run fresh new chain
+```bash
+./evercity-node purge-chain --dev
+./evercity-node --dev
 ```
 
 
+2. Checkout and build testcase scenarios
+```bash
+git checkout https://github.com/EvercityEcosystem/ssb-testcases-generator.git
+cd ssb-testcases-generator
+npm install
+```
+
+3. Run testcases init and scenarios. Full list of possible scenarios is in "package.json" file.
+Some scenarios require a lot of time to pass (can emulate several time-periods of 1-2 minutes length each).
+You can modify you scenarios or output additional info by editing "index.js" file.
+```bash
+npm run init 		# init balances and roles
+npm run scenario1 	# run scenario1
+npm run scenario2 	# run scenario2 
+```
