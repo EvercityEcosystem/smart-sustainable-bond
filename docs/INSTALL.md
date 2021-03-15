@@ -6,6 +6,8 @@
 
 # Build from GitHub on clean Ubuntu 18.04
 
+Warning! Do not use root account for running and support blockchain node
+
 ## Install required packages
 
 ```bash
@@ -20,7 +22,7 @@ sudo apt install -y cmake pkg-config libssl-dev git build-essential clang libcla
 
 ```bash
 # download and run install script. Proceed with (Default) installation
-sudo curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # "turn on" Rust environment in current shell
 source $HOME/.cargo/env
@@ -37,15 +39,12 @@ git clone https://github.com/EvercityEcosystem/smart-sustainable-bond.git
 cd smart-sustainable-bond
 ```
 
-Install Rust nightly version(select needed "nightly" release
-
-```bash
-# Install needed version of Rust and compоnents, configured in "rust-toolchain.toml" file
-rustup install
-```
-
 Build node
 ```
+# add target "wasm32-unknown-unknown" for current rust-toolchain
+rustup target add wasm32-unknown-unknown
+
+# version of Rust and compоnents are configured in "rust-toolchain.toml" file
 cargo build --release
 ```
 
@@ -96,21 +95,24 @@ Scenarios init user balances, assigns roles to accounts, create bonds and perfor
 blockchain users(invest, receive coupon yield). Scenarios use local "dev" chain by default
 
 
-1. (Optional) Purge previously created "dev"chain (requires confirmation) and run fresh new chain
+### 1. (Optional) Purge previously created "dev"chain (requires confirmation) and run fresh new chain
 ```bash
 ./evercity-node purge-chain --dev
 ./evercity-node --dev
 ```
 
 
-2. Checkout and build testcase scenarios
+### 2. Checkout and build testcase scenarios
+
+Install correct version of Node.JS and run test scenarios
+
 ```bash
-git checkout https://github.com/EvercityEcosystem/ssb-testcases-generator.git
+git clone https://github.com/EvercityEcosystem/ssb-testcases-generator.git
 cd ssb-testcases-generator
 npm install
 ```
 
-3. Run testcases init and scenarios. Full list of possible scenarios is in "package.json" file.
+### 3. Run testcases init and scenarios. Full list of possible scenarios is in "package.json" file.
 Some scenarios require a lot of time to pass (can emulate several time-periods of 1-2 minutes length each).
 You can modify you scenarios or output additional info by editing "index.js" file.
 ```bash
@@ -118,3 +120,5 @@ npm run init 		# init balances and roles
 npm run scenario1 	# run scenario1
 npm run scenario2 	# run scenario2 
 ```
+
+### 4. Repeat
