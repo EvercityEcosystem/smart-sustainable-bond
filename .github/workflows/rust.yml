@@ -26,11 +26,6 @@ jobs:
         with:
           fetch-depth:             5
           submodules:              true
-      - name:                      Install nightly
-        uses:                      actions-rs/toolchain@v1
-        with:
-            target:                wasm32-unknown-unknown
-            components:            rustfmt, clippy
       - name:                      Checking rust
         uses:                      actions-rs/cargo@master
         with:
