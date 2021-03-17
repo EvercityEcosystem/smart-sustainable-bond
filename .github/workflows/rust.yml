@@ -26,6 +26,12 @@ jobs:
         with:
           fetch-depth:             5
           submodules:              true
+      - name:                      Install nightly-2020-10-05
+        uses:                      actions-rs/toolchain@v1
+        with:
+          toolchain:               nightly-2020-10-05
+          override:                false
+          components:              rustfmt, clippy
       - name:                      Checking rust
         uses:                      actions-rs/cargo@master
         with:
