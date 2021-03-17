@@ -15,18 +15,7 @@ jobs:
 ## Check Stage
   check-test-build:
     name:                          Check, test and build
-    runs-on:                       self-hosted
-    container:
-      image:                       paritytech/ci-linux:production
-      volumes:
-        - /cache:/cache
-    env:
-      RUST_BACKTRACE:              full
-      CARGO_TARGET_DIR:            /cache/master
-      SCCACHE_REDIS:               redis://172.17.0.1/0
-      SCCACHE_IDLE_TIMEOUT:        0
-      CMAKE_C_COMPILER_LAUNCHER:   sccache
-      CMAKE_CXX_COMPILER_LAUNCHER: sccache
+    runs-on:                       ubuntu-latest
     steps:
       - name:                      Cancel Previous Runs
         uses:                      styfle/cancel-workflow-action@0.4.1
@@ -42,9 +31,6 @@ jobs:
         with:
             target:                wasm32-unknown-unknown
             components:            rustfmt, clippy
-      #- name:                      add WASM
-      #     run:                    rustup target add wasm32-unknown-unknown
-
       - name:                      Checking rust
         uses:                      actions-rs/cargo@master
         with:
