@@ -401,14 +401,14 @@ decl_module! {
 
         // Account management functions
 
-        #[weight = 0]
+        #[weight = T::DbWeight::get().reads_writes(2,1)]
         fn set_master(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Fuse::try_mutate(|fuse|->DispatchResult{
                 if *fuse {
                     Err( Error::<T>::InvalidAction.into() )
                 }else{
-                    Self::account_add(&caller, EvercityAccountStructT { roles: MASTER_ROLE_MASK, identity:0, create_time: 0.into() });
+                    Self::account_add(&caller, EvercityAccountStructT { roles: MASTER_ROLE_MASK, identity:0, create_time: Timestamp::<T>::get() });
                     *fuse = true;
                     Ok(())
                 }
@@ -459,7 +459,7 @@ decl_module! {
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            Self::account_add( &who, EvercityAccountStructT { roles: role, identity, create_time: 0.into() } );
+            Self::account_add( &who, EvercityAccountStructT { roles: role, identity, create_time: Timestamp::<T>::get() } );
 
             Self::deposit_event(RawEvent::AccountAdd(caller, who, role, identity));
             Ok(())
