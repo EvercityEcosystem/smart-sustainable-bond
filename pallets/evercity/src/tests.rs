@@ -1,3 +1,4 @@
+#![allow(clippy::from_over_into)]
 use frame_support::{
     assert_noop, assert_ok, dispatch::DispatchResult, sp_io, sp_std::ops::RangeInclusive,
     Blake2_256, StorageHasher,

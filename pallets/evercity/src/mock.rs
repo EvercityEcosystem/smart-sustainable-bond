@@ -1,3 +1,4 @@
+#![allow(clippy::from_over_into)]
 use frame_support::sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},

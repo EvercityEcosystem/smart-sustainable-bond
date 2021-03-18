@@ -1,3 +1,5 @@
+#![allow(clippy::from_over_into)]
+
 use crate::*;
 use frame_support::{
     assert_err, assert_ok, impl_outer_origin, parameter_types,
