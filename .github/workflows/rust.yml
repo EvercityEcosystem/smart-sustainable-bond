@@ -9,7 +9,7 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
-      - diagrams/
+      - docs/
 jobs:
 
 ## Check Stage
@@ -26,11 +26,10 @@ jobs:
         with:
           fetch-depth:             5
           submodules:              true
-      - name:                      Install nightly-2020-10-05
+      - name:                      Install rust nightly
         uses:                      actions-rs/toolchain@v1
         with:
           target:                  wasm32-unknown-unknown
-          toolchain:               nightly-2020-10-05
           override:                false
           components:              rustfmt, clippy
       - name:                      Checking rust

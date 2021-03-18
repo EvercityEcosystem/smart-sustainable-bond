@@ -695,54 +695,55 @@ fn bond_period_interest_rate() {
             .iter()
             .all(|&v| v == 20000_u64));
 
-        let mut reports = Vec::<BondImpactReportStruct>::new();
-        //missing report
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 0,
-            signed: false,
-        });
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 20000_u64,
-            signed: true,
-        });
-        //missing report
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 0,
-            signed: false,
-        });
-        // worst result and maximal interest rate value
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 14000_u64,
-            signed: true,
-        });
-        //missing report. it cannot make interest rate worse
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 0,
-            signed: false,
-        });
-        // very good result lead to mininal interest rate
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 100000_u64,
-            signed: true,
-        });
-        //first missing report.
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 0,
-            signed: false,
-        });
-        //second missing report.
-        reports.push(BondImpactReportStruct {
-            create_period: 0,
-            impact_data: 0,
-            signed: false,
-        });
+        let reports: Vec<BondImpactReportStruct> = vec![
+            //missing report
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 20000_u64,
+                signed: true,
+            },
+            //missing report
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            // worst result and maximal interest rate value
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 14000_u64,
+                signed: true,
+            },
+            //missing report. it cannot make interest rate worse
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            // very good result lead to mininal interest rate
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 100000_u64,
+                signed: true,
+            },
+            //first missing report.
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            //second missing report.
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+        ];
 
         assert_eq!(
             bond.inner.interest_rate_start_period_value,
