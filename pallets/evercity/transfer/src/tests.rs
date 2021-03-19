@@ -1,5 +1,4 @@
 #![allow(clippy::from_over_into)]
-use crate::*;
 use crate::{self as pallet_evercity_transfer, *};
 
 use crate::*;
