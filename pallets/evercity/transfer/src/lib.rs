@@ -26,8 +26,9 @@ pub trait WeightInfo {
 }
 
 impl WeightInfo for () {
+    #[allow(clippy::unnecessary_cast)]
     fn transfer() -> Weight {
-        10000 as Weight
+        10000_u64 as Weight
     }
 }
 

@@ -9,7 +9,7 @@ on:
       - v*
     paths-ignore:
       - 'README.md'
-      - diagrams/
+      - docs/
 jobs:
 
 ## Check Stage
@@ -26,11 +26,11 @@ jobs:
         with:
           fetch-depth:             5
           submodules:              true
-      - name:                      Install nightly-2020-10-05
+      - name:                      Install rust nightly
         uses:                      actions-rs/toolchain@v1
         with:
+          toolchain:               nightly-2021-03-03
           target:                  wasm32-unknown-unknown
-          toolchain:               nightly-2020-10-05
           override:                false
           components:              rustfmt, clippy
       - name:                      Checking rust
@@ -51,7 +51,7 @@ jobs:
         uses:                      actions-rs/cargo@master
         with:
           command:                 clippy
-          args:                    --all-targets -- -D warnings
+          args:                    --all-targets
 
 ## Check Node Benchmarks
       - name:                      Check evercity-node

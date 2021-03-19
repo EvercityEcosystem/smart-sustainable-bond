@@ -79,6 +79,7 @@ impl Default for BondImpactType {
 }
 
 /// Bond state
+#[allow(clippy::upper_case_acronyms)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq)]
 pub enum BondState {

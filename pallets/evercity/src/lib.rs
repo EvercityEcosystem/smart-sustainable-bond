@@ -1,5 +1,5 @@
 //! <div>
-//! Crate "pallet-evercity" implements functions for processing 
+//! Crate "pallet-evercity" implements functions for processing
 //! the lifecycle of "green bonds", that copy financial mechanics
 //! form traditional bonds, but allowing the dynamical change of
 //! bond's interest rate, depending of "good/bad" reports from
@@ -29,7 +29,7 @@
 
 //! More cases and information are presented in Evercity project materials.
 //! Here we describe only example scenario with function calls and their meaning.
-//! 
+//!
 //!  - Issuer creates bond: <i>bond_add_new(BondId, BondInnerStructOf<T>)</i>, initial bond status is PREPARE
 //!  - Bond in PREPARE state:
 //!    - Master assigns Manager to help Issuer to configure Bond: <i>bond_add_new(BondId, BondInnerStructOf<T>)</i>
@@ -47,11 +47,11 @@
 //!      to PREPARE state: <i>bond_withdraw(BondId)</i>. Bond cannot be "canceled" until deadline.
 //!      All pre-bought Bond Units can be returned by Investors
 //!    - If Investors bought enough BondUnits until deadline, Master moves the Bond to ACTIVE state:
-//!      <i>bond_activate(BondId, u64)</i> 
+//!      <i>bond_activate(BondId, u64)</i>
 //!    - Date, when bond becomes ACTIVE (BOOKING->ACTIVE) - is a bond start time. All next periods
 //!      will be calculated using this time as start moment
 //!      - During activation Bond transfers all EverUSD, received from Investors to bond Issuer
-//!      - During activation the structure, holding info about each payment_period is created: 
+//!      - During activation the structure, holding info about each payment_period is created:
 //!        <i>[(start_period_data), (period_1_data), (period_2_data), ..., (period_N_data)]</i>.
 //!        This structure(array, fixed size) will hold accumulated coupon yield values, confirmed
 //!        impact data, recieved for given period, etc)
@@ -67,14 +67,14 @@
 //!    - Auditor confirms data, sent by Issuer: <i>bond_impact_report_approve(BondId,
 //!      BondPeriodNumber, u64)</i>
 //!    - Confirmed impact data will later result in change of interest rate for NEXT period
-//!    - First payment_period begins (start period passed). Confirmed impact_data in previous 
+//!    - First payment_period begins (start period passed). Confirmed impact_data in previous
 //!      period results in calculation of current period coupon yield.
 //!    - the beginning of payment period is the time for Issuer to pay coupon interest rate to
 //!      Investors. Effective coupoun yield rate is calculated, using impcat_data of previous
 //!      period. Any operation with bond units and EverUSD balance will update "bond_credit",
 //!      representing overall accrued bond's debt to Investors
 //!    - Issuer sends EverUSD in bond using: <i>bond_deposit_everusd(BondId, EverUSDBalance)</i>
-//!      - All EverUSD, sent by Issuer are placed on bond's balance, added to bond_debit, then, 
+//!      - All EverUSD, sent by Issuer are placed on bond's balance, added to bond_debit, then,
 //!        function <i>calc_and_store_bond_coupon_yield(...)</i> increases "bond_credit",
 //!        summarizing coupon yields for all previous periods. Later, difference between "bond_debit"
 //!        and "bond_credit" is used to calculate bond state (ACTIVE or BANKRUPT) and to calculate
@@ -82,7 +82,7 @@
 //!    - After all calculations, bond saves coupin rates and correct amounts of EverUSD that must be paid
 //!      to Investors for each of already passed payment_periods
 //!    - each Investor calls <i>bond_withdraw_everusd(BondId, EverUSDBalance)</i>,
-//!    requesting coupon yield from bond. 
+//!    requesting coupon yield from bond.
 //!    - If there is not enough EverUSDfrom Issuer, any function working with debit/credit or
 //!    operating with Bond Units moves bond to BANKRUPT state
 //!  - Bond in BANKRUPT state
@@ -91,7 +91,7 @@
 //!    - in BANKRUPT state Investors can withdraw only part of coupon yield, corresponding
 //!      to amount of Bond Units they own
 //!  - Bond in ACTIVE state(finishing period)
-//!    - after all payment_period passed maturity period begins. It's time form Issuer to pay 
+//!    - after all payment_period passed maturity period begins. It's time form Issuer to pay
 //!      full bond debt back to Investors
 //!    - Investor accumulates needed amount of EverUSD on his address and calls
 //!      <i>bond_redeem(BondId)</i> function.
@@ -401,14 +401,14 @@ decl_module! {
 
         // Account management functions
 
-        #[weight = 0]
+        #[weight = T::DbWeight::get().reads_writes(2,1)]
         fn set_master(origin) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             Fuse::try_mutate(|fuse|->DispatchResult{
                 if *fuse {
                     Err( Error::<T>::InvalidAction.into() )
                 }else{
-                    Self::account_add(&caller, EvercityAccountStructT { roles: MASTER_ROLE_MASK, identity:0, create_time: 0.into() });
+                    Self::account_add(&caller, EvercityAccountStructT { roles: MASTER_ROLE_MASK, identity:0, create_time: Timestamp::<T>::get() });
                     *fuse = true;
                     Ok(())
                 }
@@ -459,7 +459,7 @@ decl_module! {
             ensure!(!AccountRegistry::<T>::contains_key(&who), Error::<T>::AccountToAddAlreadyExists);
             ensure!(is_roles_correct(role), Error::<T>::AccountRoleParamIncorrect);
 
-            Self::account_add( &who, EvercityAccountStructT { roles: role, identity, create_time: 0.into() } );
+            Self::account_add( &who, EvercityAccountStructT { roles: role, identity, create_time: Timestamp::<T>::get() } );
 
             Self::deposit_event(RawEvent::AccountAdd(caller, who, role, identity));
             Ok(())
@@ -1257,9 +1257,9 @@ decl_module! {
         /// calculates total bond credit and debit, summarizing all debts and yields,
         /// and transfers needed sum from/to Issuer's(!) EverUSD balance (calculated
         /// using "bond_debit", "bond_credit" and "issued_amount" (bond price)). Any account
-        /// can call this function 
+        /// can call this function
         /// If all operations are successful, bond_debit will be fully covered EverUSD, paid
-        /// by Issuer and Issuer don't have any obligations. Investors now can 
+        /// by Issuer and Issuer don't have any obligations. Investors now can
         /// withdraw all their accrued coupon yield and parts of bond maturity debt
         /// Bond becomes FINISHED.
         /// </pre>
