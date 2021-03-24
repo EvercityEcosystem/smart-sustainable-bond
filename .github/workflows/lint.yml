@@ -15,9 +15,14 @@ jobs:
       - name:                      Checkout sources & submodules
         uses:                      actions/checkout@v2
         with:
-          ref:                     feature_master_substrate
-          fetch-depth:             1
-          submodules:              false
+          fetch-depth:             5
+          submodules:              true
+      - name:                      Install rust nightly
+        uses:                      actions-rs/toolchain@v1
+        with:
+          toolchain:               nightly-2021-03-03
+          target:                  wasm32-unknown-unknown
+          override:                false
 ## Check
       - name:                      Checking evercity
         uses:                      actions-rs/cargo@master
