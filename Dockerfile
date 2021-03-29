@@ -40,4 +40,4 @@ COPY --chown=$USER:$USER --from=source ["/home/source/target/release", "/home/$U
 RUN mkdir /home/$USER/chain
 
 EXPOSE 9944 9615 9933 30300
-CMD [ "/home/node/evercity-node", "--dev", "--ws-port", "9944", "--rpc-port", "9933", "--port", "30300", "--rpc-cors", "all", "--base-path", "/home/node/chain"]
+CMD ["/home/node/evercity-node", "--dev", "--ws-port", "9944", "--rpc-port", "9933", "--port", "30300", "--rpc-cors", "all", "--base-path", "/home/node/chain", "--rpc-external", "--ws-external", "--log", "warn"]
