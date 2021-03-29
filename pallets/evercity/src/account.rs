@@ -42,7 +42,7 @@ pub struct EvercityAccountStructT<Moment> {
 }
 
 pub type EvercityAccountStructOf<T> =
-    EvercityAccountStructT<<T as pallet_timestamp::Trait>::Moment>;
+    EvercityAccountStructT<<T as pallet_timestamp::Config>::Moment>;
 
 /// Structure, created by Issuer or Investor to receive EverUSD on her balance
 /// by paying USD to Custodian. Then Custodian confirms request, adding corresponding
@@ -63,7 +63,7 @@ impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenMintRequestStruct<M
 }
 
 pub type TokenMintRequestStructOf<T> =
-    TokenMintRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
+    TokenMintRequestStruct<<T as pallet_timestamp::Config>::Moment>;
 
 /// Structure, created by Issuer or Investor to burn EverUSD on her balance
 /// and receive corresponding amount of USD from Custodian.
@@ -83,7 +83,7 @@ impl<Moment: core::cmp::PartialOrd> Expired<Moment> for TokenBurnRequestStruct<M
 }
 
 pub type TokenBurnRequestStructOf<T> =
-    TokenBurnRequestStruct<<T as pallet_timestamp::Trait>::Moment>;
+    TokenBurnRequestStruct<<T as pallet_timestamp::Config>::Moment>;
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 pub trait OnAddAccount<AccountId, Moment> {
