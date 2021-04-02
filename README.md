@@ -91,7 +91,7 @@ Methods of pallet-evercity are described in Rust documentation [here](http://51.
 ### 6.2 Build
 
 ```bash
-git clone https://github.com/EvercityEcosystem/evercity-substrate.git
+git clone https://github.com/EvercityEcosystem/smart-sustainable-bond.git
 cd evercity-substrate
 cargo build --release
 ```
