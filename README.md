@@ -86,12 +86,12 @@ Any significant operations with a token, bond, accounts and roles (including com
 
 ### 6.1 Runtime methods
 
-Methods of pallet-evercity are described in Rust documentation [here](http://51.15.47.43/pallet_evercity/) [TEMP]
+Methods of pallet-evercity are described in Rust documentation [here](http://51.15.47.43/doc/pallet_evercity/) [TEMP]
 
 ### 6.2 Build
 
 ```bash
-git clone https://github.com/EvercityEcosystem/evercity-substrate.git
+git clone https://github.com/EvercityEcosystem/smart-sustainable-bond.git
 cd evercity-substrate
 cargo build --release
 ```
