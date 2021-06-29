@@ -1877,23 +1877,28 @@ impl<T: Config> Module<T> {
         while bond_yields.len() < period {
             // index - accrued period number
             let index = bond_yields.len();
-            let interest_rate = if index == 0 {
-                // There is no periods and data yet, set start period interest rate value
-                bond.inner.interest_rate_start_period_value
-            } else if reports[index - 1].signed {
-                // There is confirmed impact_data about this period
-                // Calculate interest rate, based on impact_data and baseline,min,max parameters of bond
-                bond.calc_effective_interest_rate(
-                    bond.inner.impact_data_baseline[index - 1],
-                    reports[index - 1].impact_data,
-                )
+
+            if !(bond.inner.is_stable()) {
+                let interest_rate = if index == 0 {
+                    // There is no periods and data yet, set start period interest rate value
+                    bond.inner.interest_rate_start_period_value
+                } else if reports[index - 1].signed {
+                    // There is confirmed impact_data about this period
+                    // Calculate interest rate, based on impact_data and baseline,min,max parameters of bond
+                    bond.calc_effective_interest_rate(
+                        bond.inner.impact_data_baseline[index - 1],
+                        reports[index - 1].impact_data,
+                    )
+                } else {
+                    // Report is missed, apply penalty for missed report(but not more than interest_rate_margin_cap)
+                    min(
+                        bond_yields[index - 1].interest_rate
+                            + bond.inner.interest_rate_penalty_for_missed_report,
+                        bond.inner.interest_rate_margin_cap,
+                    )
+                }
             } else {
-                // Report is missed, apply penalty for missed report(but not more than interest_rate_margin_cap)
-                min(
-                    bond_yields[index - 1].interest_rate
-                        + bond.inner.interest_rate_penalty_for_missed_report,
-                    bond.inner.interest_rate_margin_cap,
-                )
+                0 /// TODO - what do we return in case of the stable bond?
             };
 
             let package_yield = bond.inner.bond_units_base_price / 1000
@@ -2142,26 +2147,29 @@ impl<T: Config> Module<T> {
         period: usize,
     ) -> bond::BondInterest {
         assert!(reports.len() >= period);
+        if !(bond.inner.is_stable()) {
+            let mut missed_periods = 0;
+            let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
 
-        let mut missed_periods = 0;
-        let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
-
-        for (report, baseline) in reports[0..period]
-            .iter()
-            .zip(bond.inner.impact_data_baseline[0..period].iter())
-            .rev()
-        {
-            if report.signed {
-                interest = bond.calc_effective_interest_rate(*baseline, report.impact_data);
-                break;
+            for (report, baseline) in reports[0..period]
+                .iter()
+                .zip(bond.inner.impact_data_baseline[0..period].iter())
+                .rev()
+            {
+                if report.signed {
+                    interest = bond.calc_effective_interest_rate(*baseline, report.impact_data);
+                    break;
+                }
+                missed_periods += 1;
             }
-            missed_periods += 1;
-        }
 
-        min(
-            bond.inner.interest_rate_margin_cap,
-            interest + missed_periods * bond.inner.interest_rate_penalty_for_missed_report,
-        )
+            min(
+                bond.inner.interest_rate_margin_cap,
+                interest + missed_periods * bond.inner.interest_rate_penalty_for_missed_report,
+            )
+        } else {
+            bond.inner.interest_rate_base_value
+        }
     }
     /// <pre>
     /// Checks if a report comes at the right time.
