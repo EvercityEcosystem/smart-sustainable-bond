@@ -136,12 +136,10 @@ pub struct BondInnerStruct<Moment, Hash> {
     /// Cap of impact_data value (absolute value). Values more then cap
     /// are considered equal to impact_data_max_deviation_cap
     /// when calculating coupon interest_rate depending on impact_data
-    /// #[codec(compact)]
     pub impact_data_max_deviation_cap: Option<u64>,
     /// Floor of impact_data value (absolute value). Values less then floor
     /// are considered equal to impact_data_max_deviation_floor
     /// when calculating coupon interest_rate depending on impact_data
-    /// #[codec(compact)]
     pub impact_data_max_deviation_floor: Option<u64>,
     /// Amount of seconds before end of a payment_period
     /// when Issuer should release regular impact report (confirmed by Auditor)
@@ -149,7 +147,6 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub impact_data_send_period: BondPeriod,
     /// Penalty, adding to interest rate when impact report was not
     /// released during impact_data_send_period, ppm
-    ///#[codec(compact)]
     pub interest_rate_penalty_for_missed_report: Option<BondInterest>,
     /// Base coupon interest rate, ppm. All changes of interest_rate
     /// during payment periods are based on this value, ppm
@@ -157,23 +154,18 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub interest_rate_base_value: BondInterest,
     /// Upper margin of interest_rate. Interest rate cannot
     /// be more than this value, ppm
-    ///#[codec(compact)]
     pub interest_rate_margin_cap: Option<BondInterest>,
     /// Lower margin of interest_rate. Interest rate cannot
     /// be less than this value, ppm
-    ///#[codec(compact)]
     pub interest_rate_margin_floor: Option<BondInterest>,
     /// Interest rate during the start_periodm when interest rate is constant
     /// (from activation to first payment period), ppm
-    ///#[codec(compact)]
     pub interest_rate_start_period_value: Option<BondInterest>,
     /// Period when Issuer should pay off coupon interests, sec
-    ///#[codec(compact)]
     pub interest_pay_period: Option<BondPeriod>,
 
     /// Period from activation when effective interest rate
-    /// invariably equals to interest_rate_start_period_value, sec
-    ///#[codec(compact)]
+    /// invariably equals to interest_rate_start_period_value, se
     pub start_period: Option<BondPeriod>,
 
     /// <pre>
