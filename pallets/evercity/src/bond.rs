@@ -130,18 +130,18 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub impact_data_type: BondImpactType,
     /// Base value Now, all types has same interest_rate calculation logic
     /// greater the value -> lower the interest_rate and vice-versa
-    pub impact_data_baseline: Option<Vec<u64>>,
+    pub impact_data_baseline: Vec<Option<u64>>,
 
     // Coupon interest regulatory options
     /// Cap of impact_data value (absolute value). Values more then cap
     /// are considered equal to impact_data_max_deviation_cap
     /// when calculating coupon interest_rate depending on impact_data
-    #[codec(compact)]
+    /// #[codec(compact)]
     pub impact_data_max_deviation_cap: Option<u64>,
     /// Floor of impact_data value (absolute value). Values less then floor
     /// are considered equal to impact_data_max_deviation_floor
     /// when calculating coupon interest_rate depending on impact_data
-    #[codec(compact)]
+    /// #[codec(compact)]
     pub impact_data_max_deviation_floor: Option<u64>,
     /// Amount of seconds before end of a payment_period
     /// when Issuer should release regular impact report (confirmed by Auditor)
@@ -149,7 +149,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub impact_data_send_period: BondPeriod,
     /// Penalty, adding to interest rate when impact report was not
     /// released during impact_data_send_period, ppm
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub interest_rate_penalty_for_missed_report: Option<BondInterest>,
     /// Base coupon interest rate, ppm. All changes of interest_rate
     /// during payment periods are based on this value, ppm
@@ -157,23 +157,23 @@ pub struct BondInnerStruct<Moment, Hash> {
     pub interest_rate_base_value: BondInterest,
     /// Upper margin of interest_rate. Interest rate cannot
     /// be more than this value, ppm
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub interest_rate_margin_cap: Option<BondInterest>,
     /// Lower margin of interest_rate. Interest rate cannot
     /// be less than this value, ppm
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub interest_rate_margin_floor: Option<BondInterest>,
     /// Interest rate during the start_periodm when interest rate is constant
     /// (from activation to first payment period), ppm
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub interest_rate_start_period_value: Option<BondInterest>,
     /// Period when Issuer should pay off coupon interests, sec
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub interest_pay_period: Option<BondPeriod>,
 
     /// Period from activation when effective interest rate
     /// invariably equals to interest_rate_start_period_value, sec
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub start_period: Option<BondPeriod>,
 
     /// <pre>
@@ -182,7 +182,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     ///  - coupon interest rate is recalculated for next payment_period
     ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
     /// </pre>
-    #[codec(compact)]
+    ///#[codec(compact)]
     pub payment_period: Option<BondPeriod>,
 
     /// The number of periods from active_start_date (when bond becomes active,
@@ -251,13 +251,23 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
     /// (should be multiple of "time_step"), ranges of price and impact data baseline values
     /// For stable bonds: check that the optional parameters are 0.
     pub fn is_valid(&self, time_step: BondPeriod) -> bool {
-        if !(self.is_stable()) {
-            /// ensure that for a non-stable bond the below
-            /// parameters have values
+        if self.is_stable() {
+            // in case of the stable bond, because the below parameters are optional,
+            // they must be None
+            self.impact_data_max_deviation_cap.is_none()
+                && self.impact_data_max_deviation_floor.is_none()
+                && self.interest_rate_margin_cap.is_none()
+                && self.interest_rate_margin_floor.is_none()
+                && self.interest_rate_start_period_value.is_none()
+                && self.interest_pay_period.is_none()
+                && self.interest_rate_start_period_value.is_none()
+        } else {
+            // ensure that for a non-stable bond the below
+            // parameters have values
             (self.impact_data_max_deviation_cap.is_some()
-                && self.impact_data_min_deviation_cap.is_some()
-                && self.impact_data_margin_cap.is_some()
-                && self.impact_data_margin_floor.is_some()
+                && self.impact_data_max_deviation_floor.is_some()
+                && self.interest_rate_margin_cap.is_some()
+                && self.interest_rate_margin_floor.is_some()
                 && self.interest_rate_start_period_value.is_some()
                 && self.interest_pay_period.is_some()
                 && self.interest_rate_start_period_value.is_some()
@@ -265,9 +275,9 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
                 && self.bond_units_mincap_amount > 0
                 && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
                 && self.payment_period.unwrap_or(0) >= MIN_PAYMENT_PERIOD * time_step
-                && self.impact_data_send_period.unwrap_or(0) <= self.payment_period.unwrap_or(0)
-                && is_period_muliple_of_time_step(self.payment_period, time_step)
-                && is_period_muliple_of_time_step(self.start_period, time_step)
+                && self.impact_data_send_period <= self.payment_period.unwrap_or(0)
+                && is_period_muliple_of_time_step(self.payment_period.unwrap_or(0), time_step)
+                && is_period_muliple_of_time_step(self.start_period.unwrap_or(0), time_step)
                 && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
                 && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
                 && is_period_muliple_of_time_step(self.interest_pay_period.unwrap_or(0), time_step)
@@ -281,19 +291,9 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
                 && self.bond_duration >= MIN_BOND_DURATION
                 && self.impact_data_baseline.len() == self.bond_duration as usize
                 && self.impact_data_baseline.iter().all(|&bl| {
-                    bl <= self.impact_data_max_deviation_cap.unwrap_or(0)
-                        && bl >= self.impact_data_max_deviation_floor.unwrap_or(0)
+                    bl <= self.impact_data_max_deviation_cap
+                        && bl >= self.impact_data_max_deviation_floor
                 })
-        } else {
-            /// in case of the stable bond, because the below parameters are optional,
-            /// they must be None
-            self.impact_data_max_deviation_cap.is_none()
-                && self.impact_data_min_deviation_cap.is_none()
-                && self.impact_data_margin_cap..is_none()
-                && self.impact_data_margin_floor.is_none()
-                && self.interest_rate_start_period_value.is_none()
-                && self.interest_pay_period.is_none()
-                && self.interest_rate_start_period_value.is_none()
         }
     }
 }
@@ -402,7 +402,7 @@ impl<AccountId, Moment, Hash> BondStruct<AccountId, Moment, Hash> {
 
     #[inline]
     pub fn get_periods(&self) -> BondPeriodNumber {
-        if self.inner.start_period == 0 {
+        if self.inner.start_period.unwrap_or(0) == 0 {
             self.inner.bond_duration
         } else {
             self.inner.bond_duration + 1
