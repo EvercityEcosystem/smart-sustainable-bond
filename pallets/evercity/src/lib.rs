@@ -1878,13 +1878,12 @@ impl<T: Config> Module<T> {
             // index - accrued period number
             let index = bond_yields.len();
 
-            if bond.inner.is_stable() {
-                let interest_rate = bond.inner.interest_rate_base_value;
-                interest_rate
+            let interest_rate = if bond.inner.is_stable() {
+                bond.inner.interest_rate_base_value
             } else {
-                let interest_rate = if index == 0 {
+                if index == 0 {
                     // There is no periods and data yet, set start period interest rate value
-                    bond.inner.interest_rate_start_period_value
+                    bond.inner.interest_rate_start_period_value.unwrap_or(0)
                 } else if reports[index - 1].signed {
                     // There is confirmed impact_data about this period
                     // Calculate interest rate, based on impact_data and baseline,min,max parameters of bond
