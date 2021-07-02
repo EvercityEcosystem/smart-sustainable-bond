@@ -1898,7 +1898,7 @@ impl<T: Config> Module<T> {
                             + bond.inner.interest_rate_penalty_for_missed_report.unwrap_or(0),
                         bond.inner.interest_rate_margin_cap.unwrap_or(0),
                     )
-                };
+                }
             };
 
             let package_yield = bond.inner.bond_units_base_price / 1000
