@@ -2151,7 +2151,7 @@ impl<T: Config> Module<T> {
             bond.inner.interest_rate_base_value            
         } else {
             let mut missed_periods = 0;
-            let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value;
+            let mut interest: bond::BondInterest = bond.inner.interest_rate_start_period_value.unwrap_or(0);
 
             for (report, baseline) in reports[0..period]
                 .iter()
@@ -2159,15 +2159,15 @@ impl<T: Config> Module<T> {
                 .rev()
             {
                 if report.signed {
-                    interest = bond.calc_effective_interest_rate(*baseline, report.impact_data);
+                    interest = bond.calc_effective_interest_rate(baseline.unwrap_or(0), report.impact_data);
                     break;
                 }
                 missed_periods += 1;
             }
 
             min(
-                bond.inner.interest_rate_margin_cap,
-                interest + missed_periods * bond.inner.interest_rate_penalty_for_missed_report,
+                bond.inner.interest_rate_margin_cap.unwrap_or(0),
+                interest + missed_periods * bond.inner.interest_rate_penalty_for_missed_report.unwrap_or(0),
             )
         }
     }

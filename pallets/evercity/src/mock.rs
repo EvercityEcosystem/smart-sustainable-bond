@@ -163,18 +163,18 @@ pub fn get_test_bond() -> BondStruct {
             docs_pack_root_hash_tech: Default::default(),
 
             impact_data_type: Default::default(),
-            impact_data_baseline: vec![20000_u64; PERIODS],
-            impact_data_max_deviation_cap: 30000_u64,
-            impact_data_max_deviation_floor: 14000_u64,
-            interest_rate_penalty_for_missed_report: 400, // +0.4%
+            impact_data_baseline: vec![Some(20000_u64); PERIODS],
+            impact_data_max_deviation_cap: Some(30000_u64),
+            impact_data_max_deviation_floor: Some(14000_u64),
+            interest_rate_penalty_for_missed_report: Some(400), // +0.4%
 
             interest_rate_base_value: 2000,   // 2.0%
-            interest_rate_margin_cap: 4000,   // 4.0%
-            interest_rate_margin_floor: 1000, // 1.0%
-            interest_rate_start_period_value: 1900,
-            start_period: 120 * DEFAULT_DAY_DURATION,
-            payment_period: 30 * DEFAULT_DAY_DURATION, // every month (30 days)
-            interest_pay_period: 7 * DEFAULT_DAY_DURATION, // up to 7 days after  new period started
+            interest_rate_margin_cap: Some(4000),   // 4.0%
+            interest_rate_margin_floor: Some(1000), // 1.0%
+            interest_rate_start_period_value: Some(1900),
+            start_period: Some(120 * DEFAULT_DAY_DURATION),
+            payment_period: Some(30 * DEFAULT_DAY_DURATION), // every month (30 days)
+            interest_pay_period: Some(7 * DEFAULT_DAY_DURATION), // up to 7 days after  new period started
             mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
             impact_data_send_period: 10 * DEFAULT_DAY_DURATION, // 10 days before next period
             bond_duration: PERIODS as BondPeriodNumber,         // PERIODS periods for 30 days
