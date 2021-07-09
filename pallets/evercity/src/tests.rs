@@ -1221,7 +1221,7 @@ fn bond_try_update_after_release() {
 
         // the others cannot. TODO add other fields to check
         let mut update = get_test_bond().inner;
-        let unwrapped_payment_period = update.payment_period.unwrap_or(0) + 2;
+        let unwrapped_payment_period = update.payment_period.unwrap_or(0) * 2;
         update.payment_period = Some(unwrapped_payment_period);
         assert_noop!(
             Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
