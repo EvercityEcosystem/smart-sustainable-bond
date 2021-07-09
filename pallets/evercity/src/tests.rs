@@ -1077,6 +1077,68 @@ fn bond_stable_is_valid() {
 }
 
 #[test]
+fn bond_stable_calc_bond_interest_rate() {
+    let bond = get_test_bond_stable();
+    let base_value = bond.inner.interest_rate_base_value as u64;
+
+    let reports: Vec<BondImpactReportStruct> = vec![
+            //missing report
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            //missing report
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            // worst result and maximal interest rate value
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            //missing report. it cannot make interest rate worse
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            // very good result lead to mininal interest rate
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            //first missing report.
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+            //second missing report.
+            BondImpactReportStruct {
+                create_period: 0,
+                impact_data: 0,
+                signed: false,
+            },
+        ];
+
+        assert_eq!(
+            Evercity::calc_bond_interest_rate(&bond, reports.as_ref(), 0),
+            bond.inner.interest_rate_base_value
+        );
+        
+}
+
+#[test]
 fn bond_try_withdraw_before_deadline() {
     let mut bond = get_test_bond();
     let bondid: BondId = "BOND".into();
