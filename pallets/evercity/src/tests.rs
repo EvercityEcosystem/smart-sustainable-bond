@@ -1059,6 +1059,24 @@ fn bond_try_revoke_after_release() {
 }
 
 #[test]
+fn bond_zero_send_period_is_stable() {
+    let bond = get_test_bond_stable().inner;
+    assert_eq!(bond.is_stable(), true);
+}
+
+#[test]
+fn bond_nonzero_send_period_is_not_stable() {
+    let bond = get_test_bond().inner;
+    assert_eq!(bond.is_stable(), false);
+}
+
+#[test]
+fn bond_stable_is_valid() {
+    let bond = get_test_bond_stable().inner;
+    assert_eq!(bond.is_valid(DEFAULT_DAY_DURATION), true);
+}
+
+#[test]
 fn bond_try_withdraw_before_deadline() {
     let mut bond = get_test_bond();
     let bondid: BondId = "BOND".into();
