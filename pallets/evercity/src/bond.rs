@@ -174,7 +174,6 @@ pub struct BondInnerStruct<Moment, Hash> {
     ///  - coupon interest rate is recalculated for next payment_period
     ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
     /// </pre>
-    ///#[codec(compact)]
     pub payment_period: Option<BondPeriod>,
 
     /// The number of periods from active_start_date (when bond becomes active,
