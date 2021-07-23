@@ -1,0 +1,400 @@
+name: Publish packages
+
+on: push
+
+env:
+  # Base options
+  PACKAGE_NAME: ${{ github.event.repository.name }}
+  REPOSITORY_NAME: ${{ github.event.repository.name }}
+
+  # Dockerhub options
+  DOCKERHUB_REGISTRY_OWNER: ${{ secrets.DOCKER_USER }}
+  DOCKERHUB_REGISTRY_USERNAME: ${{ secrets.DOCKER_USER }}
+  DOCKERHUB_REGISTRY_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  # Github options
+  GHCR_REGISTRY_OWNER: ${{ github.repository_owner }}
+  GHCR_REGISTRY_HOST: ghcr.io
+  GHCR_REGISTRY_USERNAME: ${{ secrets.PACKAGES_USER }}
+  GHCR_REGISTRY_PASSWORD: ${{ secrets.PACKAGES_TOKEN }}
+
+  GITHUB_DEPLOY_EVENT: deploy
+  GITHUB_DEPLOY_REPOSITORY: ${{ github.repository_owner }}/${{ github.event.repository.name }}-deploy
+
+jobs:
+  check-and-test:
+    name:                          Check and test
+    runs-on:                       ubuntu-latest
+    steps:
+      -
+        name:                      Cancel Previous Runs
+        uses:                      styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token:            ${{ github.token }}
+      -
+        name:                      Checkout sources & submodules
+        uses:                      actions/checkout@v2
+        with:
+          fetch-depth:             5
+          submodules:              true
+      -
+        name:                      Install rust nightly
+        uses:                      actions-rs/toolchain@v1
+        with:
+          toolchain:               nightly-2021-03-03
+          target:                  wasm32-unknown-unknown
+          override:                false
+          components:              rustfmt, clippy
+      -
+        name:                      Checking rust
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --all  --verbose
+
+      ## Test Stage
+      -
+        name:                      Testing rust
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 test
+          args:                    --all  --verbose
+
+      ## Linting Stage
+      -
+        name:                      Clippy
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 clippy
+          args:                    --all-targets
+
+      ## Check Node Benchmarks
+      -
+        name:                      Check evercity-node
+        uses:                      actions-rs/cargo@master
+        with:
+          command:                 check
+          args:                    --verbose
+
+  create-latest-image:
+    name: Create latest docker image
+    runs-on: ubuntu-latest
+    if: contains( github.ref, 'refs/tags/') == false && github.ref == 'refs/heads/master'
+    needs: check-and-test
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ env.DOCKERHUB_REGISTRY_USERNAME }}
+          password: ${{ env.DOCKERHUB_REGISTRY_PASSWORD }}
+      -
+        name: Login to GithHub
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.GHCR_REGISTRY_HOST }}
+          username: ${{ env.GHCR_REGISTRY_USERNAME }}
+          password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:latest
+            ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:latest
+
+  create-release-image:
+    name: Create release docker image
+    runs-on: ubuntu-latest
+    if: contains( github.ref, 'refs/tags/') == true
+    needs: check-and-test
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ env.DOCKERHUB_REGISTRY_USERNAME }}
+          password: ${{ env.DOCKERHUB_REGISTRY_PASSWORD }}
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.GHCR_REGISTRY_HOST }}
+          username: ${{ env.GHCR_REGISTRY_USERNAME }}
+          password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+            ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+
+  create-develop-image:
+    name: Create develop docker image
+    runs-on: ubuntu-latest
+    if: contains( github.ref, 'refs/tags/') == false && github.ref == 'refs/heads/develop'
+    needs: check-and-test
+    steps:
+        - name: Cancel Previous Runs
+          uses: styfle/cancel-workflow-action@0.4.1
+          with:
+              access_token: ${{ github.token }}
+        -
+            name: Checkout
+            uses: actions/checkout@v2
+        -
+            name: Set env
+            run: echo "RELEASE_VERSION=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+        -
+            name: Set up QEMU
+            uses: docker/setup-qemu-action@v1
+        -
+            name: Set up Docker Buildx
+            uses: docker/setup-buildx-action@v1
+        -
+            name: Login to DockerHub
+            uses: docker/login-action@v1
+            with:
+                username: ${{ env.DOCKERHUB_REGISTRY_USERNAME }}
+                password: ${{ env.DOCKERHUB_REGISTRY_PASSWORD }}
+        -
+            name: Login to GithHub
+            uses: docker/login-action@v1
+            with:
+                registry: ${{ env.GHCR_REGISTRY_HOST }}
+                username: ${{ env.GHCR_REGISTRY_USERNAME }}
+                password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+        -
+            name: Build and push
+            uses: docker/build-push-action@v2
+            with:
+                context: .
+                platforms: linux/amd64
+                push: true
+                tags: |
+                    ${{ env.DOCKERHUB_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+                    ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+
+
+  test-latest-docker-image:
+    name: Testing latest docker image
+    runs-on: ubuntu-latest
+    needs: create-latest-image
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.GHCR_REGISTRY_HOST }}
+          username: ${{ env.GHCR_REGISTRY_USERNAME }}
+          password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+      -
+        name: Docker pull
+        run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:latest
+      -
+        name: Docker run
+        run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+      -
+        name: Testing node
+        run: |
+          git clone https://github.com/EvercityEcosystem/ssb-testcases-generator.git
+          cd ssb-testcases-generator
+          mv .sample-env .env
+          yarn
+          yarn run init
+          yarn run scenario1
+          yarn run scenario2
+
+  test-release-docker-image:
+    name: Testing release docker image
+    runs-on: ubuntu-latest
+    needs: create-release-image
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.GHCR_REGISTRY_HOST }}
+          username: ${{ env.GHCR_REGISTRY_USERNAME }}
+          password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+      -
+        name: Docker pull
+        run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+      -
+        name: Docker run
+        run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+      -
+        name: Testing node
+        run: |
+          git clone https://github.com/EvercityEcosystem/ssb-testcases-generator.git
+          cd ssb-testcases-generator
+          mv .sample-env .env
+          yarn
+          yarn run init
+          yarn run scenario1
+          yarn run scenario2
+
+  test-develop-docker-image:
+      name: Testing develop docker image
+      runs-on: ubuntu-latest
+      needs: create-develop-image
+      steps:
+          -
+            name: Cancel Previous Runs
+            uses: styfle/cancel-workflow-action@0.4.1
+            with:
+                access_token: ${{ github.token }}
+          -
+            name: Set env
+            run: echo "RELEASE_VERSION=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+          -
+            name: Login to GitHub Container Registry
+            uses: docker/login-action@v1
+            with:
+                registry: ${{ env.GHCR_REGISTRY_HOST }}
+                username: ${{ env.GHCR_REGISTRY_USERNAME }}
+                password: ${{ env.GHCR_REGISTRY_PASSWORD }}
+          -
+            name: Docker pull
+            run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+          -
+            name: Docker run
+            run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+          -
+            name: Testing node
+            run: |
+                git clone https://github.com/EvercityEcosystem/ssb-testcases-generator.git
+                cd ssb-testcases-generator
+                mv .sample-env .env
+                yarn
+                yarn run init
+                yarn run scenario1
+                yarn run scenario2
+
+  deploy-latest:
+    name: Dispatch deploy latest image
+    runs-on: ubuntu-latest
+    needs: test-latest-docker-image
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Set env
+        run: echo "BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      -
+        name: Dispatch Builds
+        uses: peter-evans/repository-dispatch@v1.0.0
+        with:
+          token: ${{ env.GHCR_REGISTRY_PASSWORD }}
+          repository: ${{ env.GITHUB_DEPLOY_REPOSITORY }}
+          event-type: ${{ env.GITHUB_DEPLOY_EVENT }}
+          client-payload: '{"package": "${{ env.PACKAGE_NAME }}", "label": "latest", "ref": "${{ github.ref }}"}'
+
+  deploy-release:
+    name: Dispatch deploy release image
+    runs-on: ubuntu-latest
+    needs: test-release-docker-image
+    steps:
+      -
+        name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}
+      -
+        name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      -
+        name: Dispatch Builds
+        uses: peter-evans/repository-dispatch@v1.0.0
+        with:
+          token: ${{ env.GHCR_REGISTRY_PASSWORD }}
+          repository: ${{ env.GITHUB_DEPLOY_REPOSITORY }}
+          event-type: ${{ env.GITHUB_DEPLOY_EVENT }}
+          client-payload: '{"package": "${{ env.PACKAGE_NAME }}", "label": "${{ env.RELEASE_VERSION }}", "ref": "${{ github.ref }}"}'
+
+  deploy-develop:
+      name: Dispatch deploy develop image
+      runs-on: ubuntu-latest
+      needs: test-develop-docker-image
+      steps:
+          -
+              name: Cancel Previous Runs
+              uses: styfle/cancel-workflow-action@0.4.1
+              with:
+                  access_token: ${{ github.token }}
+          -
+              name: Set env
+              run: echo "RELEASE_VERSION=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+          -
+              name: Dispatch Builds
+              uses: peter-evans/repository-dispatch@v1.0.0
+              with:
+                  token: ${{ env.GHCR_REGISTRY_PASSWORD }}
+                  repository: ${{ env.GITHUB_DEPLOY_REPOSITORY }}
+                  event-type: ${{ env.GITHUB_DEPLOY_EVENT }}
+                  client-payload: '{"package": "${{ env.PACKAGE_NAME }}", "label": "${{ env.RELEASE_VERSION }}", "ref": "${{ github.ref }}"}'
+
+  skip:
+    name: Skip build image and deploy
+    runs-on: ubuntu-latest
+    if: contains( github.ref, 'refs/tags/') == false && github.ref != 'refs/heads/master' && github.ref != 'refs/heads/develop'
+    needs: check-and-test
+    steps:
+      - name: Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.4.1
+        with:
+          access_token: ${{ github.token }}

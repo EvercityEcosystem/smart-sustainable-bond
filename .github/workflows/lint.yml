@@ -8,33 +8,43 @@ jobs:
     name:                          Check and test
     runs-on:                       ubuntu-latest
     steps:
-      - name:                      Cancel Previous Runs
+      -
+        name:                      Cancel Previous Runs
         uses:                      styfle/cancel-workflow-action@0.4.1
         with:
           access_token:            ${{ github.token }}
-      - name:                      Checkout sources & submodules
+      -
+        name:                      Checkout sources & submodules
         uses:                      actions/checkout@v2
         with:
-          ref:                     feature_master_substrate
-          fetch-depth:             1
-          submodules:              false
-## Check
-      - name:                      Checking evercity
+          fetch-depth:             5
+          submodules:              true
+      -
+        name:                      Install rust nightly
+        uses:                      actions-rs/toolchain@v1
+        with:
+          toolchain:               nightly-2021-03-03
+          target:                  wasm32-unknown-unknown
+          override:                false
+      -
+        name:                      Checking evercity
         uses:                      actions-rs/cargo@master
         with:
           command:                 check
           args:                    --all  --verbose
-      - name:                      Update  substrate
+      -
+        name:                      Update  substrate
         uses:                      actions-rs/cargo@master
         with:
           command:                 update
-      - name:                      Checking substrate
+      -
+        name:                      Checking substrate
         uses:                      actions-rs/cargo@master
         with:
           command:                 check
           args:                    --all  --verbose
-## Test
-      - name:                      Testing rust
+      -
+        name:                      Testing rust
         uses:                      actions-rs/cargo@master
         with:
           command:                 test
