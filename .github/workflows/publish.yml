@@ -241,11 +241,15 @@ jobs:
                     username: ${{ env.GHCR_REGISTRY_USERNAME }}
                     password: ${{ env.GHCR_REGISTRY_PASSWORD }}
             -
+                name: Set image tags
+                run: |
+                    echo "DOCKER_TAG=${{ env.GHCR_REGISTRY_HOST }}/${GHCR_REGISTRY_OWNER,,}/${PACKAGE_NAME,,}" >> $GITHUB_ENV
+            -
                 name: Docker pull
-                run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:latest
+                run: docker pull ${{ env.DOCKER_TAG }}:latest
             -
                 name: Docker run
-                run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+                run: docker run -p 9944:9944 ${{ env.DOCKER_TAG }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
             -
                 name: Testing node
                 run: |
@@ -271,6 +275,10 @@ jobs:
                 name: Set env
                 run: echo "RELEASE_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
             -
+                name: Set image tags
+                run: |
+                    echo "DOCKER_TAG=${{ env.GHCR_REGISTRY_HOST }}/${GHCR_REGISTRY_OWNER,,}/${PACKAGE_NAME,,}" >> $GITHUB_ENV
+            -
                 name: Login to GitHub Container Registry
                 uses: docker/login-action@v1
                 with:
@@ -279,10 +287,10 @@ jobs:
                     password: ${{ env.GHCR_REGISTRY_PASSWORD }}
             -
                 name: Docker pull
-                run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+                run: docker pull ${{ env.DOCKER_TAG }}:${{ env.RELEASE_VERSION }}
             -
                 name: Docker run
-                run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+                run: docker run -p 9944:9944 ${{ env.DOCKER_TAG }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
             -
                 name: Testing node
                 run: |
@@ -308,6 +316,10 @@ jobs:
                 name: Set env
                 run: echo "RELEASE_VERSION=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
             -
+                name: Set image tags
+                run: |
+                    echo "DOCKER_TAG=${{ env.GHCR_REGISTRY_HOST }}/${GHCR_REGISTRY_OWNER,,}/${PACKAGE_NAME,,}" >> $GITHUB_ENV
+            -
                 name: Login to GitHub Container Registry
                 uses: docker/login-action@v1
                 with:
@@ -316,10 +328,10 @@ jobs:
                     password: ${{ env.GHCR_REGISTRY_PASSWORD }}
             -
                 name: Docker pull
-                run: docker pull ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }}:${{ env.RELEASE_VERSION }}
+                run: docker pull ${{ env.DOCKER_TAG }}:${{ env.RELEASE_VERSION }}
             -
                 name: Docker run
-                run: docker run -p 9944:9944 ${{ env.GHCR_REGISTRY_HOST }}/${{ env.GHCR_REGISTRY_OWNER }}/${{ env.PACKAGE_NAME }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
+                run: docker run -p 9944:9944 ${{ env.DOCKER_TAG }} start-stop-daemon -Sbvx /home/node/evercity-node -- --dev
             -
                 name: Testing node
                 run: |
