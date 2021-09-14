@@ -82,5 +82,7 @@ std = [
     'pallet-evercity-transfer/std',
 ]
 
-
-
+[dependencies.pallet-audit]
+default-features = false
+path = '../pallets/audit'
+version = '3.0.0'
