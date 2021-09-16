@@ -42,6 +42,9 @@ use pallet_transaction_payment::CurrencyAdapter;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+/// Import the pallet-audit pallet.
+// pub use pallet_audit;
+
 /// Import the pallet-evercity pallet.
 pub use pallet_evercity;
 /// Moment datatype
@@ -286,6 +289,9 @@ impl pallet_evercity_transfer::Config for Runtime {
     type WeightInfo = ();
 }
 
+// impl pallet_audit::Config for Runtime {
+// }
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 
 construct_runtime!(
@@ -305,6 +311,8 @@ construct_runtime!(
         // Include the custom logic from the template pallet in the runtime.
         Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
         EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
+
+        //Audit: pallet_audit::{Module, Call, Storage},
     }
 );
 

@@ -35,7 +35,7 @@ sp-api = { default-features = false, version = '3.0.0' }
 [dev-dependencies]
 sp-core = {  version = '3.0.0' }
 pallet-balances = { version = '3.0.0' }
-rand = { version = '0.6' }
+rand = { version = '0.8.4' }
 
 [features]
 default = ['std']
