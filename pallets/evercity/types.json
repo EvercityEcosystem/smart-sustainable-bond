@@ -101,5 +101,20 @@
    "PeriodYield": {
      "total_yield": "Compact<EverUSDBalance>",
      "interest_rate": "Compact<BondInterest>"
-   }
+   },
+   "SigStruct": {
+    "address": "AccountId",
+    "signed": "bool"
+  },
+  "VersionStruct": {
+    "tag": "Vec<u8>",
+    "filehash": "H256",
+    "signatures": "Vec<SigStruct<AccountId>>"
+  },
+  "FileStruct": {
+    "owner": "AccountId",
+    "id": "u32",
+    "versions": "Vec<VersionStruct<AccountId>>",
+    "auditors": "Vec<AccountId>"
+  }
  }
