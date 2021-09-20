@@ -3745,14 +3745,13 @@ dependencies = [
 [[package]]
 name = "pallet-audit"
 version = "3.0.0"
-source = "git+https://github.com/EvercityEcosystem/filesign?branch=master_withbond#45622c82571ee7761b0e3dda973f5df02dfb0591"
+source = "git+https://github.com/EvercityEcosystem/filesign?branch=master_withbond#898b0df55f33fe13d9ea5c20f28dc20f773c6a65"
 dependencies = [
  "fixed-hash",
  "frame-support",
  "frame-system",
  "pallet-timestamp",
  "parity-scale-codec",
- "serde",
  "sp-api",
 ]
 
