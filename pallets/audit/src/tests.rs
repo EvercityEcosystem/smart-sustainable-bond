@@ -1,8 +1,7 @@
-use crate::{Error, mock::*};
+use crate::mock::*;
 use crate::H256;
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::{
+use frame_support::{assert_ok, dispatch::{
 		DispatchResult, 
-		DispatchError, 
 		Vec,
 }};
 
@@ -78,6 +77,29 @@ fn it_works_assign_auditor() {
 		assert_eq!(account_id, file.auditors[0]);
 	});
 }
+
+#[test]
+fn it_works_assign_auditor_do_no_dublicates() {
+	new_test_ext().execute_with(|| {
+		let tag = vec![40, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+		let filehash = H256::from([0x66; 32]);
+		let account_id = 2;
+
+		let create_file_result = Audit::create_new_file(Origin::signed(1), tag, filehash);
+		let assign_auditor_result = Audit::assign_auditor(Origin::signed(1), 1, account_id);
+
+		// Try Dublicate:
+		let _ = Audit::assign_auditor(Origin::signed(1), 1, account_id);
+
+		let file = Audit::get_file_by_id(1);
+
+		assert_ok!(create_file_result, ());
+		assert_ok!(assign_auditor_result, ());
+		assert_eq!(1, file.auditors.len());
+		assert_eq!(account_id, file.auditors[0]);
+	});
+}
+
 
 #[test]
 fn it_works_delete_auditor() {
