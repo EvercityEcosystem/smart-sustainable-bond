@@ -3745,7 +3745,7 @@ dependencies = [
 [[package]]
 name = "pallet-audit"
 version = "3.0.0"
-source = "git+https://github.com/N1ghtStorm/audit#7f9f3489fb94c997a5bab144bbf9e4b678e13f42"
+source = "git+https://github.com/EvercityEcosystem/filesign?branch=master_withbond#45622c82571ee7761b0e3dda973f5df02dfb0591"
 dependencies = [
  "fixed-hash",
  "frame-support",

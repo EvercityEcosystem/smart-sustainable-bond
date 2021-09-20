@@ -49,7 +49,7 @@ sp-transaction-pool = { default-features = false, version = '3.0.0' }
 sp-version = { default-features = false, version = '3.0.0' }
 pallet-evercity = { default-features = false, version = '0.1.1', path = '../pallets/evercity' }
 pallet-evercity-transfer = { default-features = false, version = '0.1.1', path = '../pallets/evercity/transfer' }
-pallet-audit = { git = "https://github.com/N1ghtStorm/audit" }
+pallet-audit = { git = "https://github.com/EvercityEcosystem/filesign", branch = "master_withbond" }
 # pallet-audit = { git = "https://github.com/N1ghtStorm/audit/tree/test" }
 
 [features]
