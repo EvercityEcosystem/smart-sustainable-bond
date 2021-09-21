@@ -51,8 +51,6 @@ pallet-evercity = { default-features = false, version = '0.1.1', path = '../pall
 pallet-evercity-transfer = { default-features = false, version = '0.1.1', path = '../pallets/evercity/transfer' }
 
 
-# /pallet-audit = { default-features = false, git = "https://github.com/EvercityEcosystem/filesign", branch = "master_withbond", version = '3.0.0' }
-
 [features]
 default = ['std']
 
@@ -83,10 +81,12 @@ std = [
     'sp-runtime/std',
     'pallet-evercity/std',
     'pallet-evercity-transfer/std',
+    'pallet-audit/std',
 ]
 
 [dependencies.pallet-audit]
 default-features = false
 git = 'https://github.com/EvercityEcosystem/filesign'
+# git = 'https://github.com/N1ghtStorm/audit'
 branch = 'master_withbond'
 version = '3.0.0'

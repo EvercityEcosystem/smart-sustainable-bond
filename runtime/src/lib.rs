@@ -292,8 +292,8 @@ impl pallet_evercity_transfer::Config for Runtime {
 impl pallet_audit::Config for Runtime {
 }
 
-// Create the runtime by composing the FRAME pallets that were previously configured.
 
+// Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -311,7 +311,6 @@ construct_runtime!(
         // Include the custom logic from the template pallet in the runtime.
         Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
         EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
-
         Audit: pallet_audit::{Module, Call, Storage},
     }
 );
