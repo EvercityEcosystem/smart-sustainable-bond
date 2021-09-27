@@ -173,7 +173,7 @@ pub fn get_test_bond() -> BondStruct {
             interest_rate_margin_floor: Some(1000), // 1.0%
             interest_rate_start_period_value: Some(1900),
             start_period: Some(120 * DEFAULT_DAY_DURATION),
-            payment_period: Some(30 * DEFAULT_DAY_DURATION), // every month (30 days)
+            payment_period: 30 * DEFAULT_DAY_DURATION, // every month (30 days)
             interest_pay_period: Some(7 * DEFAULT_DAY_DURATION), // up to 7 days after  new period started
             mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
             impact_data_send_period: 10 * DEFAULT_DAY_DURATION, // 10 days before next period
@@ -223,7 +223,7 @@ pub fn get_test_bond_stable() -> BondStruct {
             interest_rate_margin_floor: None,
             interest_rate_start_period_value: None,
             start_period: None,
-            payment_period: None,
+            payment_period: bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION,
             interest_pay_period: None,
             mincap_deadline: (20 * DEFAULT_DAY_DURATION * 1000) as u64,
             impact_data_send_period: 0,

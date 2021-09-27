@@ -87,13 +87,13 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
         let index = self.index as BondPeriodNumber;
         self.index += 1;
         let payment_period: BondPeriod =
-            inner.start_period.unwrap_or(0) + inner.payment_period.unwrap_or(0).saturating_mul(index);
+            inner.start_period.unwrap_or(0) + inner.payment_period.saturating_mul(index);
         match (inner.bond_duration + 1).cmp(&index) {
             Ordering::Greater => {
                 let start_period = if index == 0 {
                     0
                 } else {
-                    payment_period - inner.payment_period.unwrap_or(0)
+                    payment_period - inner.payment_period
                 };
 
                 Some(PeriodDescr {
@@ -106,7 +106,7 @@ impl<'a, AccountId, Moment, Hash> core::iter::Iterator
             Ordering::Less => None,
             Ordering::Equal => Some(PeriodDescr {
                 payment_period,
-                start_period: payment_period - inner.payment_period.unwrap_or(0),
+                start_period: payment_period - inner.payment_period,
                 impact_data_send_period: payment_period,
                 // last pay period is special and lasts bond_finishing_period seconds
                 interest_pay_period: payment_period + inner.bond_finishing_period,
