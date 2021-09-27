@@ -606,6 +606,25 @@ fn bond_validation() {
 }
 
 #[test]
+fn bond_stable_is_valid() {
+    let bond = get_test_bond_stable().inner;
+    assert_eq!(bond.is_valid(DEFAULT_DAY_DURATION), true);
+}
+
+#[test]
+fn incorrect_bond_validation() {
+    let process_test = |is_stable: bool| {
+        assert_eq!(get_test_bond_incorrect(0, 12  as BondPeriodNumber, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12  as BondPeriodNumber, 0, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+    };
+
+    process_test(false);
+    process_test(true);
+}
+
+
+#[test]
 fn bond_check_equation() {
     new_test_ext().execute_with(|| {
         let bond1 = get_test_bond();
@@ -927,6 +946,33 @@ fn bond_try_create_by_nonissuer() {
 }
 
 #[test]
+fn bond_try_create_incorrect_stable_or_unstable() {
+    let process_test = |payment_period: u32, bond_duration: u32, bond_unit_base_prize: u64| {
+        let stable_bond = get_test_bond_incorrect(payment_period, bond_duration, bond_unit_base_prize, true);
+        let bond = get_test_bond_incorrect(payment_period, bond_duration, bond_unit_base_prize, false);
+        let stable_bondid: BondId = "BOND_S".into();
+        let bondid: BondId = "BOND".into();
+    
+        new_test_ext().execute_with(|| {
+            for acc in iter_accounts().filter(|acc| Evercity::account_is_issuer(acc)) {
+                assert_noop!(
+                    Evercity::bond_add_new(Origin::signed(acc), stable_bondid, stable_bond.inner.clone()),
+                    RuntimeError::BondParamIncorrect
+                );
+    
+                assert_noop!(
+                    Evercity::bond_add_new(Origin::signed(acc), bondid, bond.inner.clone()),
+                    RuntimeError::BondParamIncorrect
+                );
+            }
+        });
+    };
+    process_test(0, 12  as BondPeriodNumber, 4_000_000_000_000,);
+    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000);
+    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12  as BondPeriodNumber, 0);
+}
+
+#[test]
 fn bond_try_activate_without_release() {
     const MASTER: u64 = 1;
     const ACCOUNT: u64 = 3;
@@ -1067,12 +1113,6 @@ fn bond_zero_send_period_is_stable() {
 fn bond_nonzero_send_period_is_not_stable() {
     let bond = get_test_bond().inner;
     assert_eq!(bond.is_stable(), false);
-}
-
-#[test]
-fn bond_stable_is_valid() {
-    let bond = get_test_bond_stable().inner;
-    assert_eq!(bond.is_valid(DEFAULT_DAY_DURATION), true);
 }
 
 #[test]
