@@ -245,7 +245,7 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
         // First - check bounds for both types of bond
         if self.payment_period < MIN_PAYMENT_PERIOD * time_step || 
            self.bond_duration < MIN_BOND_DURATION ||
-           self.bond_units_base_price == 0
+           self.bond_units_base_price <= 0
         {
             return false;
         }
