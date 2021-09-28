@@ -614,9 +614,9 @@ fn bond_stable_is_valid() {
 #[test]
 fn incorrect_bond_validation() {
     let process_test = |is_stable: bool| {
-        assert_eq!(get_test_bond_incorrect(0, 12  as BondPeriodNumber, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(0, 12, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
         assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
-        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12  as BondPeriodNumber, 0, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12, 0, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
     };
 
     process_test(false);
@@ -967,9 +967,9 @@ fn bond_try_create_incorrect_stable_or_unstable() {
             }
         });
     };
-    process_test(0, 12  as BondPeriodNumber, 4_000_000_000_000,);
+    process_test(0, 12, 4_000_000_000_000,);
     process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000);
-    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12  as BondPeriodNumber, 0);
+    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12, 0);
 }
 
 #[test]

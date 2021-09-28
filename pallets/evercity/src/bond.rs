@@ -238,15 +238,19 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
         self.impact_data_send_period == 0
     }
 
+    /// Checks common bounds for all bond parameters
+    fn are_common_values_valid(&self, time_step: BondPeriod) -> bool {
+        self.payment_period >= MIN_PAYMENT_PERIOD * time_step &&
+        self.bond_duration >= MIN_BOND_DURATION &&
+        self.bond_units_base_price > 0
+    }
+
     /// Checks if bond data is valid. For non-stable bonds: Checking mincap-maxcap, periods durations
     /// (should be multiple of "time_step"), ranges of price and impact data baseline values
     /// For stable bonds: check that the optional parameters are 0.
     pub fn is_valid(&self, time_step: BondPeriod) -> bool {
         // First - check bounds for both types of bond
-        if self.payment_period < MIN_PAYMENT_PERIOD * time_step || 
-           self.bond_duration < MIN_BOND_DURATION ||
-           self.bond_units_base_price <= 0
-        {
+        if !self.are_common_values_valid(time_step){
             return false;
         }
 
