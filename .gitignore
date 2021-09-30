@@ -13,5 +13,6 @@
 .local
 #IDE configuration
 .idea
+.vscode
 venv
 rclone.*

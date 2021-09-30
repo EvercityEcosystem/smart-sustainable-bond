@@ -174,7 +174,7 @@ pub struct BondInnerStruct<Moment, Hash> {
     ///  - coupon interest rate is recalculated for next payment_period
     ///  - required coupon interest payment is sent to bond by Issuer (while interest_pay_period is active)
     /// </pre>
-    pub payment_period: Option<BondPeriod>,
+    pub payment_period: BondPeriod,
 
     /// The number of periods from active_start_date (when bond becomes active,
     /// all periods and interest rate changes begin to work, funds become available for Issuer)
@@ -238,10 +238,22 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
         self.impact_data_send_period == 0
     }
 
+    /// Checks common bounds for all bond parameters
+    fn are_common_values_valid(&self, time_step: BondPeriod) -> bool {
+        self.payment_period >= MIN_PAYMENT_PERIOD * time_step &&
+        self.bond_duration >= MIN_BOND_DURATION &&
+        self.bond_units_base_price > 0
+    }
+
     /// Checks if bond data is valid. For non-stable bonds: Checking mincap-maxcap, periods durations
     /// (should be multiple of "time_step"), ranges of price and impact data baseline values
     /// For stable bonds: check that the optional parameters are 0.
     pub fn is_valid(&self, time_step: BondPeriod) -> bool {
+        // First - check bounds for both types of bond
+        if !self.are_common_values_valid(time_step){
+            return false;
+        }
+
         if self.is_stable() {
             // in case of the stable bond, because the below parameters are optional,
             // they must be None
@@ -251,7 +263,6 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
                 && self.interest_rate_margin_floor.is_none()
                 && self.interest_rate_start_period_value.is_none()
                 && self.interest_pay_period.is_none()
-                && self.interest_rate_start_period_value.is_none()
         } else {
             // ensure that for a non-stable bond the below
             // parameters have values
@@ -261,25 +272,21 @@ impl<Moment, Hash> BondInnerStruct<Moment, Hash> {
                 && self.interest_rate_margin_floor.is_some()
                 && self.interest_rate_start_period_value.is_some()
                 && self.interest_pay_period.is_some()
-                && self.interest_rate_start_period_value.is_some()
             )
                 && self.bond_units_mincap_amount > 0
                 && self.bond_units_maxcap_amount >= self.bond_units_mincap_amount
-                && self.payment_period.unwrap_or(0) >= MIN_PAYMENT_PERIOD * time_step
-                && self.impact_data_send_period <= self.payment_period.unwrap_or(0)
-                && is_period_muliple_of_time_step(self.payment_period.unwrap_or(0), time_step)
+                && self.impact_data_send_period <= self.payment_period
+                && is_period_muliple_of_time_step(self.payment_period, time_step)
                 && is_period_muliple_of_time_step(self.start_period.unwrap_or(0), time_step)
                 && is_period_muliple_of_time_step(self.impact_data_send_period, time_step)
                 && is_period_muliple_of_time_step(self.bond_finishing_period, time_step)
                 && is_period_muliple_of_time_step(self.interest_pay_period.unwrap_or(0), time_step)
                 && self.start_period.unwrap_or(0) >= self.impact_data_send_period
-                && self.interest_pay_period.unwrap_or(0) <= self.payment_period.unwrap_or(0)
-                && self.bond_units_base_price > 0
+                && self.interest_pay_period.unwrap_or(0) <= self.payment_period
                 && self
                     .bond_units_base_price
                     .saturating_mul(self.bond_units_maxcap_amount as EverUSDBalance)
                     < EverUSDBalance::MAX
-                && self.bond_duration >= MIN_BOND_DURATION
                 && self.impact_data_baseline.len() == self.bond_duration as usize
                 && self.impact_data_baseline.iter().all(|&bl| {
                     bl <= self.impact_data_max_deviation_cap
@@ -464,7 +471,7 @@ impl<AccountId, Moment: UniqueSaturatedInto<u64> + AtLeast32Bit + Copy, Hash>
                 Some((moment, 0))
             } else {
                 let period = min(
-                    ((moment - self.inner.start_period.unwrap_or(0)) / self.inner.payment_period.unwrap_or(0))
+                    ((moment - self.inner.start_period.unwrap_or(0)) / self.inner.payment_period)
                         as BondPeriodNumber,
                     self.inner.bond_duration,
                 );

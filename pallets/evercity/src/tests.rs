@@ -606,6 +606,25 @@ fn bond_validation() {
 }
 
 #[test]
+fn bond_stable_is_valid() {
+    let bond = get_test_bond_stable().inner;
+    assert_eq!(bond.is_valid(DEFAULT_DAY_DURATION), true);
+}
+
+#[test]
+fn incorrect_bond_validation() {
+    let process_test = |is_stable: bool| {
+        assert_eq!(get_test_bond_incorrect(0, 12, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+        assert_eq!(get_test_bond_incorrect(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12, 0, is_stable).inner.is_valid(DEFAULT_DAY_DURATION), false);
+    };
+
+    process_test(false);
+    process_test(true);
+}
+
+
+#[test]
 fn bond_check_equation() {
     new_test_ext().execute_with(|| {
         let bond1 = get_test_bond();
@@ -618,8 +637,7 @@ fn bond_check_equation() {
         assert_ne!(bond1.inner, bond2.inner);
 
         bond2.inner.docs_pack_root_hash_legal = bond1.inner.docs_pack_root_hash_legal;
-        let unwrapped_payment_period = bond2.inner.payment_period.unwrap_or(0) + 1;
-        bond2.inner.payment_period = Some(unwrapped_payment_period);
+        bond2.inner.payment_period += 1;
 
         assert!(!bond1.inner.is_financial_options_eq(&bond2.inner));
         assert_ne!(bond1.inner, bond2.inner);
@@ -805,7 +823,7 @@ fn bond_create_with_small_start_period() {
     new_test_ext().execute_with(|| {
         let mut bond = get_test_bond().inner;
         bond.start_period = Some(bond.impact_data_send_period);
-        assert!(bond.start_period.unwrap_or(0) < bond.payment_period.unwrap_or(0));
+        assert!(bond.start_period.unwrap_or(0) < bond.payment_period);
         assert!(bond.start_period.unwrap_or(0) >= bond.impact_data_send_period);
         assert_ok!(Evercity::bond_add_new(
             Origin::signed(ACCOUNT),
@@ -823,7 +841,7 @@ fn bond_create_with_min_period() {
     new_test_ext().execute_with(|| {
         let mut bond = get_test_bond().inner;
         bond.bond_finishing_period = DEFAULT_DAY_DURATION;
-        bond.payment_period = Some(DEFAULT_DAY_DURATION);
+        bond.payment_period = DEFAULT_DAY_DURATION;
         bond.start_period = Some(DEFAULT_DAY_DURATION);
         bond.interest_pay_period = Some(DEFAULT_DAY_DURATION);
         bond.impact_data_send_period = DEFAULT_DAY_DURATION;
@@ -925,6 +943,33 @@ fn bond_try_create_by_nonissuer() {
             );
         }
     });
+}
+
+#[test]
+fn bond_try_create_incorrect_stable_or_unstable() {
+    let process_test = |payment_period: u32, bond_duration: u32, bond_unit_base_prize: u64| {
+        let stable_bond = get_test_bond_incorrect(payment_period, bond_duration, bond_unit_base_prize, true);
+        let bond = get_test_bond_incorrect(payment_period, bond_duration, bond_unit_base_prize, false);
+        let stable_bondid: BondId = "BOND_S".into();
+        let bondid: BondId = "BOND".into();
+    
+        new_test_ext().execute_with(|| {
+            for acc in iter_accounts().filter(|acc| Evercity::account_is_issuer(acc)) {
+                assert_noop!(
+                    Evercity::bond_add_new(Origin::signed(acc), stable_bondid, stable_bond.inner.clone()),
+                    RuntimeError::BondParamIncorrect
+                );
+    
+                assert_noop!(
+                    Evercity::bond_add_new(Origin::signed(acc), bondid, bond.inner.clone()),
+                    RuntimeError::BondParamIncorrect
+                );
+            }
+        });
+    };
+    process_test(0, 12, 4_000_000_000_000,);
+    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 0, 4_000_000_000_000);
+    process_test(crate::bond::MIN_PAYMENT_PERIOD*DEFAULT_DAY_DURATION, 12, 0);
 }
 
 #[test]
@@ -1068,12 +1113,6 @@ fn bond_zero_send_period_is_stable() {
 fn bond_nonzero_send_period_is_not_stable() {
     let bond = get_test_bond().inner;
     assert_eq!(bond.is_stable(), false);
-}
-
-#[test]
-fn bond_stable_is_valid() {
-    let bond = get_test_bond_stable().inner;
-    assert_eq!(bond.is_valid(DEFAULT_DAY_DURATION), true);
 }
 
 #[test]
@@ -1301,8 +1340,7 @@ fn bond_try_update_after_release() {
 
         // the others cannot. TODO add other fields to check
         let mut update = get_test_bond().inner;
-        let unwrapped_payment_period = update.payment_period.unwrap_or(0) * 2;
-        update.payment_period = Some(unwrapped_payment_period);
+        update.payment_period *= 2;
         assert_noop!(
             Evercity::bond_update(Origin::signed(ACCOUNT), bondid, 2, update),
             RuntimeError::BondStateNotPermitAction
@@ -1520,7 +1558,7 @@ fn bond_calc_coupon_yield_basic() {
         );
 
         // pass second (index=1) period
-        moment += chain_bond_item.inner.payment_period.unwrap_or(0) as u64 * 1000_u64;
+        moment += chain_bond_item.inner.payment_period as u64 * 1000_u64;
         assert_eq!(bond_current_period(&chain_bond_item, moment), 2);
         chain_bond_item.bond_debit = 2000;
 
@@ -1887,8 +1925,7 @@ fn bond_try_create_arbitrary_period() {
         );
 
         bond = get_test_bond();
-        let unwrapped_payment_period = bond.inner.payment_period.unwrap_or(0) + 1;
-        bond.inner.payment_period = Some(unwrapped_payment_period);
+        bond.inner.payment_period += 1;
         assert_noop!(
             Evercity::bond_add_new(Origin::signed(ACCOUNT), bondid, bond.inner),
             RuntimeError::BondParamIncorrect
@@ -2107,7 +2144,7 @@ fn bond_periods() {
         Some((120 * DEFAULT_DAY_DURATION - 1, 0))
     );
 
-    assert_eq!(bond.inner.payment_period.unwrap_or(0), 30 * DEFAULT_DAY_DURATION);
+    assert_eq!(bond.inner.payment_period, 30 * DEFAULT_DAY_DURATION);
     assert_eq!(
         bond.time_passed_after_activation(start_period + 30 * 1000 * DEFAULT_DAY_DURATION as u64),
         Some(((120 + 30) * DEFAULT_DAY_DURATION, 2))
@@ -2746,7 +2783,7 @@ fn bond_impact_report_missing_data() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period + 1) as u64,
         );
         assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
         // force interest rate calculation
@@ -2780,7 +2817,7 @@ fn bond_impact_report_no_data() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period + 1) as u64,
         );
         assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
         // force interest rate calculation
@@ -2840,7 +2877,7 @@ fn bond_interest_rate_rnd() {
                 + 1000_u64
                     * (chain_bond_item.inner.start_period.unwrap_or(0)
                         + chain_bond_item.inner.bond_duration
-                            * chain_bond_item.inner.payment_period.unwrap_or(0)
+                            * chain_bond_item.inner.payment_period
                         + 1) as u64,
         );
 
@@ -2910,7 +2947,7 @@ fn bond_impact_report_interest_rate() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period + 1) as u64,
         );
 
         assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
@@ -2955,7 +2992,7 @@ fn bond_impact_report_send_approve() {
             // day before end of the period
             <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
                 chain_bond_item.active_start_date
-                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period.unwrap_or(0) - 1) as u64,
+                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period - 1) as u64,
             );
             assert_ok!(Evercity::bond_impact_report_send(
                 Origin::signed(ACCOUNT1),
@@ -2973,7 +3010,7 @@ fn bond_impact_report_send_approve() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period + 1) as u64,
         );
 
         assert_ok!(add_token(ACCOUNT1, 500_000_000_000_000));
@@ -3101,7 +3138,7 @@ fn bond_impact_report_outof_order() {
             <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
                 chain_bond_item.active_start_date
                     + 1000_u64
-                        * (bond.start_period.unwrap_or(0) + period * bond.payment_period.unwrap_or(0)
+                        * (bond.start_period.unwrap_or(0) + period * bond.payment_period
                             - bond.impact_data_send_period
                             - 1) as u64,
             );
@@ -3118,7 +3155,7 @@ fn bond_impact_report_outof_order() {
             // after current period end
             <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
                 chain_bond_item.active_start_date
-                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period + 1) as u64,
             );
 
             assert_noop!(
@@ -3134,7 +3171,7 @@ fn bond_impact_report_outof_order() {
             // between report period start and  current period end
             <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
                 chain_bond_item.active_start_date
-                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period.unwrap_or(0) - 1000) as u64,
+                    + 1000_u64 * (bond.start_period.unwrap_or(0) + period * bond.payment_period - 1000) as u64,
             );
 
             assert_ok!(Evercity::bond_impact_report_send(
@@ -3234,7 +3271,7 @@ fn bond_acquire_try_after_redemption() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period + 1) as u64,
         );
         // add everusd to pay off bond yield
         assert_ok!(add_token(ACCOUNT, 500_000_000_000_000));
@@ -3320,7 +3357,7 @@ fn bond_deposit_return_after_redemption() {
         <pallet_timestamp::Module<TestRuntime>>::set_timestamp(
             chain_bond_item.active_start_date
                 + 1000_u64
-                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period.unwrap_or(0) + 1) as u64,
+                    * (bond.start_period.unwrap_or(0) + bond.bond_duration * bond.payment_period+ 1) as u64,
         );
         // add everusd to pay off bond yield
         assert_ok!(add_token(ACCOUNT, 500_000_000_000_000));

@@ -1,6 +1,11 @@
 {
-  "Address": "AccountId",
-  "LookupSource": "AccountId",
+  "Address": "MultiAddress", 
+  "LookupSource": "MultiAddress",
+  "Record": "Vec<u8>",
+  "RingBufferIndex": {
+      "start": "u64",
+      "end": "u64"
+   },
   "EverUSDBalance": "u64",
    "Moment": "u64",
    "BondId": "[u8;16]",
@@ -43,18 +48,18 @@
      "docs_pack_root_hash_finance": "Hash",
      "docs_pack_root_hash_tech": "Hash",
      "impact_data_type": "BondImpactType",
-     "impact_data_baseline": "Vec<u64>",
-     "impact_data_max_deviation_cap": "Compact<u64>",
-     "impact_data_max_deviation_floor": "Compact<u64>",
+     "impact_data_baseline": "Vec<Option<u64>>",
+     "impact_data_max_deviation_cap": "Option<u64>",
+     "impact_data_max_deviation_floor": "Option<u64>",
      "impact_data_send_period": "Compact<BondPeriod>",
-     "interest_rate_penalty_for_missed_report": "Compact<BondInterest>",
+     "interest_rate_penalty_for_missed_report": "Option<BondInterest>",
      "interest_rate_base_value": "Compact<BondInterest>",
-     "interest_rate_margin_cap": "Compact<BondInterest>",
-     "interest_rate_margin_floor": "Compact<BondInterest>",
-     "interest_rate_start_period_value": "Compact<BondInterest>",
-     "interest_pay_period": "Compact<BondPeriod>",
-     "start_period": "Compact<BondPeriod>",
-     "payment_period": "Compact<BondPeriod>",
+     "interest_rate_margin_cap": "Option<BondInterest>",
+     "interest_rate_margin_floor": "Option<BondInterest>",
+     "interest_rate_start_period_value": "Option<BondInterest>",
+     "interest_pay_period": "Option<BondPeriod>",
+     "start_period": "BondPeriod",
+     "payment_period": "Option<BondPeriod>",
      "bond_duration": "Compact<BondPeriodNumber>",
      "bond_finishing_period": "Compact<BondPeriod>",
      "mincap_deadline": "Compact<Moment>",
@@ -99,7 +104,8 @@
      "amount": "Compact<EverUSDBalance>"
    },
    "PeriodYield": {
-     "total_yield": "Compact<EverUSDBalance>",
-     "interest_rate": "Compact<BondInterest>"
+     "total_yield": "EverUSDBalance",
+     "coupon_yield_before": "EverUSDBalance",
+     "interest_rate": "BondInterest"
    }
  }
