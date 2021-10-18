@@ -286,6 +286,14 @@ impl pallet_evercity_transfer::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub use pallet_evercity_carbon_credits;
+impl pallet_evercity_carbon_credits::Config for Runtime {
+}
+
+pub use pallet_evercity_accounts;
+impl pallet_evercity_accounts::Config for Runtime {
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 
 construct_runtime!(
@@ -302,9 +310,12 @@ construct_runtime!(
         Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: pallet_transaction_payment::{Module, Storage},
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
+
         // Include the custom logic from the template pallet in the runtime.
         Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
         EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
+        EvercityCarbonCredits: pallet_evercity_carbon_credits::{Module, Call, Storage},
+        EvercityAccounts: pallet_evercity_accounts::{Module, Call, Storage, Config<T>},
     }
 );
 

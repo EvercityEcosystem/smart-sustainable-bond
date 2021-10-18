@@ -2,9 +2,11 @@ use evercity_runtime::pallet_evercity::account::{
     EvercityAccountStructT, AUDITOR_ROLE_MASK, CUSTODIAN_ROLE_MASK, IMPACT_REPORTER_ROLE_MASK,
     INVESTOR_ROLE_MASK, ISSUER_ROLE_MASK, MANAGER_ROLE_MASK, MASTER_ROLE_MASK,
 };
+use evercity_runtime::pallet_evercity_accounts;
+
 use evercity_runtime::{
     AccountId, AuraConfig, BalancesConfig, EvercityConfig, GenesisConfig, GrandpaConfig, Signature,
-    SudoConfig, SystemConfig, WASM_BINARY,
+    SudoConfig, SystemConfig, EvercityAccountsConfig, WASM_BINARY,
 };
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 
@@ -85,6 +87,12 @@ pub fn development_config() -> Result<ChainSpec, String> {
                         IMPACT_REPORTER_ROLE_MASK,
                     ),
                 ],
+                vec![
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
+                        pallet_evercity_accounts::accounts::MASTER_ROLE_MASK,
+                    ),
+                ],
                 // Sudo account
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
             )
@@ -122,6 +130,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                 // @FIXME! setup Master and Custodian
                 vec![authority_keys_from_seed("Evercity//Master")],
                 vec![(master_account_id.clone(), MASTER_ROLE_MASK)],
+                vec![(master_account_id.clone(), pallet_evercity_accounts::accounts::MASTER_ROLE_MASK)],
                 // Sudo account
                 master_account_id,
             )
@@ -145,6 +154,7 @@ fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<(AccountId, u8)>,
+    evercity_accounts: Vec<(AccountId, pallet_evercity_accounts::accounts::RoleMask)>,
     _root_key: AccountId,
 ) -> GenesisConfig {
     GenesisConfig {
@@ -180,6 +190,20 @@ fn testnet_genesis(
                             roles: *role,
                             identity: 0,
                             create_time: 0,
+                        },
+                    )
+                })
+                .collect(),
+        }),
+        pallet_evercity_accounts: Some(EvercityAccountsConfig {
+            // set roles for each pre-set accounts (set role)
+            genesis_account_registry: evercity_accounts
+                .iter()
+                .map(|(acc, role)| {
+                    (
+                        acc.clone(),
+                        pallet_evercity_accounts::accounts::AccountStruct {
+                            roles: *role,
                         },
                     )
                 })
