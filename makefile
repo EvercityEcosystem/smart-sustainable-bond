@@ -8,7 +8,7 @@ build:
 	SKIP_WASM_BUILD= cargo build --release
 
 test:
-	SKIP_WASM_BUILD= cargo test
+	cargo test
 
 check:
 	cargo check --all --tests

@@ -129,15 +129,15 @@
     },
     "Standard": {
       "_enum": [
-        "GoldStandard"
+        "GOLD_STANDARD"
       ]
     },
     "ProjectStateMask": "u16",
     "ProjectStatus": {
       "_enum": [
-        "Preparing",
-        "Registration",
-        "Issuance"
+        "PREPARING",
+        "REGISTRATION",
+        "ISSUANCE"
       ]
     },
     "ProjectDocument": {

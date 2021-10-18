@@ -92,6 +92,22 @@ pub fn development_config() -> Result<ChainSpec, String> {
                         get_account_id_from_seed::<sr25519::Public>("Alice"),
                         pallet_evercity_accounts::accounts::MASTER_ROLE_MASK,
                     ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Bob"),
+                        pallet_evercity_accounts::accounts::CC_PROJECT_OWNER_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                        pallet_evercity_accounts::accounts::CC_AUDITOR_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Dave"),
+                        pallet_evercity_accounts::accounts::CC_STANDARD_ROLE_MASK,
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Eve"),
+                        pallet_evercity_accounts::accounts::CC_REGISTRY_ROLE_MASK,
+                    ),
                 ],
                 // Sudo account
                 get_account_id_from_seed::<sr25519::Public>("Alice"),

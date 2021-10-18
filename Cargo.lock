@@ -3817,8 +3817,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity-accounts"
-version = "0.1.5"
-source = "git+https://github.com/EvercityEcosystem/evercity-accounts#06ead275217e5f77454d84395c62a6da7e525ec0"
+version = "0.1.6"
+source = "git+https://github.com/EvercityEcosystem/evercity-accounts#a38c529e6876b65b6fa8bfe848507a3209e1de78"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3830,8 +3830,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-evercity-carbon-credits"
-version = "0.1.3"
-source = "git+https://github.com/EvercityEcosystem/carbon-credits#2a88016e6f9126def6e20a78c8ffc30f6f458392"
+version = "0.1.4"
+source = "git+https://github.com/EvercityEcosystem/carbon-credits#6eda8f0ee4dca3bcca95d4f1dab8c0577c887ecb"
 dependencies = [
  "fixed-hash",
  "frame-support",
@@ -7858,7 +7858,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.6.5",
+ "rand 0.3.23",
  "static_assertions",
 ]
 
