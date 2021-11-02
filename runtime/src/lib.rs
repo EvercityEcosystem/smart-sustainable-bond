@@ -288,10 +288,37 @@ impl pallet_evercity_transfer::Config for Runtime {
 
 pub use pallet_evercity_carbon_credits;
 impl pallet_evercity_carbon_credits::Config for Runtime {
+    type Event = Event;
 }
 
 pub use pallet_evercity_accounts;
 impl pallet_evercity_accounts::Config for Runtime {
+    type Event = Event;
+}
+
+pub use pallet_assets;
+
+parameter_types! {
+    pub const AssetDepositBase: Balance = 0;
+    pub const AssetDepositPerZombie: Balance = 0;
+    pub const ApprovalDeposit: Balance = 0;
+    pub const StringLimit: u32 = 50;
+    pub const MetadataDepositBase: Balance = 0;
+    pub const MetadataDepositPerByte: Balance = 0;
+}
+
+impl pallet_assets::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type AssetId = u64;
+    type Currency = Balances;
+    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+    type AssetDepositBase = AssetDepositBase;
+    type AssetDepositPerZombie = AssetDepositPerZombie;
+    type StringLimit = StringLimit;
+    type MetadataDepositBase = MetadataDepositBase;
+    type MetadataDepositPerByte = MetadataDepositPerByte;
+    type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -311,11 +338,13 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Module, Storage},
         Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
+        Assets: pallet_assets::{ Module, Call, Storage, Event<T> },
+
         // Include the custom logic from the template pallet in the runtime.
         Evercity: pallet_evercity::{Module, Call, Storage, Config<T>, Event<T>},
         EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
-        EvercityCarbonCredits: pallet_evercity_carbon_credits::{Module, Call, Storage},
-        EvercityAccounts: pallet_evercity_accounts::{Module, Call, Storage, Config<T>},
+        EvercityCarbonCredits: pallet_evercity_carbon_credits::{ Module, Call, Storage, Event<T>},
+        EvercityAccounts: pallet_evercity_accounts::{ Module, Call, Storage, Config<T>, Event<T>},
     }
 );
 
