@@ -49,9 +49,12 @@ sp-transaction-pool = { default-features = false, version = '3.0.0' }
 sp-version = { default-features = false, version = '3.0.0' }
 pallet-evercity = { default-features = false, version = '0.1.1', path = '../pallets/evercity' }
 pallet-evercity-transfer = { default-features = false, version = '0.1.1', path = '../pallets/evercity/transfer' }
-pallet-evercity-carbon-credits = { default-features = false, version = '0.1.7', git = 'https://github.com/EvercityEcosystem/carbon-credits' }
+pallet-evercity-carbon-credits = { default-features = false, version = '0.1.12', git = 'https://github.com/EvercityEcosystem/carbon-credits' }
 pallet-evercity-accounts = { default-features = false, version = '0.1.7', git = 'https://github.com/EvercityEcosystem/evercity-accounts' }
 pallet-assets = { default-features = false, version = '3.0.0' }
+
+pallet-evercity-filesign = { default-features = false, version = '0.1.2', git = 'https://github.com/EvercityEcosystem/filesign', branch = 'master_withbond'}
+pallet-evercity-assets = { default-features = false, version = '0.1.0', git = 'https://github.com/EvercityEcosystem/evercity-assets' }
 
 [features]
 default = ['std']
@@ -85,7 +88,6 @@ std = [
     'pallet-evercity-transfer/std',
     'pallet-evercity-carbon-credits/std',
     'pallet-evercity-accounts/std',
+    'pallet-evercity-filesign/std',
+    'pallet-evercity-assets/std',
 ]
-
-
-

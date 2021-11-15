@@ -108,6 +108,7 @@
     "coupon_yield_before": "EverUSDBalance",
     "interest_rate": "BondInterest"
   },
+  "FileId": "u32",
   "SigStruct": {
     "address": "AccountId",
     "signed": "bool"
@@ -127,6 +128,7 @@
   "AccountStruct": {
     "roles": "RoleMask"
   },
+  "RequiredSigner": "(AccountId, RoleMask)",
   "Standard": {
     "_enum": [
       "GOLD_STANDARD"
@@ -143,24 +145,37 @@
   "ProjectDocument": {
     "filehash": "H256"
   },
+  "ProjectId": "u32",
   "ProjectStruct": {
     "owner": "AccountId",
     "id": "ProjectId",
     "status": "ProjectStatus",
     "state": "ProjectStateMask",
-    "document_versions": "Vec<ProjectDocument>",
-    "signatures": "Vec<AccountId>",
-    "annual_reports": "Vec<AnnualReportStruct<AccountId>>",
+    "file_id": "FileId",
+    "annual_reports": "Vec<AnnualReportStruct<AccountId, Moment, Balance>>",
+    "required_signers": "Vec<RequiredSigner<AccountId>>",
     "standard": "Standard"
   },
   "AnnualReportStateMask": "u16",
-  "AnnualReportStruct": {
-    "filehash": "H256",
-    "state": "AnnualReportStateMask",
-    "signatures": "Vec<AccountId>",
-    "carbon_credits_count": "Balance"
+  "CarbonCreditsMeta": {
+    "name": "Vec<u8>",
+    "symbol": "Vec<u8>",
+    "decimals": "u8"
   },
-  "ProjectId": "u32",
+  "AnnualReportStructT": {
+    "file_id": "FileId",
+    "state": "AnnualReportStateMask",
+    "create_time": "Moment",
+    "carbon_credits_released": "bool",
+    "carbon_credits_count": "Balance",
+    "carbon_credits_meta": "CarbonCreditsMeta",
+    "required_signers": "Vec<RequiredSigner<AccountId>>"
+  },
+  "CarbonCreditsPassport": {
+    "asset_id": "AssetId",
+    "project_id": "ProjectId",
+    "annual_report_index": "u64"
+  },
   "Balance": "u128",
   "AssetId": "u64",
   "TAssetBalance": "Balance",

@@ -321,6 +321,28 @@ impl pallet_assets::Config for Runtime {
     type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 }
 
+use pallet_evercity_assets;
+
+impl pallet_evercity_assets::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type AssetId = u64;
+    type Currency = Balances;
+    type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+    type AssetDepositBase = AssetDepositBase;
+    type AssetDepositPerZombie = AssetDepositPerZombie;
+    type StringLimit = StringLimit;
+    type MetadataDepositBase = MetadataDepositBase;
+    type MetadataDepositPerByte = MetadataDepositPerByte;
+    type WeightInfo = pallet_evercity_assets::weights::SubstrateWeight<Runtime>;
+}
+
+use pallet_evercity_filesign;
+
+impl pallet_evercity_filesign::Config for Runtime {
+    type Event = Event;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 
 construct_runtime!(
@@ -345,6 +367,8 @@ construct_runtime!(
         EvercityTransfer: pallet_evercity_transfer::{Module, Call, Storage, Event<T>},
         EvercityCarbonCredits: pallet_evercity_carbon_credits::{ Module, Call, Storage, Event<T>},
         EvercityAccounts: pallet_evercity_accounts::{ Module, Call, Storage, Config<T>, Event<T>},
+        EvercityFilesign: pallet_evercity_filesign::{ Module, Call, Storage, Event<T> },
+        EvercityAssets: pallet_evercity_assets::{ Module, Storage, Event<T> },
     }
 );
 

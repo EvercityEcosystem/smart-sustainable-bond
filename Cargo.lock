@@ -1409,7 +1409,9 @@ dependencies = [
  "pallet-balances",
  "pallet-evercity",
  "pallet-evercity-accounts",
+ "pallet-evercity-assets",
  "pallet-evercity-carbon-credits",
+ "pallet-evercity-filesign",
  "pallet-evercity-transfer",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
@@ -3832,7 +3834,7 @@ dependencies = [
 [[package]]
 name = "pallet-evercity-accounts"
 version = "0.1.7"
-source = "git+https://github.com/EvercityEcosystem/evercity-accounts#ac8997f5f3e9c8c13ae775062e6363b05ef41304"
+source = "git+https://github.com/EvercityEcosystem/evercity-accounts#a337eaf69b0e925e7bab7e7e7f1da2bac32f72ba"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3843,20 +3845,49 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evercity-assets"
+version = "0.1.0"
+source = "git+https://github.com/EvercityEcosystem/evercity-assets#37b2fe1878e83bfe174c3f918eda0fb757958082"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evercity-carbon-credits"
-version = "0.1.7"
-source = "git+https://github.com/EvercityEcosystem/carbon-credits#e35e4da06c47da2ea27b063b4934a606a35bd0ff"
+version = "0.1.12"
+source = "git+https://github.com/EvercityEcosystem/carbon-credits#781c413a8b9d812f20e3b27a7e98386810f0a9ad"
 dependencies = [
  "fixed-hash",
  "frame-support",
  "frame-system",
- "pallet-assets",
  "pallet-evercity-accounts",
+ "pallet-evercity-assets",
+ "pallet-evercity-filesign",
  "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-api",
  "sp-runtime",
+]
+
+[[package]]
+name = "pallet-evercity-filesign"
+version = "0.1.2"
+source = "git+https://github.com/EvercityEcosystem/filesign?branch=master_withbond#47824bef74915d85c8c4d2060e4546d9d283281d"
+dependencies = [
+ "fixed-hash",
+ "frame-support",
+ "frame-system",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
 ]
 
 [[package]]
@@ -7874,7 +7905,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.3.23",
+ "rand 0.6.5",
  "static_assertions",
 ]
 
