@@ -122,7 +122,7 @@
     "owner": "AccountId",
     "id": "u32",
     "versions": "Vec<VersionStruct<AccountId>>",
-    "auditors": "Vec<AccountId>"
+    "signers": "Vec<AccountId>"
   },
   "RoleMask": "u32",
   "AccountStruct": {
@@ -142,9 +142,6 @@
       "ISSUANCE"
     ]
   },
-  "ProjectDocument": {
-    "filehash": "H256"
-  },
   "ProjectId": "u32",
   "ProjectStruct": {
     "owner": "AccountId",
@@ -162,19 +159,23 @@
     "symbol": "Vec<u8>",
     "decimals": "u8"
   },
-  "AnnualReportStructT": {
+  "AnnualReportStruct": {
     "file_id": "FileId",
     "state": "AnnualReportStateMask",
-    "create_time": "Moment",
-    "carbon_credits_released": "bool",
+    "create_time": "Compact<Moment>",
     "carbon_credits_count": "Balance",
+    "carbon_credits_released": "bool",
     "carbon_credits_meta": "CarbonCreditsMeta",
-    "required_signers": "Vec<RequiredSigner<AccountId>>"
+    "required_signers": "Vec<RequiredSigner>"
   },
   "CarbonCreditsPassport": {
     "asset_id": "AssetId",
     "project_id": "ProjectId",
     "annual_report_index": "u64"
+  },
+  "CarbonCreditsBurnCertificate": {
+    "asset_id": "AssetId",
+    "burned_amount": "Balance"
   },
   "Balance": "u128",
   "AssetId": "u64",
