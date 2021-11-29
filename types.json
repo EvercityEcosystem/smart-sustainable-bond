@@ -162,10 +162,10 @@
   "AnnualReportStruct": {
     "file_id": "FileId",
     "state": "AnnualReportStateMask",
+    "carbon_credits_meta": "CarbonCreditsMeta",
     "create_time": "Compact<Moment>",
     "carbon_credits_count": "Balance",
     "carbon_credits_released": "bool",
-    "carbon_credits_meta": "CarbonCreditsMeta",
     "required_signers": "Vec<RequiredSigner>"
   },
   "CarbonCreditsPassport": {
