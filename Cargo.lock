@@ -3834,7 +3834,7 @@ dependencies = [
 [[package]]
 name = "pallet-evercity-accounts"
 version = "0.1.7"
-source = "git+https://github.com/EvercityEcosystem/evercity-accounts#32745b57493858dd02044d61e4bd08721febf512"
+source = "git+https://github.com/EvercityEcosystem/evercity-accounts#b1e950270e73ef30b81ce6c4f49bbe10a0ae624a"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -3861,7 +3861,7 @@ dependencies = [
 [[package]]
 name = "pallet-evercity-carbon-credits"
 version = "0.1.12"
-source = "git+https://github.com/EvercityEcosystem/carbon-credits#a583c6a3cdbccfe9f59f9813ef97f78f911bd0da"
+source = "git+https://github.com/EvercityEcosystem/carbon-credits#e79266b4531c617241f17917f8e157b2dc46b44d"
 dependencies = [
  "fixed-hash",
  "frame-support",
@@ -3880,7 +3880,7 @@ dependencies = [
 [[package]]
 name = "pallet-evercity-filesign"
 version = "0.1.2"
-source = "git+https://github.com/EvercityEcosystem/filesign?branch=master_withbond#f38d8d280d14acf1e6375b859de7cb0c4d9cf900"
+source = "git+https://github.com/EvercityEcosystem/filesign#942d411937acc9652643986336699e3670bf8e83"
 dependencies = [
  "fixed-hash",
  "frame-support",

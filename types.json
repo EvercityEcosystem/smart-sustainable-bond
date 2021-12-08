@@ -148,7 +148,7 @@
     "id": "ProjectId",
     "status": "ProjectStatus",
     "state": "ProjectStateMask",
-    "file_id": "FileId",
+    "file_id": "Option<FileId>",
     "annual_reports": "Vec<AnnualReportStruct<AccountId, Moment, Balance>>",
     "required_signers": "Vec<RequiredSigner<AccountId>>",
     "standard": "Standard"
