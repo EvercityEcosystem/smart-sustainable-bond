@@ -5,6 +5,7 @@ license = 'Apache-2.0'
 name = 'evercity-runtime'
 repository = 'https://github.com/EvercityEcosystem/evercity-substrate'
 version = '2.0.3'
+resolver = "2"
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -49,12 +50,15 @@ sp-transaction-pool = { default-features = false, version = '3.0.0' }
 sp-version = { default-features = false, version = '3.0.0' }
 pallet-evercity = { default-features = false, version = '0.1.1', path = '../pallets/evercity' }
 pallet-evercity-transfer = { default-features = false, version = '0.1.1', path = '../pallets/evercity/transfer' }
-pallet-evercity-carbon-credits = { default-features = false, version = '0.1.12', git = 'https://github.com/EvercityEcosystem/carbon-credits' }
+# pallet-evercity-carbon-credits = { default-features = false, version = '0.1.13', git = 'https://github.com/EvercityEcosystem/carbon-credits' }
+pallet-evercity-carbon-credits = { default-features = false, version = '0.1.13', git = 'https://github.com/EvercityEcosystem/carbon-credits', branch = 'unite_create_file_and_annual_report' }
 pallet-evercity-accounts = { default-features = false, version = '0.1.7', git = 'https://github.com/EvercityEcosystem/evercity-accounts' }
 pallet-assets = { default-features = false, version = '3.0.0' }
 
-pallet-evercity-filesign = { default-features = false, version = '0.1.2', git = 'https://github.com/EvercityEcosystem/filesign'}
+# pallet-evercity-filesign = { default-features = false, version = '0.1.3', git = 'https://github.com/EvercityEcosystem/filesign'}
+pallet-evercity-filesign = { default-features = false, version = '0.1.4', git = 'https://github.com/EvercityEcosystem/filesign', branch = 'add_random_ticker'}
 pallet-evercity-assets = { default-features = false, version = '0.1.0', git = 'https://github.com/EvercityEcosystem/evercity-assets' }
+getrandom = {version = "0.2.3", features = ['js']}
 
 [features]
 default = ['std']

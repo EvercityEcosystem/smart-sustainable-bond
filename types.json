@@ -108,7 +108,7 @@
     "coupon_yield_before": "EverUSDBalance",
     "interest_rate": "BondInterest"
   },
-  "FileId": "u32",
+  "FileId": "[u8; 16]",
   "SigStruct": {
     "address": "AccountId",
     "signed": "bool"

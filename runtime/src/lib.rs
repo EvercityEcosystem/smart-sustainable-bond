@@ -341,6 +341,7 @@ use pallet_evercity_filesign;
 
 impl pallet_evercity_filesign::Config for Runtime {
     type Event = Event;
+    type Randomness = RandomnessCollectiveFlip;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
