@@ -1,4 +1,5 @@
 {
+    "ExchangeId": "u128",
     "ApproveMask": "u8",
     "ExchangeStruct": {
         "ever_usd_holder": "AccountId",
@@ -7,5 +8,11 @@
         "carbon_credits_count": "Balance",
         "carbon_credits_asset_id": "AssetId",
         "approved": "ApproveMask"
+    },
+    "HolderType":{
+        "_enum": [
+          "EverUSDHolder",
+          "CarbonCreditsHolder"
+        ]
     }
 }
