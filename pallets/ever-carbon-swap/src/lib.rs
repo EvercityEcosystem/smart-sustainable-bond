@@ -167,6 +167,7 @@ decl_module! {
                                 return Err(Error::<T>::InsufficientCarbonCreditsBalance.into());
                             }
 
+                            // transfer carbon credits
                             let cc_holder_origin = frame_system::RawOrigin::Signed(exchange.carbon_credits_holder.clone()).into();
                             pallet_evercity_carbon_credits::Module::<T>::transfer_carbon_credits(
                                     cc_holder_origin, 
@@ -176,7 +177,7 @@ decl_module! {
                             )?;
 
                             // transfer everusd then
-
+                            pallet_evercity::Module::<T>::transfer_everusd(&exchange.ever_usd_holder, &exchange.carbon_credits_holder, exchange.ever_usd_count)?;
                         }
                     }
                     Ok(())

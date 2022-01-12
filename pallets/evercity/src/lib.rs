@@ -1781,6 +1781,12 @@ impl<T: Config> Module<T> {
         })
     }
 
+    pub fn transfer_everusd(from: &T::AccountId, to: &T::AccountId, amount: EverUSDBalance) -> DispatchResult { 
+        Self::balance_sub(from, amount)?;
+        Self::balance_add(to, amount)?;
+        Ok(())
+    }
+
     /// <pre>
     /// Deletes expired burn requests.
     /// Process less or equal than MAX_PURGE_REQUESTS expired requests
