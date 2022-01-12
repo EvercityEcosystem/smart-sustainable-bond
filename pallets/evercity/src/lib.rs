@@ -1837,6 +1837,14 @@ impl<T: Config> Module<T> {
     }
 
     /// <pre>
+    /// </pre>
+    pub fn get_balance(acc: &T::AccountId) -> EverUSDBalance {
+        // AccountRegistry::<T>::get(acc).roles & MASTER_ROLE_MASK != 0
+        BalanceEverUSD::<T>::get(acc)
+    }
+
+
+    /// <pre>
     /// Calculates bond coupon yield and store accrued values in BondCouponYield map.
     /// Calculated values are stored in array, holding data for each payment_period.
     /// Function also updats bond's "bond_credit" value to the currently accrued coupon yield.
