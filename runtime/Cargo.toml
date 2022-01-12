@@ -58,6 +58,9 @@ pallet-assets = { default-features = false, version = '3.0.0' }
 # pallet-evercity-filesign = { default-features = false, version = '0.1.3', git = 'https://github.com/EvercityEcosystem/filesign'}
 pallet-evercity-filesign = { default-features = false, version = '0.1.4', git = 'https://github.com/EvercityEcosystem/filesign', branch = 'add_random_ticker'}
 pallet-evercity-assets = { default-features = false, version = '0.1.0', git = 'https://github.com/EvercityEcosystem/evercity-assets' }
+# pallet-everusd-carbon-credits-swap = {default-features = false, version = '0.1.0', git = 'https://github.com/EvercityEcosystem/evercity-bond-carbon-swap' }
+pallet-everusd-carbon-credits-swap = {default-features = false, version = '0.1.0', path = '../pallets/ever-carbon-swap'}
+
 getrandom = {version = "0.2.3", features = ['js']}
 
 [features]
@@ -94,4 +97,5 @@ std = [
     'pallet-evercity-accounts/std',
     'pallet-evercity-filesign/std',
     'pallet-evercity-assets/std',
+    'pallet-everusd-carbon-credits-swap/std',
 ]
