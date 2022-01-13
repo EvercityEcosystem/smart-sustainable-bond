@@ -1,11 +1,11 @@
 run-local:
-	cargo run --release 
+	cargo run --release -- --dev
 
 run:
 	cargo run --release -- --dev --tmp
 
 build:
-	SKIP_WASM_BUILD= cargo build --release
+	cargo build --release
 
 test:
 	cargo test
@@ -15,3 +15,6 @@ check:
 
 lint:
 	cargo clippy --all-targets
+
+purge:
+	cargo run --release -- purge-chain --dev

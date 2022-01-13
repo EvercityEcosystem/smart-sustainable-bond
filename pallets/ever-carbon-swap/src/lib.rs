@@ -2,6 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod exchange;
+mod everusdasset;
 
 #[cfg(test)]
 mod tests;
@@ -136,10 +137,9 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = 10_000 + T::DbWeight::get().reads_writes(3, 1)]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(5, 3)]
         pub fn approve_exchange(origin, exchange_id: ExchangeId, holder_type: HolderType) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            // ensure!(..., Error::<T>::AccountNotTokenOwner);
             ExchangeById::<T>::try_mutate(
                 exchange_id, |project_to_mutate| -> DispatchResult {
                     match project_to_mutate  {
@@ -182,6 +182,25 @@ decl_module! {
                     }
                     Ok(())
                 })?;
+
+            Ok(())
+        }
+
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2, 2)]
+        pub fn swap_everusd_bond_asset(origin, ever_usd_balance: EverUSDBalance, asset_balance: T::Balance, asset_id: AssetId<T>) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+
+            ensure!(pallet_evercity::Module::<T>::account_is_custodian(&caller), Error::<T>::InsufficientCarbonCreditsBalance);
+
+            Ok(())
+        }
+
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2, 2)]
+        pub fn create_everusd_asset_mint_reques(origin, asset_id: AssetId<T>, amount: T::Balance) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            // let 
+            let mint_request = everusdasset::EverUSDAssetMinRequest::new(caller, asset_id, amount);
+            
 
             Ok(())
         }
