@@ -35,9 +35,11 @@ use frame_support::sp_std::{
 use pallet_evercity_assets as pallet_assets;
 use exchange::{ExchangeStruct, HolderType};
 use pallet_evercity::{EverUSDBalance};
+use everusdasset::{EverUSDAssetMinRequest};
 
 type AssetId<T> = <T as pallet_assets::Config>::AssetId;
 type ExchangeId = u128;
+type EverUSDAssetMintRequestId = u128;
 
 pub trait Config: 
     frame_system::Config + 
@@ -55,9 +57,14 @@ decl_storage! {
         /// Main storage for exchanges
         ExchangeById
             get(fn exchange_by_id):
-            map hasher(blake2_128_concat) ExchangeId => Option<ExchangeStruct<T::AccountId, AssetId<T>, T::Balance, EverUSDBalance>>;
-            
+            map hasher(blake2_128_concat) ExchangeId => Option<ExchangeStruct<T::AccountId, AssetId<T>, T::Balance, EverUSDBalance>>;    
         LastID: ExchangeId;
+
+        /// EverAssetMintRequestById
+        EverUsdAssetMintRequestById
+            get(fn ever_asset_mint_request_by_id):
+            map hasher(blake2_128_concat) EverUSDAssetMintRequestId => Option<EverUSDAssetMinRequest<T::AccountId, AssetId<T>, T::Balance>>;
+        LastMintID: EverUSDAssetMintRequestId;
     }
 }
 
