@@ -1787,6 +1787,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+
     /// <pre>
     /// Deletes expired burn requests.
     /// Process less or equal than MAX_PURGE_REQUESTS expired requests

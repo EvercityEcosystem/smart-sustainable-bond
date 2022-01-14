@@ -3845,7 +3845,7 @@ dependencies = [
 [[package]]
 name = "pallet-evercity-assets"
 version = "0.1.0"
-source = "git+https://github.com/EvercityEcosystem/evercity-assets#37b2fe1878e83bfe174c3f918eda0fb757958082"
+source = "git+https://github.com/EvercityEcosystem/evercity-assets#2643a30a32ccc7e2e3e05de4a73ab243397d08ab"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

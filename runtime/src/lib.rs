@@ -374,7 +374,7 @@ construct_runtime!(
         EvercityCarbonCredits: pallet_evercity_carbon_credits::{ Module, Call, Storage, Event<T>},
         EvercityAccounts: pallet_evercity_accounts::{ Module, Call, Storage, Config<T>, Event<T>},
         EvercityFilesign: pallet_evercity_filesign::{ Module, Call, Storage, Event<T> },
-        EvercityAssets: pallet_evercity_assets::{ Module, Storage, Event<T> },
+        EvercityAssets: pallet_evercity_assets::{ Module, Call, Storage, Event<T> },
         EvercitySwap: pallet_everusd_carbon_credits_swap::{ Module, Call, Storage, Event<T> },
     }
 );

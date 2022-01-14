@@ -61,7 +61,7 @@ decl_storage! {
         LastID: ExchangeId;
 
         /// EverAssetMintRequestById
-        EverUsdAssetMintRequestById
+        EverUSDAssetMintRequestById
             get(fn ever_asset_mint_request_by_id):
             map hasher(blake2_128_concat) EverUSDAssetMintRequestId => Option<EverUSDAssetMinRequest<T::AccountId, AssetId<T>, T::Balance>>;
         LastMintID: EverUSDAssetMintRequestId;
@@ -91,7 +91,9 @@ decl_error! {
         InsufficientCarbonCreditsBalance,
         ExchangeNotFound,
         BadApprove,
-        AssetNotFound
+        AssetNotFound,
+        BadRole,
+        MintError,
     }
 }
 
@@ -203,11 +205,42 @@ decl_module! {
         }
 
         #[weight = 10_000 + T::DbWeight::get().reads_writes(2, 2)]
-        pub fn create_everusd_asset_mint_reques(origin, asset_id: AssetId<T>, amount: T::Balance) -> DispatchResult {
+        pub fn create_everusd_asset_mint_request(origin, asset_id: AssetId<T>, amount: T::Balance) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            // let 
+            let asset_opt = pallet_assets::Module::<T>::get_asset_details(asset_id);
+            ensure!(asset_opt.is_some(), Error::<T>::AssetNotFound);
             let mint_request = everusdasset::EverUSDAssetMinRequest::new(caller, asset_id, amount);
-            
+
+            let new_id = match LastMintID::get().checked_add(1) {
+                Some(id) => id,
+                None => return Err(Error::<T>::ExchangeIdOwerflow.into()),
+            };
+            EverUSDAssetMintRequestById::<T>::insert(new_id, mint_request);
+            LastMintID::mutate(|x| *x = new_id);
+
+            Ok(())
+        }
+
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(2, 2)]
+        pub fn approve_everusd_asset_mint_request(origin, id: EverUSDAssetMintRequestId) -> DispatchResult {
+            let caller = ensure_signed(origin.clone())?;
+            ensure!(pallet_evercity::Module::<T>::account_is_custodian(&caller), Error::<T>::BadRole);
+
+            let mint_request = match EverUSDAssetMintRequestById::<T>::get(id) {
+                Some(m) => m,
+                None => panic!(),
+            };
+
+            let asset = match pallet_assets::Module::<T>::get_asset_details(mint_request.asset_id) {
+                Some(a) => a,
+                None => return Err(Error::<T>::AssetNotFound.into())
+            };
+            ensure!(*asset.get_owner() == caller, Error::<T>::BadRole);
+
+            let investor_static_lookup = <T::Lookup as StaticLookup>::unlookup(mint_request.account.clone());
+            let mint_call = pallet_assets::Call::<T>::mint(mint_request.asset_id, investor_static_lookup, mint_request.count_to_mint);
+            let result = mint_call.dispatch_bypass_filter(origin);
+            ensure!(!result.is_err(), Error::<T>::MintError);
 
             Ok(())
         }
